@@ -30,11 +30,14 @@ function CityPage() {
   // Load city data
   useEffect(() => {
     if (cityName) {
-      const city = getCityById(cityName);
-      if (city) {
-        selectCity(city.id);
-        setCity(city.id);
-      }
+      const loadCity = async () => {
+        const city = await getCityById(cityName);
+        if (city) {
+          selectCity(city.id || city._id);
+          setCity(city.id || city._id);
+        }
+      };
+      loadCity();
     }
   }, [cityName, selectCity, setCity]);
 
@@ -90,7 +93,7 @@ function CityPage() {
 
           {/* Right: Calendar Widget */}
           <div className="lg:col-span-1">
-            <EventCalendar cityId={selectedCity.id} />
+            <EventCalendar cityId={selectedCity.name?.toLowerCase() || selectedCity.id} />
           </div>
         </div>
       </div>
