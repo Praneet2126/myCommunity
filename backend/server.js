@@ -45,6 +45,7 @@ app.get('/health', (req, res) => {
     database: dbStatus,
     timestamp: new Date().toISOString()
   });
+  
 });
 
 // API Routes
