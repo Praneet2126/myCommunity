@@ -3,6 +3,7 @@ const router = express.Router();
 const User = require('../models/User');
 const { generateAccessToken, generateRefreshToken } = require('../config/jwt');
 const { registerValidation, loginValidation } = require('../middleware/validator');
+const { authenticate } = require('../middleware/auth');
 
 // Register new user
 router.post('/register', registerValidation, async (req, res, next) => {
@@ -80,6 +81,20 @@ router.post('/login', loginValidation, async (req, res, next) => {
         accessToken,
         refreshToken
       }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Logout user
+router.post('/logout', authenticate, async (req, res, next) => {
+  try {
+    // Since we're using stateless JWT tokens, we just return success
+    // The client should remove tokens from storage
+    res.status(200).json({
+      success: true,
+      message: 'Logout successful'
     });
   } catch (error) {
     next(error);
