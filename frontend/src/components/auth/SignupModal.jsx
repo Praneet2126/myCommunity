@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
 
 /**
  * Signup Modal Component
  * Modal popup for user registration with name, email, password, and confirm password
  */
 function SignupModal({ isOpen, onClose, onSwitchToLogin }) {
+  const { signup } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -62,12 +64,13 @@ function SignupModal({ isOpen, onClose, onSwitchToLogin }) {
     e.preventDefault();
     
     if (validateForm()) {
-      // TODO: Add actual signup logic here
-      console.log('Signup data:', {
+      // Create user object
+      const userData = {
         name: formData.name,
         email: formData.email,
-        password: formData.password
-      });
+      };
+      
+      signup(userData);
       
       // Reset form and close modal
       setFormData({ name: '', email: '', password: '', confirmPassword: '' });

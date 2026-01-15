@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
 
 /**
  * Login Modal Component
  * Modal popup for user login with email and password
  */
 function LoginModal({ isOpen, onClose, onSwitchToSignup }) {
+  const { login } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -48,8 +50,13 @@ function LoginModal({ isOpen, onClose, onSwitchToSignup }) {
     e.preventDefault();
     
     if (validateForm()) {
-      // TODO: Add actual login logic here
-      console.log('Login data:', formData);
+      // Extract name from email and create user object
+      const userData = {
+        name: formData.email.split('@')[0].charAt(0).toUpperCase() + formData.email.split('@')[0].slice(1),
+        email: formData.email,
+      };
+      
+      login(userData);
       
       // Reset form and close modal
       setFormData({ email: '', password: '' });
