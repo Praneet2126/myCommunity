@@ -10,6 +10,7 @@ import { getCityById } from '../services/cityService';
  * ChatPage component
  * Full-page chat interface with chat list sidebar and main chat window
  */
+
 function ChatPage() {
   const { cityName, chatId } = useParams();
   const { selectCity, selectedCity } = useCity();

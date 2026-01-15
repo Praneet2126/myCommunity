@@ -12,6 +12,7 @@ import { getCityById } from '../services/cityService';
  * CityPage component
  * City details with chat section (left) and calendar widget (right)
  */
+
 function CityPage() {
   const { cityName } = useParams();
   const { selectCity, selectedCity } = useCity();
