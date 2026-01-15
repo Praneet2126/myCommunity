@@ -4,6 +4,8 @@
  * @param {Object} props - Component props
  * @param {Object} props.city - City object with name, image, tagline
  */
+
+
 function CityHero({ city }) {
   if (!city) return null;
 
