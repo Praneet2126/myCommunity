@@ -61,7 +61,6 @@ app.post('/api/cities/seed', async (req, res, next) => {
 
     const cities = [
       {
-        _id: 'mumbai',
         name: 'Mumbai',
         displayName: 'Mumbai',
         description: 'The City of Dreams - Financial capital of India',
@@ -69,7 +68,6 @@ app.post('/api/cities/seed', async (req, res, next) => {
         tagline: 'Experience the vibrant energy of India\'s financial capital'
       },
       {
-        _id: 'delhi',
         name: 'Delhi',
         displayName: 'Delhi',
         description: 'The heart of India - Rich history and culture',
@@ -77,7 +75,6 @@ app.post('/api/cities/seed', async (req, res, next) => {
         tagline: 'Discover the historic capital of India'
       },
       {
-        _id: 'bangalore',
         name: 'Bangalore',
         displayName: 'Bangalore',
         description: 'The Silicon Valley of India - Tech hub and Garden City',
@@ -85,7 +82,6 @@ app.post('/api/cities/seed', async (req, res, next) => {
         tagline: 'Explore the tech capital with perfect weather'
       },
       {
-        _id: 'goa',
         name: 'Goa',
         displayName: 'Goa',
         description: 'Beach paradise - Sun, sand, and Portuguese heritage',
@@ -93,7 +89,6 @@ app.post('/api/cities/seed', async (req, res, next) => {
         tagline: 'Relax on pristine beaches and enjoy the vibrant nightlife'
       },
       {
-        _id: 'jaipur',
         name: 'Jaipur',
         displayName: 'Jaipur',
         description: 'The Pink City - Royal heritage and magnificent forts',
