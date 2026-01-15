@@ -1,6 +1,6 @@
 # myCommunity Backend API
 
-A comprehensive REST API for the myCommunity travel-based social platform built with Node.js, Express, and MongoDB.
+A comprehensive REST API with **real-time WebSocket support** for the myCommunity travel-based social platform built with Node.js, Express, Socket.io, and MongoDB.
 
 ## Features
 
@@ -10,12 +10,17 @@ A comprehensive REST API for the myCommunity travel-based social platform built 
 - **City Group Chats**: Public group chats for each city community
 - **Private Chats**: Create private group chats with known individuals
 - **Message System**: Unified messaging system with support for text, images, and files
+- **Real-Time Communication**: WebSocket support with Socket.io for instant messaging
+- **Typing Indicators**: See when others are typing in real-time
+- **Online Presence**: Track which users are currently online
+- **Read Receipts**: Know when messages are read in private chats
 - **Security**: Helmet.js, CORS, rate limiting, password hashing with bcrypt
 
 ## Tech Stack
 
 - **Runtime**: Node.js
 - **Framework**: Express.js
+- **Real-Time**: Socket.io (WebSocket)
 - **Database**: MongoDB with Mongoose ODM
 - **Authentication**: JSON Web Tokens (JWT)
 - **Security**: Helmet, bcryptjs, express-rate-limit
@@ -27,7 +32,13 @@ A comprehensive REST API for the myCommunity travel-based social platform built 
 backend/
 ├── config/
 │   ├── db.js              # MongoDB connection
-│   └── jwt.js             # JWT token utilities
+│   ├── jwt.js             # JWT token utilities
+│   └── socket.js          # Socket.io configuration
+├── socket/
+│   └── handlers/
+│       ├── cityChat.js    # City chat WebSocket events
+│       ├── privateChat.js # Private chat WebSocket events
+│       └── presence.js    # Online presence tracking
 ├── models/
 │   ├── User.js            # User schema
 │   ├── City.js            # City schema

@@ -1,12 +1,15 @@
 require('dotenv').config();
 const express = require('express');
+const http = require('http');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const connectDB = require('./config/db');
+const initializeSocket = require('./config/socket');
 const { errorHandler, notFound } = require('./middleware/errorHandler');
 
 const app = express();
+const server = http.createServer(app);
 const PORT = process.env.PORT || 3000;
 
 // Security middleware
@@ -129,9 +132,16 @@ app.use(notFound);
 // Global error handler
 app.use(errorHandler);
 
+// Initialize Socket.io
+const io = initializeSocket(server);
+
+// Make io accessible to routes if needed
+app.set('io', io);
+
 // Start server
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-  console.log(`Health check available at http://localhost:${PORT}/health`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+server.listen(PORT, () => {
+  console.log(`🚀 Server is running on http://localhost:${PORT}`);
+  console.log(`✅ Health check available at http://localhost:${PORT}/health`);
+  console.log(`⚡ WebSocket server initialized`);
+  console.log(`📁 Environment: ${process.env.NODE_ENV || 'development'}`);
 });
