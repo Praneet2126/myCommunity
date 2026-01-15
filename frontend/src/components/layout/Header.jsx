@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { APP_NAME } from '../../utils/constants';
+import Logo from './Logo';
+import LoginModal from '../auth/LoginModal';
+import SignupModal from '../auth/SignupModal';
 
 /**
  * Header component with navigation and user profile
@@ -10,26 +12,30 @@ function Header() {
   const location = useLocation();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false); // Placeholder for auth state
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isSignupModalOpen, setIsSignupModalOpen] = useState(false);
+
+  const handleOpenLogin = () => {
+    setIsLoginModalOpen(true);
+    setIsSignupModalOpen(false);
+  };
+
+  const handleOpenSignup = () => {
+    setIsSignupModalOpen(true);
+    setIsLoginModalOpen(false);
+  };
+
+  const handleCloseModals = () => {
+    setIsLoginModalOpen(false);
+    setIsSignupModalOpen(false);
+  };
 
   return (
     <header className="bg-white shadow-lg sticky top-0 z-50 border-b border-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-20">
           {/* Logo */}
-          <Link to="/" className="flex items-center space-x-3 group">
-            <div className="relative">
-              <div className="bg-gradient-to-br from-blue-600 to-blue-700 text-white w-12 h-12 rounded-xl flex items-center justify-center font-bold text-xl shadow-lg group-hover:shadow-xl transition-shadow">
-                C
-              </div>
-              <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white"></div>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-xl font-bold text-gray-900 leading-tight">
-                {APP_NAME}
-              </span>
-              <span className="text-xs text-gray-500 -mt-1">Travel Community</span>
-            </div>
-          </Link>
+          <Logo variant="dark" size="md" />
 
           {/* Navigation - Desktop */}
           <nav className="hidden lg:flex items-center space-x-1">
@@ -149,13 +155,13 @@ function Header() {
               /* Not Logged In - Login/Signup Buttons */
               <div className="flex items-center space-x-3">
                 <button
-                  onClick={() => {/* Handle login */}}
+                  onClick={handleOpenLogin}
                   className="px-5 py-2.5 text-sm font-semibold text-gray-700 hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50 hidden sm:block"
                 >
                   Login
                 </button>
                 <button
-                  onClick={() => {/* Handle signup */}}
+                  onClick={handleOpenSignup}
                   className="px-5 py-2.5 text-sm font-bold text-white bg-gradient-to-r from-red-500 to-red-600 rounded-lg hover:from-red-600 hover:to-red-700 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
                 >
                   Sign Up
@@ -188,6 +194,20 @@ function Header() {
           onClick={() => setIsUserMenuOpen(false)}
         />
       )}
+
+      {/* Login Modal */}
+      <LoginModal
+        isOpen={isLoginModalOpen}
+        onClose={handleCloseModals}
+        onSwitchToSignup={handleOpenSignup}
+      />
+
+      {/* Signup Modal */}
+      <SignupModal
+        isOpen={isSignupModalOpen}
+        onClose={handleCloseModals}
+        onSwitchToLogin={handleOpenLogin}
+      />
     </header>
   );
 }
