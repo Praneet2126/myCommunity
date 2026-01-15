@@ -3,6 +3,7 @@ const router = express.Router();
 const User = require('../models/User');
 const { authenticate } = require('../middleware/auth');
 const { updateProfileValidation, changePasswordValidation } = require('../middleware/validator');
+const { upload, cloudinary } = require('../config/cloudinary');
 
 // Get current user profile
 router.get('/profile', authenticate, async (req, res, next) => {
@@ -64,6 +65,46 @@ router.put('/change-password', authenticate, changePasswordValidation, async (re
     res.status(200).json({
       success: true,
       message: 'Password changed successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Upload profile photo
+router.post('/upload-photo', authenticate, upload.single('photo'), async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded'
+      });
+    }
+
+    // Get the old photo URL to delete it from Cloudinary
+    const user = await User.findById(req.user._id);
+    const oldPhotoUrl = user.profile_photo_url;
+
+    // Update user's profile photo URL
+    user.profile_photo_url = req.file.path;
+    await user.save();
+
+    // Delete old photo from Cloudinary if it exists and is not the default placeholder
+    if (oldPhotoUrl && !oldPhotoUrl.includes('placeholder')) {
+      try {
+        const publicId = oldPhotoUrl.split('/').slice(-2).join('/').split('.')[0];
+        await cloudinary.uploader.destroy(publicId);
+      } catch (deleteError) {
+        console.error('Error deleting old photo:', deleteError);
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Profile photo uploaded successfully',
+      data: {
+        profile_photo_url: req.file.path
+      }
     });
   } catch (error) {
     next(error);
