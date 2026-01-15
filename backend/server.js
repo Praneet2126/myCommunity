@@ -1,48 +1,43 @@
 require('dotenv').config();
 const express = require('express');
-const mongoose = require('mongoose');
+const http = require('http');
+const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const connectDB = require('./config/db');
+const initializeSocket = require('./config/socket');
+const { errorHandler, notFound } = require('./middleware/errorHandler');
+
 const app = express();
+const server = http.createServer(app);
 const PORT = process.env.PORT || 3000;
 
-// Middleware
+// Security middleware
+app.use(helmet());
+
+// CORS configuration
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  credentials: true
+}));
+
+// Body parser middleware
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// MongoDB connection
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => {
-    console.log('Connected to MongoDB');
-  })
-  .catch((error) => {
-    console.error('MongoDB connection error:', error);
-    process.exit(1);
-  });
-
-// User Schema
-const userSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: true
-  },
-  email: {
-    type: String,
-    required: true,
-    unique: true
-  },
-  age: {
-    type: Number,
-    required: true
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  }
+// Rate limiting for auth routes
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: 'Too many requests from this IP, please try again later.'
 });
 
-// User Model
-const User = mongoose.model('User', userSchema);
+// MongoDB connection
+connectDB();
 
 // Health check endpoint
 app.get('/health', (req, res) => {
+  const mongoose = require('mongoose');
   const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
   res.status(200).json({
     status: 'OK',
@@ -52,81 +47,96 @@ app.get('/health', (req, res) => {
   });
 });
 
-// API endpoint to create collection and add dummy data
-app.post('/api/users/seed', async (req, res) => {
+// API Routes
+app.use('/api/auth', authLimiter, require('./routes/auth'));
+app.use('/api/users', require('./routes/users'));
+app.use('/api/cities', require('./routes/cities'));
+app.use('/api/chats', require('./routes/chats'));
+
+// Seed cities endpoint (for development)
+app.post('/api/cities/seed', async (req, res, next) => {
   try {
-    // Dummy data
-    const dummyUsers = [
+    const City = require('./models/City');
+    const CityChat = require('./models/CityChat');
+
+    const cities = [
       {
-        name: 'John Doe',
-        email: 'john.doe@example.com',
-        age: 28
+        name: 'Mumbai',
+        displayName: 'Mumbai',
+        description: 'The City of Dreams - Financial capital of India',
+        image: 'https://images.unsplash.com/photo-1529253355930-ddbe423a2ac7?w=800',
+        tagline: 'Experience the vibrant energy of India\'s financial capital'
       },
       {
-        name: 'Jane Smith',
-        email: 'jane.smith@example.com',
-        age: 32
+        name: 'Delhi',
+        displayName: 'Delhi',
+        description: 'The heart of India - Rich history and culture',
+        image: 'https://images.unsplash.com/photo-1587474260584-136574528ed5?w=800',
+        tagline: 'Discover the historic capital of India'
       },
       {
-        name: 'Bob Johnson',
-        email: 'bob.johnson@example.com',
-        age: 25
+        name: 'Bangalore',
+        displayName: 'Bangalore',
+        description: 'The Silicon Valley of India - Tech hub and Garden City',
+        image: 'https://images.unsplash.com/photo-1596176530529-78163a4f7af2?w=800',
+        tagline: 'Explore the tech capital with perfect weather'
       },
       {
-        name: 'Alice Williams',
-        email: 'alice.williams@example.com',
-        age: 30
+        name: 'Goa',
+        displayName: 'Goa',
+        description: 'Beach paradise - Sun, sand, and Portuguese heritage',
+        image: 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=800',
+        tagline: 'Relax on pristine beaches and enjoy the vibrant nightlife'
       },
       {
-        name: 'Charlie Brown',
-        email: 'charlie.brown@example.com',
-        age: 27
+        name: 'Jaipur',
+        displayName: 'Jaipur',
+        description: 'The Pink City - Royal heritage and magnificent forts',
+        image: 'https://images.unsplash.com/photo-1599661046289-e31897846e41?w=800',
+        tagline: 'Step into the royal history of Rajasthan'
       }
     ];
 
-    // Clear existing data (optional - for testing)
-    await User.deleteMany({});
+    // Clear existing cities and city chats
+    await City.deleteMany({});
+    await CityChat.deleteMany({});
 
-    // Insert dummy data
-    const insertedUsers = await User.insertMany(dummyUsers);
+    // Insert cities
+    const insertedCities = await City.insertMany(cities);
+
+    // Create city chats for each city
+    const cityChats = insertedCities.map(city => ({
+      city_id: city._id
+    }));
+    await CityChat.insertMany(cityChats);
 
     res.status(201).json({
       success: true,
-      message: 'Dummy data inserted successfully',
-      count: insertedUsers.length,
-      data: insertedUsers
+      message: 'Cities seeded successfully',
+      count: insertedCities.length,
+      data: insertedCities
     });
   } catch (error) {
-    console.error('Error inserting dummy data:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error inserting dummy data',
-      error: error.message
-    });
+    next(error);
   }
 });
 
-// API endpoint to get all users
-app.get('/api/users', async (req, res) => {
-  try {
-    const users = await User.find();
-    res.status(200).json({
-      success: true,
-      count: users.length,
-      data: users
-    });
-  } catch (error) {
-    console.error('Error fetching users:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching users',
-      error: error.message
-    });
-  }
-});
+// 404 handler
+app.use(notFound);
+
+// Global error handler
+app.use(errorHandler);
+
+// Initialize Socket.io
+const io = initializeSocket(server);
+
+// Make io accessible to routes if needed
+app.set('io', io);
 
 // Start server
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-  console.log(`Health check available at http://localhost:${PORT}/health`);
+server.listen(PORT, () => {
+  console.log(`🚀 Server is running on http://localhost:${PORT}`);
+  console.log(`✅ Health check available at http://localhost:${PORT}/health`);
+  console.log(`⚡ WebSocket server initialized`);
+  console.log(`📁 Environment: ${process.env.NODE_ENV || 'development'}`);
 });

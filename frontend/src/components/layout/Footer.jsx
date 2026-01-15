@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { APP_NAME } from '../../utils/constants';
+import Logo from './Logo';
 
 /**
  * Footer component
@@ -12,11 +12,8 @@ function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand */}
           <div className="col-span-1 md:col-span-2">
-            <div className="flex items-center space-x-2 mb-4">
-              <div className="bg-[#FF6B35] text-white px-3 py-1.5 rounded-lg font-bold text-xl">
-                C
-              </div>
-              <span className="text-xl font-bold">{APP_NAME}</span>
+            <div className="mb-4">
+              <Logo variant="light" size="md" />
             </div>
             <p className="text-gray-400 text-sm">
               Connect with travelers and locals in your favorite Indian cities.
@@ -73,7 +70,7 @@ function Footer() {
 
         {/* Copyright */}
         <div className="border-t border-gray-700 mt-8 pt-8 text-center text-sm text-gray-400">
-          <p>&copy; 2024 {APP_NAME}. All rights reserved.</p>
+          <p>&copy; 2026 myCommunity. All rights reserved.</p>
         </div>
       </div>
     </footer>
