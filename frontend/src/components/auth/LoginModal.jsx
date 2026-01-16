@@ -59,9 +59,9 @@ function LoginModal({ isOpen, onClose, onSwitchToSignup }) {
         await login(formData);
         
         // Reset form and close modal on success
-        setFormData({ email: '', password: '' });
-        setErrors({});
-        onClose();
+      setFormData({ email: '', password: '' });
+      setErrors({});
+      onClose();
       } catch (error) {
         setServerError(error.message || 'Failed to login. Please try again.');
       } finally {
@@ -78,7 +78,7 @@ function LoginModal({ isOpen, onClose, onSwitchToSignup }) {
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm"
       onClick={handleBackdropClick}
     >
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
