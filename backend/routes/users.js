@@ -71,6 +71,37 @@ router.put('/change-password', authenticate, changePasswordValidation, async (re
   }
 });
 
+// Search user by email
+router.get('/search-by-email', authenticate, async (req, res, next) => {
+  try {
+    const { email } = req.query;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email parameter is required'
+      });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() })
+      .select('_id username email full_name profile_photo_url');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found with this email'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: user
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Upload profile photo
 router.post('/upload-photo', authenticate, upload.single('photo'), async (req, res, next) => {
   try {
