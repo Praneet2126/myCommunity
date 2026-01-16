@@ -1,38 +1,107 @@
 import { useState } from 'react';
+import { createEvent } from '../../services/eventService';
+import { useAuth } from '../../context/AuthContext';
 
 /**
  * AddEventModal Component
- * Modal to add new events
+ * Modal to add new events with Cloudinary image upload
  */
-function AddEventModal({ onClose, onSave }) {
+function AddEventModal({ onClose, onSave, cityId }) {
+  const { isLoggedIn } = useAuth();
   const [date, setDate] = useState('');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [type, setType] = useState('Cultural');
   const [location, setLocation] = useState('');
   const [time, setTime] = useState('6:00 PM - 9:00 PM');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  const handleSave = () => {
-    if (date && name) {
-      onSave({
-        date,
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setError('Please select an image file');
+        return;
+      }
+      
+      // Validate file size (10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        setError('Image size must be less than 10MB');
+        return;
+      }
+      
+      setImageFile(file);
+      setError(null);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!date || !name) {
+      setError('Date and event name are required');
+      return;
+    }
+
+    if (!isLoggedIn) {
+      setError('Please login to create events');
+      return;
+    }
+
+    if (!cityId) {
+      setError('City ID is required');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const eventData = {
+        cityId,
         name,
         description,
-        image: imageUrl || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800&q=80',
+        date,
         type,
         location: location || 'City Center',
         time,
-        attendees: '100+'
-      });
+        attendees: '100+',
+        imageUrl: imageUrl || undefined
+      };
+
+      const createdEvent = await createEvent(eventData, imageFile);
+      
+      // Call onSave callback with the created event
+      if (onSave) {
+        onSave(createdEvent);
+      }
+      
       // Reset form
       setDate('');
       setName('');
       setDescription('');
+      setImageFile(null);
+      setImagePreview('');
       setImageUrl('');
       setType('Cultural');
       setLocation('');
       setTime('6:00 PM - 9:00 PM');
+      setError(null);
+    } catch (err) {
+      console.error('Error creating event:', err);
+      setError(err.message || 'Failed to create event. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -129,22 +198,62 @@ function AddEventModal({ onClose, onSave }) {
             />
           </div>
 
-          {/* Image URL Field */}
+          {/* Image Upload Field */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Event Image URL (optional)</label>
-            <input
-              type="url"
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              placeholder="https://example.com/image.jpg"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            {imageUrl && (
-              <div className="mt-2">
-                <img src={imageUrl} alt="Preview" className="w-full h-32 object-cover rounded-lg" />
+            <label className="block text-sm font-semibold text-gray-700 mb-1">
+              Event Image (optional)
+            </label>
+            <div className="space-y-2">
+              {/* File Upload */}
+              <div className="flex items-center space-x-2">
+                <label className="flex-1 cursor-pointer">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="hidden"
+                  />
+                  <div className="w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 transition-colors text-center">
+                    <span className="text-sm text-gray-600">
+                      {imageFile ? imageFile.name : 'Click to upload image or drag and drop'}
+                    </span>
+                  </div>
+                </label>
               </div>
-            )}
+              
+              {/* Image URL Alternative */}
+              <div className="text-xs text-gray-500 text-center">OR</div>
+              <input
+                type="url"
+                value={imageUrl}
+                onChange={(e) => {
+                  setImageUrl(e.target.value);
+                  setImageFile(null);
+                  setImagePreview('');
+                }}
+                placeholder="Enter image URL"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              />
+              
+              {/* Preview */}
+              {(imagePreview || imageUrl) && (
+                <div className="mt-2">
+                  <img 
+                    src={imagePreview || imageUrl} 
+                    alt="Preview" 
+                    className="w-full h-32 object-cover rounded-lg border border-gray-200" 
+                  />
+                </div>
+              )}
+            </div>
           </div>
+          
+          {/* Error Message */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <p className="text-sm text-red-600">{error}</p>
+            </div>
+          )}
         </div>
 
         {/* Buttons */}
@@ -157,10 +266,17 @@ function AddEventModal({ onClose, onSave }) {
           </button>
           <button
             onClick={handleSave}
-            disabled={!date || !name}
-            className="flex-1 px-4 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg font-semibold hover:from-red-600 hover:to-red-700 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={!date || !name || loading}
+            className="flex-1 px-4 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg font-semibold hover:from-red-600 hover:to-red-700 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
           >
-            Save Event
+            {loading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                <span>Saving...</span>
+              </>
+            ) : (
+              <span>Save Event</span>
+            )}
           </button>
         </div>
       </div>

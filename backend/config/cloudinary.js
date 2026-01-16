@@ -9,8 +9,8 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-// Configure Cloudinary storage for multer
-const storage = new CloudinaryStorage({
+// Configure Cloudinary storage for profile photos
+const profilePhotoStorage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
     folder: 'myCommunity/profile-photos',
@@ -22,14 +22,26 @@ const storage = new CloudinaryStorage({
   }
 });
 
-// Create multer upload middleware
+// Configure Cloudinary storage for event images
+const eventImageStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'myCommunity/events',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+    transformation: [
+      { width: 1200, height: 800, crop: 'limit' },
+      { quality: 'auto' }
+    ]
+  }
+});
+
+// Create multer upload middleware for profile photos
 const upload = multer({
-  storage: storage,
+  storage: profilePhotoStorage,
   limits: {
     fileSize: 5 * 1024 * 1024 // 5MB limit
   },
   fileFilter: (req, file, cb) => {
-    // Check file type
     if (file.mimetype.startsWith('image/')) {
       cb(null, true);
     } else {
@@ -38,4 +50,19 @@ const upload = multer({
   }
 });
 
-module.exports = { cloudinary, upload };
+// Create multer upload middleware for event images
+const uploadEventImage = multer({
+  storage: eventImageStorage,
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB limit for event images
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'), false);
+    }
+  }
+});
+
+module.exports = { cloudinary, upload, uploadEventImage };

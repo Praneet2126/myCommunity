@@ -52,6 +52,7 @@ app.use('/api/auth', authLimiter, require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/cities', require('./routes/cities'));
 app.use('/api/chats', require('./routes/chats'));
+app.use('/api/events', require('./routes/events'));
 
 // Seed cities endpoint (for development)
 app.post('/api/cities/seed', async (req, res, next) => {
