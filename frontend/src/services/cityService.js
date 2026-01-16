@@ -188,3 +188,32 @@ export const checkMembership = async (cityId) => {
     return false;
   }
 };
+
+/**
+ * Search cities by query string
+ * @param {string} query - Search query
+ * @returns {Promise<Array>} Array of matching city objects
+ */
+export const searchCities = async (query) => {
+  try {
+    if (!query || query.trim() === '') {
+      return getAllCities();
+    }
+    
+    const allCities = await getAllCities();
+    const searchTerm = query.toLowerCase().trim();
+    
+    // Filter cities that match the search query in name or description
+    const filteredCities = allCities.filter(city => 
+      city.name.toLowerCase().includes(searchTerm) ||
+      city.displayName.toLowerCase().includes(searchTerm) ||
+      city.description.toLowerCase().includes(searchTerm) ||
+      city.tagline?.toLowerCase().includes(searchTerm)
+    );
+    
+    return filteredCities;
+  } catch (error) {
+    console.error('Error searching cities:', error);
+    throw error;
+  }
+};
