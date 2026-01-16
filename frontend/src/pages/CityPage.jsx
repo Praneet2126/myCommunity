@@ -41,6 +41,8 @@ function CityPage() {
         initializedCityRef.current = cityName;
         
         selectCity(city.id);
+        // Set the city for chat context
+        setCity(city.id);
         
         // Auto-join city if user is logged in
         if (isLoggedIn && user) {
@@ -56,17 +58,7 @@ function CityPage() {
           } finally {
             setJoining(false);
           }
-  useEffect(() => {
-    const loadCity = async () => {
-      if (cityName) {
-        const city = await getCityById(cityName);
-        if (city) {
-          selectCity(city.id);
-          setCity(city.id);
         }
-        
-        // Set the city for chat context
-        setCity(city.id);
       }
     } catch (error) {
       console.error('Error loading city:', error);
