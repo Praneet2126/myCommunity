@@ -23,6 +23,8 @@ export const ChatProvider = ({ children }) => {
   const listenersRegistered = useRef(false);
   // Track pending optimistic messages for deduplication
   const pendingMessagesRef = useRef(new Map());
+  // Track active chat ID in a ref for socket handlers
+  const activeChatIdRef = useRef('public');
 
   /**
    * Initialize socket connection when user is authenticated
@@ -70,9 +72,11 @@ export const ChatProvider = ({ children }) => {
     const handleNewCityMessage = (data) => {
       console.log('Received new city message:', data);
 
-      // #region agent log
-      fetch('http://127.0.0.1:7246/ingest/ed889ba1-73d9-4a1d-bf22-c8e51587df89',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix-1',hypothesisId:'D1',location:'frontend/src/context/ChatContext.jsx:handleNewCityMessage',message:'ws:new-city-message:timestampFields',data:{hasCreatedAt:data?.createdAt!=null,hasCreated_at:data?.created_at!=null,hasCreated:data?.created!=null,keys:Object.keys(data||{}).slice(0,20)},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
+      // Only process city messages when viewing public chat
+      if (activeChatIdRef.current !== 'public') {
+        console.log('Ignoring city message - currently viewing private chat');
+        return;
+      }
       
       const incomingMessage = {
         _id: data._id,
@@ -138,20 +142,99 @@ export const ChatProvider = ({ children }) => {
       console.error('Socket error:', error);
     };
 
-    // Register event listeners
+    // ==================== PRIVATE CHAT HANDLERS ====================
+    
+    // Handle new private chat messages
+    const handleNewPrivateMessage = (data) => {
+      console.log('Received new private message:', data);
+
+      // Only process if we're viewing this specific private chat
+      if (activeChatIdRef.current !== data.chatId) {
+        console.log('Ignoring private message - not viewing this chat');
+        return;
+      }
+      
+      const incomingMessage = {
+        _id: data._id,
+        content: data.content,
+        sender_id: data.sender_id,
+        message_type: data.message_type,
+        media_url: data.media_url,
+        createdAt: data.createdAt || data.created_at,
+        is_edited: data.is_edited,
+        is_deleted: data.is_deleted
+      };
+
+      // Check if this is a confirmation of our own optimistic message
+      const senderId = typeof data.sender_id === 'object' ? data.sender_id._id : data.sender_id;
+      const isOwnMessage = user && senderId === user._id;
+      
+      if (isOwnMessage) {
+        const pendingKey = `${senderId}-${data.content}`;
+        const pendingTempId = pendingMessagesRef.current.get(pendingKey);
+        
+        if (pendingTempId) {
+          setMessages(prev => prev.map(msg => 
+            msg._id === pendingTempId ? incomingMessage : msg
+          ));
+          pendingMessagesRef.current.delete(pendingKey);
+        } else {
+          setMessages(prev => {
+            const exists = prev.some(msg => msg._id === data._id);
+            if (exists) return prev;
+            return [...prev, incomingMessage];
+          });
+        }
+      } else {
+        setMessages(prev => {
+          const exists = prev.some(msg => msg._id === data._id);
+          if (exists) return prev;
+          return [...prev, incomingMessage];
+        });
+      }
+    };
+
+    // Handle joined private chat confirmation
+    const handleJoinedPrivateChat = (data) => {
+      console.log('Joined private chat:', data.chatName);
+    };
+
+    // Handle user joined private chat notification
+    const handleUserJoinedPrivateChat = (data) => {
+      console.log('User joined private chat:', data.username);
+    };
+
+    // Handle user left private chat notification
+    const handleUserLeftPrivateChat = (data) => {
+      console.log('User left private chat:', data.username);
+    };
+
+    // Register event listeners - CITY CHAT
     socketService.on('new-city-message', handleNewCityMessage);
     socketService.on('joined-city-chat', handleJoinedCityChat);
     socketService.on('user-joined-city-chat', handleUserJoinedCityChat);
     socketService.on('user-left-city-chat', handleUserLeftCityChat);
     socketService.on('error', handleError);
 
+    // Register event listeners - PRIVATE CHAT
+    socketService.on('new-private-message', handleNewPrivateMessage);
+    socketService.on('joined-private-chat', handleJoinedPrivateChat);
+    socketService.on('user-joined-private-chat', handleUserJoinedPrivateChat);
+    socketService.on('user-left-private-chat', handleUserLeftPrivateChat);
+
     // Cleanup listeners on unmount
     return () => {
+      // City chat listeners
       socketService.off('new-city-message', handleNewCityMessage);
       socketService.off('joined-city-chat', handleJoinedCityChat);
       socketService.off('user-joined-city-chat', handleUserJoinedCityChat);
       socketService.off('user-left-city-chat', handleUserLeftCityChat);
       socketService.off('error', handleError);
+      // Private chat listeners
+      socketService.off('new-private-message', handleNewPrivateMessage);
+      socketService.off('joined-private-chat', handleJoinedPrivateChat);
+      socketService.off('user-joined-private-chat', handleUserJoinedPrivateChat);
+      socketService.off('user-left-private-chat', handleUserLeftPrivateChat);
       listenersRegistered.current = false;
     };
   }, [socketConnected, user]);
@@ -242,35 +325,38 @@ export const ChatProvider = ({ children }) => {
     currentCityRef.current = activeCityId;
     socketService.joinCityChat(activeCityId);
     
-    // Load messages for the new city
-    loadMessages(activeCityId);
+    // Load messages for the new city (only if on public chat)
+    if (activeChatId === 'public') {
+      loadMessages(activeCityId);
+    }
 
     // #region agent log
     fetch('http://127.0.0.1:7246/ingest/ed889ba1-73d9-4a1d-bf22-c8e51587df89',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix-1',hypothesisId:'H4',location:'frontend/src/context/ChatContext.jsx:joinEffect',message:'joinEffect:joinedAndRequestedLoad',data:{activeCityId, socketConnected:true, hasToken:!!token},timestamp:Date.now()})}).catch(()=>{});
     // #endregion
     
-  }, [activeCityId, socketConnected, loadMessages]);
+  }, [activeCityId, socketConnected, loadMessages, activeChatId]);
 
   /**
    * Load messages when token becomes available (handles page reload case)
    */
   useEffect(() => {
     // If we have a city set and token just became available, load messages
-    if (activeCityId && token && messages.length === 0 && !loading) {
+    // Only load public chat messages if we're on public chat
+    if (activeCityId && token && messages.length === 0 && !loading && activeChatId === 'public') {
       console.log('Token available, loading messages for city:', activeCityId);
       loadMessages(activeCityId);
     }
-  }, [token, activeCityId, messages.length, loading, loadMessages]);
+  }, [token, activeCityId, messages.length, loading, loadMessages, activeChatId]);
 
   /**
-   * Send a message via WebSocket with optimistic UI update
+   * Send a message via WebSocket (both public and private chats)
    * @param {string} text - Message text
    */
   const sendMessage = (text) => {
     const trimmedText = text.trim();
     
-    if (!activeCityId || !trimmedText || !socketConnected || !user) {
-      console.error('Cannot send message: missing cityId, text, socket not connected, or user not logged in');
+    if (!trimmedText || !user) {
+      console.error('Cannot send message: missing text or user not logged in');
       return;
     }
     
@@ -299,20 +385,84 @@ export const ChatProvider = ({ children }) => {
 
     // Immediately add to UI (optimistic update)
     setMessages(prev => [...prev, optimisticMessage]);
-    
-    // Send via socket
-    socketService.sendCityMessage(activeCityId, trimmedText);
+
+    if (activeChatId === 'public') {
+      // Send to public city chat via WebSocket
+      if (!activeCityId || !socketConnected) {
+        console.error('Cannot send public message: missing cityId or socket not connected');
+        return;
+      }
+      socketService.sendCityMessage(activeCityId, trimmedText);
+    } else {
+      // Send to private chat via WebSocket
+      if (!socketConnected) {
+        console.error('Cannot send private message: socket not connected');
+        // Remove optimistic message
+        setMessages(prev => prev.filter(msg => msg._id !== tempId));
+        pendingMessagesRef.current.delete(pendingKey);
+        return;
+      }
+      socketService.sendPrivateMessage(activeChatId, trimmedText);
+    }
   };
 
   /**
-   * Create a new private chat (placeholder for future implementation)
+   * Create a new private chat
    * @param {string} chatName - Chat name
    * @param {string} description - Chat description
+   * @param {Array} participants - Array of participant user objects with _id
    * @returns {Object} Created chat object
    */
-  const createPrivateChat = (chatName, description = '') => {
-    console.log('Private chat creation not yet implemented');
-    return null;
+  const createPrivateChat = async (chatName, description = '', participants = []) => {
+    if (!activeCityId || !token) {
+      console.error('Cannot create private chat: no active city or not authenticated');
+      return null;
+    }
+
+    try {
+      const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
+      
+      const participant_ids = participants.map(p => p._id);
+      
+      const response = await fetch(`${BASE_URL}/api/chats`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: chatName,
+          description,
+          city_id: activeCityId,
+          participant_ids
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Transform to frontend format and add to state
+        const newChat = {
+          id: data.data._id,
+          name: data.data.name,
+          description: data.data.description,
+          cityId: data.data.city_id?._id || data.data.city_id,
+          cityName: data.data.city_id?.displayName || data.data.city_id?.name,
+          createdBy: data.data.created_by,
+          createdAt: data.data.created_at
+        };
+        
+        setPrivateChats(prev => [...prev, newChat]);
+        return newChat;
+      } else {
+        console.error('Failed to create private chat:', data.message);
+        return null;
+      }
+    } catch (error) {
+      console.error('Error creating private chat:', error);
+      return null;
+    }
   };
 
   /**
@@ -329,9 +479,10 @@ export const ChatProvider = ({ children }) => {
       return;
     }
 
-    // #region agent log
-    fetch('http://127.0.0.1:7246/ingest/ed889ba1-73d9-4a1d-bf22-c8e51587df89',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix-1',hypothesisId:'H4',location:'frontend/src/context/ChatContext.jsx:setCity',message:'setCity:called',data:{cityId,nextHasToken:!!token,prevCityId:activeCityId,prevMsgCount:messages.length},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
+    // Leave current private chat room if in one
+    if (activeChatId !== 'public' && socketConnected) {
+      socketService.leavePrivateChat(activeChatId);
+    }
     
     setActiveCityId(cityId);
     setActiveChatId('public');
@@ -342,12 +493,82 @@ export const ChatProvider = ({ children }) => {
     currentCityRef.current = null;
   };
 
+  // Keep activeChatIdRef in sync with activeChatId state
+  useEffect(() => {
+    activeChatIdRef.current = activeChatId;
+  }, [activeChatId]);
+
   /**
-   * Set active chat
-   * @param {string} chatId - Chat ID
+   * Load messages for a private chat
+   * @param {string} chatId - Private chat ID
+   */
+  const loadPrivateChatMessages = useCallback(async (chatId) => {
+    if (!chatId || !token) return;
+
+    try {
+      setLoading(true);
+      const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
+      const url = `${BASE_URL}/api/chats/${chatId}/messages`;
+
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        const normalized = (data.data || []).map((m) => ({
+          ...m,
+          createdAt: m.createdAt || m.created_at
+        }));
+        setMessages(normalized);
+        pendingMessagesRef.current.clear();
+      } else {
+        console.error('loadPrivateChatMessages: API error', data.message);
+        setMessages([]);
+      }
+    } catch (error) {
+      console.error('Error loading private chat messages:', error);
+      setMessages([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
+  /**
+   * Set active chat and load appropriate messages
+   * @param {string} chatId - Chat ID ('public' or private chat ID)
    */
   const setChat = (chatId) => {
+    if (activeChatId === chatId) return;
+    
+    // Leave previous private chat room if switching from private chat
+    if (activeChatId !== 'public' && socketConnected) {
+      socketService.leavePrivateChat(activeChatId);
+    }
+    
     setActiveChatId(chatId);
+    setMessages([]); // Clear messages when switching chats
+    pendingMessagesRef.current.clear();
+
+    // Load appropriate messages and join rooms
+    if (chatId === 'public') {
+      // Load city public chat messages
+      if (activeCityId) {
+        loadMessages(activeCityId);
+      }
+    } else {
+      // Join private chat WebSocket room
+      if (socketConnected) {
+        socketService.joinPrivateChat(chatId);
+      }
+      // Load private chat messages
+      loadPrivateChatMessages(chatId);
+    }
   };
 
   /**
@@ -355,7 +576,7 @@ export const ChatProvider = ({ children }) => {
    * @returns {Object|null} Chat object or null
    */
   const getCurrentChat = () => {
-    if (!activeCityId || !activeChatId) return null;
+    if (!activeChatId) return null;
     
     if (activeChatId === 'public') {
       return {
@@ -366,15 +587,67 @@ export const ChatProvider = ({ children }) => {
       };
     }
     
+    // Find the private chat
+    const privateChat = privateChats.find(chat => chat.id === activeChatId);
+    if (privateChat) {
+      return {
+        ...privateChat,
+        type: 'private'
+      };
+    }
+    
     return null;
   };
 
   /**
-   * Load private chats (placeholder for future implementation)
+   * Load user's private chats from API
    */
-  const loadPrivateChats = () => {
-    console.log('Private chats loading not yet implemented');
-  };
+  const loadPrivateChats = useCallback(async () => {
+    if (!token) {
+      return;
+    }
+
+    try {
+      const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
+      
+      const response = await fetch(`${BASE_URL}/api/chats`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Transform to frontend format
+        const chats = (data.data || []).map(chat => ({
+          id: chat._id,
+          name: chat.name,
+          description: chat.description,
+          cityId: chat.city_id?._id || chat.city_id,
+          cityName: chat.city_id?.displayName || chat.city_id?.name,
+          createdBy: chat.created_by,
+          createdAt: chat.created_at,
+          lastMessageAt: chat.last_message_at
+        }));
+        
+        setPrivateChats(chats);
+      }
+    } catch (error) {
+      console.error('Error loading private chats:', error);
+    }
+  }, [token]);
+
+  /**
+   * Load private chats when user authenticates
+   */
+  useEffect(() => {
+    if (token) {
+      loadPrivateChats();
+    }
+  }, [token, loadPrivateChats]);
 
   const value = {
     activeCityId,
@@ -389,7 +662,8 @@ export const ChatProvider = ({ children }) => {
     setChat,
     getCurrentChat,
     loadMessages,
-    loadPrivateChats
+    loadPrivateChats,
+    loadPrivateChatMessages
   };
 
   return (

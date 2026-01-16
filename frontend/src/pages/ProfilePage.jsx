@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useChat } from '../context/ChatContext';
 import { uploadProfilePhoto, updateProfile, changePassword } from '../services/uploadService';
 
 /**
@@ -33,7 +34,8 @@ function ProfilePage() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const fileInputRef = useRef(null);
-  const { user, logout, updateUser, refreshProfile } = useAuth();
+  const { user, token, logout, updateUser, refreshProfile } = useAuth();
+  const { setCity, setChat } = useChat();
   const navigate = useNavigate();
 
   // Initialize profile form data when user changes
@@ -219,6 +221,63 @@ function ProfilePage() {
 
   // State for private chats/groups
   const [privateChats, setPrivateChats] = useState([]);
+  const [loadingGroups, setLoadingGroups] = useState(false);
+
+  // Fetch user's private chats/groups
+  const fetchPrivateGroups = useCallback(async () => {
+    if (!token) return;
+    
+    setLoadingGroups(true);
+    try {
+      const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
+      
+      const response = await fetch(`${BASE_URL}/api/chats`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Transform to frontend format
+        const chats = (data.data || []).map(chat => ({
+          id: chat._id,
+          name: chat.name,
+          description: chat.description,
+          cityId: chat.city_id?._id || chat.city_id,
+          cityName: chat.city_id?.displayName || chat.city_id?.name,
+          createdBy: chat.created_by,
+          createdAt: chat.created_at,
+          members: chat.participant_count || 0
+        }));
+        
+        setPrivateChats(chats);
+      }
+    } catch (error) {
+      console.error('Error fetching private groups:', error);
+    } finally {
+      setLoadingGroups(false);
+    }
+  }, [token]);
+
+  // Fetch private groups when tab changes to 'groups'
+  useEffect(() => {
+    if (activeTab === 'groups' && token) {
+      fetchPrivateGroups();
+    }
+  }, [activeTab, token, fetchPrivateGroups]);
+
+  // Handle opening a private chat
+  const handleOpenChat = (group) => {
+    if (group.cityId) {
+      setCity(group.cityId);
+      setChat(group.id);
+      navigate(`/city/${group.cityId}`);
+    }
+  };
 
   // Redirect if not logged in
   if (!user) {
@@ -564,7 +623,14 @@ function ProfilePage() {
         {/* Groups Tab */}
         {activeTab === 'groups' && (
           <div>
-            {privateChats.length > 0 ? (
+            {loadingGroups ? (
+              <div className="flex items-center justify-center py-20">
+                <div className="text-center">
+                  <div className="w-12 h-12 border-4 border-[#4169e1] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                  <p className="text-gray-500">Loading your groups...</p>
+                </div>
+              </div>
+            ) : privateChats.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {privateChats.map((group) => (
                   <div key={group.id} className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100 hover:shadow-md transition-shadow">
@@ -596,7 +662,10 @@ function ProfilePage() {
                       {group.description && (
                         <p className="text-sm text-gray-600 mb-4 line-clamp-2">{group.description}</p>
                       )}
-                      <button className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors">
+                      <button 
+                        onClick={() => handleOpenChat(group)}
+                        className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                      >
                         Open Chat
                       </button>
                     </div>

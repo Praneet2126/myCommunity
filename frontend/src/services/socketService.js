@@ -130,6 +130,67 @@ class SocketService {
     this.socket.emit('city-stop-typing', { cityId });
   }
 
+  // ==================== PRIVATE CHAT METHODS ====================
+
+  /**
+   * Join a private chat room
+   * @param {string} chatId - Private chat ID
+   */
+  joinPrivateChat(chatId) {
+    if (!this.socket) {
+      console.error('Socket not connected');
+      return;
+    }
+    this.socket.emit('join-private-chat', { chatId });
+  }
+
+  /**
+   * Leave a private chat room
+   * @param {string} chatId - Private chat ID
+   */
+  leavePrivateChat(chatId) {
+    if (!this.socket) return;
+    this.socket.emit('leave-private-chat', { chatId });
+  }
+
+  /**
+   * Send a message to a private chat
+   * @param {string} chatId - Private chat ID
+   * @param {string} content - Message content
+   * @param {string} message_type - Message type (default: 'text')
+   * @param {string} media_url - Media URL (optional)
+   */
+  sendPrivateMessage(chatId, content, message_type = 'text', media_url = null) {
+    if (!this.socket) {
+      console.error('Socket not connected');
+      return;
+    }
+    this.socket.emit('send-private-message', {
+      chatId,
+      content,
+      message_type,
+      media_url
+    });
+  }
+
+  /**
+   * Send typing indicator for private chat
+   * @param {string} chatId - Private chat ID
+   */
+  sendPrivateTyping(chatId) {
+    if (!this.socket) return;
+    this.socket.emit('private-typing', { chatId });
+  }
+
+  /**
+   * Send stop typing indicator for private chat
+   * @param {string} chatId - Private chat ID
+   */
+  sendPrivateStopTyping(chatId) {
+    if (!this.socket) return;
+    this.socket.emit('private-stop-typing', { chatId });
+  }
+
   /**
    * Register an event listener
    * @param {string} event - Event name
