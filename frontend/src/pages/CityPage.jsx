@@ -9,11 +9,6 @@ import ChatWindow from '../components/chat/ChatWindow';
 import EventCalendar from '../components/calendar/EventCalendar';
 import { getCityById, joinCity } from '../services/cityService';
 
-/**
- * CityPage component
- * City details with chat section (left) and calendar widget (right)
- */
-
 function CityPage() {
   const { cityName } = useParams();
   const { selectCity, selectedCity } = useCity();
@@ -61,6 +56,13 @@ function CityPage() {
           } finally {
             setJoining(false);
           }
+  useEffect(() => {
+    const loadCity = async () => {
+      if (cityName) {
+        const city = await getCityById(cityName);
+        if (city) {
+          selectCity(city.id);
+          setCity(city.id);
         }
         
         // Set the city for chat context
@@ -79,12 +81,11 @@ function CityPage() {
   if (!selectedCity) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">City not found</h2>
-          <Link
-            to="/"
-            className="text-[#FF6B35] hover:underline font-semibold"
-          >
+        <div className="text-center px-4">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">
+            City not found
+          </h2>
+          <Link to="/" className="text-[#FF6B35] font-semibold hover:underline">
             Go back home
           </Link>
         </div>
@@ -105,7 +106,8 @@ function CityPage() {
   }
 
   const currentChat = getCurrentChat();
-  const chatDisplayName = currentChat?.name || `${selectedCity.displayName} Public Chat`;
+  const chatDisplayName =
+    currentChat?.name || `${selectedCity.displayName} Public Chat`;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -133,19 +135,27 @@ function CityPage() {
       )}
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left: Chat Section */}
-          <div className="lg:col-span-2 flex flex-col">
-            <div className="bg-white rounded-xl shadow-lg overflow-hidden h-[600px] flex">
-              {/* Chat List Sidebar */}
-              <ChatList
-                privateChats={privateChats}
-                activeChatId={activeChatId}
-                onSelectChat={setChat}
-                onCreateChat={createPrivateChat}
-                cityName={selectedCity.displayName}
-              />
+          
+          {/* Chat Section */}
+          <div className="lg:col-span-2">
+            <div className="
+              bg-white rounded-xl shadow-lg overflow-hidden
+              h-[calc(100vh-260px)]
+              lg:h-[600px]
+              flex
+            ">
+              {/* Chat List (hidden on mobile) */}
+              <div className="hidden lg:block">
+                <ChatList
+                  privateChats={privateChats}
+                  activeChatId={activeChatId}
+                  onSelectChat={setChat}
+                  onCreateChat={createPrivateChat}
+                  cityName={selectedCity.displayName}
+                />
+              </div>
 
               {/* Chat Window */}
               <div className="flex-1 flex flex-col">
@@ -153,15 +163,23 @@ function CityPage() {
                   messages={messages}
                   onSendMessage={sendMessage}
                   chatName={chatDisplayName}
+                  privateChats={privateChats}
+                  activeChatId={activeChatId}
+                  onSelectChat={setChat}
+                  onCreateChat={createPrivateChat}
+                  cityName={selectedCity.displayName}
                 />
               </div>
             </div>
           </div>
 
-          {/* Right: Calendar Widget */}
+          {/* Calendar */}
           <div className="lg:col-span-1">
-            <EventCalendar cityId={selectedCity.id} />
+            <div className="sticky top-20">
+              <EventCalendar cityId={selectedCity.id} />
+            </div>
           </div>
+
         </div>
       </div>
     </div>
