@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
 import { CityProvider } from './context/CityContext';
 import { ChatProvider } from './context/ChatContext';
 import Layout from './components/layout/Layout';
@@ -14,21 +15,23 @@ import NotFound from './pages/NotFound';
  */
 function App() {
   return (
-    <CityProvider>
-      <ChatProvider>
-        <BrowserRouter>
-          <Layout>
-            <Routes>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/city/:cityName" element={<CityPage />} />
-              <Route path="/city/:cityName/chat/:chatId" element={<ChatPage />} />
-              <Route path="/profile" element={<ProfilePage />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Layout>
-        </BrowserRouter>
-      </ChatProvider>
-    </CityProvider>
+    <AuthProvider>
+      <CityProvider>
+        <ChatProvider>
+          <BrowserRouter>
+            <Layout>
+              <Routes>
+                <Route path="/" element={<HomePage />} />
+                <Route path="/city/:cityName" element={<CityPage />} />
+                <Route path="/city/:cityName/chat/:chatId" element={<ChatPage />} />
+                <Route path="/profile" element={<ProfilePage />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Layout>
+          </BrowserRouter>
+        </ChatProvider>
+      </CityProvider>
+    </AuthProvider>
   );
 }
 
