@@ -90,36 +90,101 @@ def main():
             # 3. Hybrid Fusion: 70% Intelligence + 30% Exact Color/Texture
             final_scores = (0.7 * ai_scores) + (0.3 * color_scores)
             
-            # Group by hotel
+            # Group by hotel and track best match image with score breakdown
             hotel_results = {}
             for i, score in enumerate(final_scores):
                 if i in mapping:
                     h_info = mapping[i]
                     h_id = h_info["hotel_id"]
+                    ai_score = ai_scores[i]
+                    color_score = color_scores[i]
                     if h_id not in hotel_results or score > hotel_results[h_id]["score"]:
-                        hotel_results[h_id] = {"score": score, "image_path": h_info["image_path"]}
+                        hotel_results[h_id] = {
+                            "score": score,
+                            "ai_score": ai_score,
+                            "color_score": color_score,
+                            "image_path": h_info["image_path"],
+                            "image_index": i
+                        }
             
             sorted_hotels = sorted(hotel_results.items(), key=lambda x: x[1]["score"], reverse=True)[:3]
             
-            st.subheader("Top Matches (Ranked by Color, Shape & Semantic Similarity)")
+            # Display matching factors explanation
+            with st.expander("🔍 How Image Matching Works - Matching Factors Explained", expanded=False):
+                st.markdown("""
+                ### Image Matching Algorithm
+                
+                The system uses a **Hybrid Multi-Scale Visual Search** that combines two complementary approaches:
+                
+                #### 1. **AI Semantic Matching (70% weight)** - CLIP Model
+                - **Model**: ViT-L/14@336px (Vision Transformer Large)
+                - **What it captures**: 
+                  - Semantic understanding (beach view, pool, room type, architectural style)
+                  - Object recognition (furniture, amenities, decor)
+                  - Scene composition and layout
+                  - Visual concepts and context
+                - **How it works**: 
+                  - Analyzes the image at multiple scales (full image + cropped regions)
+                  - Extracts high-level visual features using deep learning
+                  - Understands "what" is in the image, not just pixel colors
+                
+                #### 2. **Color & Texture Matching (30% weight)** - Exact Visual Signature
+                - **Color Signature**: 
+                  - 3D RGB histogram (4 bins per channel = 64 dimensions)
+                  - Captures exact color distribution and palette
+                  - Identifies matching color schemes
+                - **Texture Signature**: 
+                  - Gradient-based features (Sobel-like)
+                  - Captures shapes, edges, and material textures
+                  - Identifies similar building materials, patterns, and surfaces
+                - **How it works**:
+                  - Extracts pixel-level visual characteristics
+                  - Matches exact color codes and texture patterns
+                  - Perfect for finding visually identical or very similar images
+                
+                #### 3. **Multi-Scale Analysis**
+                - Analyzes the full image (global context)
+                - Analyzes cropped regions (local details)
+                - Takes the best match across all scales
+                
+                #### 4. **Final Score Calculation**
+                ```
+                Final Score = (0.7 × AI Semantic Score) + (0.3 × Color/Texture Score)
+                ```
+                
+                This hybrid approach ensures matches are both **semantically relevant** (similar content/meaning) 
+                and **visually similar** (similar colors/textures).
+                """)
+            
+            st.subheader("🏆 Top Matches (Ranked by Hybrid Visual Similarity)")
             for hotel_id, res in sorted_hotels:
                 details = get_hotel_details(hotel_id)
                 if details:
                     name, stars, price, desc = details
                     score = res["score"]
+                    ai_score = res["ai_score"]
+                    color_score = res["color_score"]
                     match_path = res["image_path"]
                     
                     with st.container():
-                        c1, c2, c3 = st.columns([1, 2, 2])
-                        with c1:
-                            st.metric("Fidelity Score", f"{score:.2f}")
-                        with c2:
+                        col1, col2, col3 = st.columns([1, 2, 2])
+                        with col1:
+                            st.metric("Overall Score", f"{score:.3f}")
+                            st.caption("Hybrid Match")
+                            with st.expander("Score Breakdown"):
+                                st.metric("AI Semantic", f"{ai_score:.3f}", help="70% weight - CLIP model understanding")
+                                st.metric("Color/Texture", f"{color_score:.3f}", help="30% weight - Exact visual match")
+                        with col2:
                             st.markdown(f"### {name}")
                             st.write(f"⭐ {stars} Stars | 💰 ₹{price}")
                             st.write(desc)
-                        with c3:
+                        with col3:
                             if os.path.exists(match_path):
-                                st.image(Image.open(match_path), caption="Exact Texture Match", use_container_width=True)
+                                best_match_img = Image.open(match_path)
+                                st.image(best_match_img, caption=f"🎯 Best Match Image (Score: {score:.3f})", use_container_width=True)
+                                st.caption(f"Image Index: {res['image_index']} | Path: {os.path.basename(match_path)}")
+                            else:
+                                st.warning(f"Image not found: {match_path}")
                         st.divider()
                         
         except Exception as e:
