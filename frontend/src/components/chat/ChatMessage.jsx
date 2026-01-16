@@ -11,7 +11,7 @@ function ChatMessage({ message }) {
   
   // Handle both old mock format and new backend format
   const messageContent = message.content || message.text || '';
-  const messageTime = message.createdAt || message.timestamp;
+  const messageTime = message.createdAt || message.created_at || message.timestamp;
   const isPending = message._isPending || false;
   
   // Check if message is from current user
@@ -38,6 +38,11 @@ function ChatMessage({ message }) {
   // Format timestamp
   const formatTime = (timestamp) => {
     const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) {
+      // #region agent log
+      fetch('http://127.0.0.1:7246/ingest/ed889ba1-73d9-4a1d-bf22-c8e51587df89',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix-1',hypothesisId:'D3',location:'frontend/src/components/chat/ChatMessage.jsx:formatTime',message:'ui:invalid-date',data:{timestampType:typeof timestamp,timestampValue:String(timestamp).slice(0,60),messageKeys:Object.keys(message||{}).slice(0,25),hasCreatedAt:message?.createdAt!=null,hasCreated_at:message?.created_at!=null},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+    }
     return date.toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit'

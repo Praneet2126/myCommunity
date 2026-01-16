@@ -69,9 +69,12 @@ router.post('/:cityId/join', authenticate, async (req, res, next) => {
     });
 
     if (existingMembership) {
-      return res.status(400).json({
-        success: false,
-        message: 'You are already a member of this city'
+      // Idempotent join: if already a member, treat as success.
+      return res.status(200).json({
+        success: true,
+        message: 'You are already a member of this city',
+        data: existingMembership,
+        alreadyMember: true
       });
     }
 
@@ -173,13 +176,11 @@ router.get('/:cityId/chat/messages', authenticate, paginationValidation, async (
       });
     }
 
-    const cityChat = await CityChat.findOne({ city_id: cityId });
-
+    // Ensure CityChat exists (create if not)
+    let cityChat = await CityChat.findOne({ city_id: cityId });
     if (!cityChat) {
-      return res.status(404).json({
-        success: false,
-        message: 'City chat not found'
-      });
+      cityChat = new CityChat({ city_id: cityId });
+      await cityChat.save();
     }
 
     const messages = await Message.find({
@@ -231,13 +232,11 @@ router.post('/:cityId/chat/messages', authenticate, messageValidation, async (re
       });
     }
 
-    const cityChat = await CityChat.findOne({ city_id: cityId });
-
+    // Ensure CityChat exists (create if not)
+    let cityChat = await CityChat.findOne({ city_id: cityId });
     if (!cityChat) {
-      return res.status(404).json({
-        success: false,
-        message: 'City chat not found'
-      });
+      cityChat = new CityChat({ city_id: cityId });
+      await cityChat.save();
     }
 
     const message = new Message({
