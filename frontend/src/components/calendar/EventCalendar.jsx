@@ -1,225 +1,227 @@
-import { useState } from 'react';
-import { getUpcomingEvents, getEventsByDate } from '../../services/eventService';
+import { useState, useEffect } from 'react';
+import { getAllEvents, getEventsByMonth } from '../../services/eventService';
+import AddEventModal from './AddEventModal';
+import EventDetailModal from './EventDetailModal';
 
 /**
- * EventCalendar component
- * Calendar widget showing city-specific events
- * @param {Object} props - Component props
- * @param {string} props.cityId - City ID
+ * EventCalendar Component
+ * Beautiful calendar with events list and color palette
  */
-function EventCalendar({ cityId }) {
+function EventCalendar({ cityId = null }) {
+  const [events, setEvents] = useState([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEventDetailOpen, setIsEventDetailOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState(null);
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState(null);
 
-  const events = getUpcomingEvents(cityId);
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
 
-  // Get first day of month and number of days
-  const firstDay = new Date(year, month, 1);
-  const lastDay = new Date(year, month + 1, 0);
-  const daysInMonth = lastDay.getDate();
-  const startingDayOfWeek = firstDay.getDay();
+  // Color palette for events
+  const colorPalette = [
+    '#F8BBD0', // Pastel Pink
+    '#FFCDD2', // Pastel Red
+    '#BBDEFB', // Pastel Blue
+    '#B3E5FC', // Pastel Sky Blue
+    '#C8E6C9', // Pastel Green
+    '#FFE0B2', // Pastel Orange
+    '#E1BEE7', // Pastel Purple
+    '#B2EBF2', // Pastel Cyan
+    '#D1C4E9', // Pastel Lavender
+    '#CFD8DC', // Pastel Teal
+    '#E0F7FA', // Light Aqua
+  ];
 
-  // Navigation
-  const goToPreviousMonth = () => {
-    setCurrentDate(new Date(year, month - 1, 1));
-    setSelectedDate(null);
+  // Fetch events for current month
+  useEffect(() => {
+    const monthEvents = getEventsByMonth(year, month, cityId);
+    // Add unique IDs if missing
+    const eventsWithIds = monthEvents.map((event, index) => ({
+      ...event,
+      _id: event._id || `event-${Date.now()}-${index}`,
+      image: event.image || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800&q=80',
+      description: event.description || `Join us for ${event.name}. A wonderful event you don't want to miss!`,
+      location: event.location || 'City Center',
+      time: event.time || '6:00 PM - 9:00 PM',
+      attendees: event.attendees || '100+',
+    }));
+    eventsWithIds.sort((a, b) => new Date(a.date) - new Date(b.date));
+    setEvents(eventsWithIds);
+  }, [year, month, cityId]);
+
+  // Assign colors to events by date
+  const assignColors = (events) => {
+    const colorMap = new Map();
+    let colorIndex = 0;
+
+    events.forEach((event) => {
+      const dateKey = new Date(event.date).toDateString();
+      if (!colorMap.has(dateKey)) {
+        colorMap.set(dateKey, colorPalette[colorIndex % colorPalette.length]);
+        colorIndex++;
+      }
+    });
+
+    return colorMap;
   };
 
-  const goToNextMonth = () => {
-    setCurrentDate(new Date(year, month + 1, 1));
-    setSelectedDate(null);
+  const colorMap = assignColors(events);
+
+  const handleAddEvent = (newEvent) => {
+    const eventWithId = {
+      ...newEvent,
+      _id: `event-${Date.now()}`,
+    };
+    const updatedEvents = [...events, eventWithId];
+    updatedEvents.sort((a, b) => new Date(a.date) - new Date(b.date));
+    setEvents(updatedEvents);
+    setIsModalOpen(false);
   };
 
-  // Get events for a specific date
-  const getEventsForDate = (day) => {
-    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    return getEventsByDate(cityId, dateStr);
+  const handleDeleteEvent = (eventId) => {
+    const confirmDelete = window.confirm('Are you sure you want to delete this event?');
+    if (confirmDelete) {
+      setEvents(events.filter((event) => event._id !== eventId));
+    }
   };
 
-  // Check if date has events
-  const hasEvents = (day) => {
-    return getEventsForDate(day).length > 0;
+  const handleEventClick = (event) => {
+    setSelectedEvent(event);
+    setIsEventDetailOpen(true);
   };
 
-  // Format date for display
-  const formatDate = (day) => {
-    return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  const handleUserJoined = (updatedEvent) => {
+    setSelectedEvent(updatedEvent);
+    // Update the event in the list
+    setEvents(events.map(e => e._id === updatedEvent._id ? updatedEvent : e));
   };
+
+  const changeMonth = (direction) => {
+    const newDate = new Date(currentDate);
+    newDate.setMonth(currentDate.getMonth() + direction);
+    setCurrentDate(newDate);
+  };
+
+  const currentMonth = currentDate.toLocaleString('default', { month: 'long' });
+  const currentYear = currentDate.getFullYear();
 
   const monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
+    'July', 'August', 'September', 'October', 'November', 'December',
   ];
 
-  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-  // Render calendar days
-  const renderCalendarDays = () => {
-    const days = [];
-    
-    // Empty cells for days before month starts
-    for (let i = 0; i < startingDayOfWeek; i++) {
-      days.push(<div key={`empty-${i}`} className="h-12" />);
-    }
-
-    // Days of the month
-    for (let day = 1; day <= daysInMonth; day++) {
-      const dateEvents = getEventsForDate(day);
-      const hasEvent = dateEvents.length > 0;
-      const isSelected = selectedDate === day;
-      const isToday = 
-        new Date().getDate() === day &&
-        new Date().getMonth() === month &&
-        new Date().getFullYear() === year;
-
-      days.push(
-        <div
-          key={day}
-          onClick={() => setSelectedDate(isSelected ? null : day)}
-          className={`h-12 border border-gray-200 p-1 cursor-pointer hover:bg-gray-50 transition-colors ${
-            isSelected ? 'bg-orange-100 border-[#FF6B35]' : ''
-          } ${isToday ? 'ring-2 ring-[#1976D2]' : ''}`}
-        >
-          <div className="flex items-center justify-between">
-            <span
-              className={`text-sm font-medium ${
-                isToday ? 'text-[#1976D2]' : 'text-gray-700'
-              }`}
-            >
-              {day}
-            </span>
-            {hasEvent && (
-              <div className="w-2 h-2 bg-[#FF6B35] rounded-full" />
-            )}
-          </div>
-        </div>
-      );
-    }
-
-    return days;
-  };
-
-  const selectedDateEvents = selectedDate ? getEventsForDate(selectedDate) : [];
-
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6">
-      {/* Calendar Header */}
-      <div className="flex items-center justify-between mb-6">
+    <div className="w-full max-w-md p-3 rounded-3xl shadow-lg bg-gradient-to-t bg-white text-black transition-all duration-300">
+      {/* Month and Year Header */}
+      <div className="flex items-center justify-between mb-3">
+        {/* Previous Month Button */}
         <button
-          onClick={goToPreviousMonth}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          onClick={() => changeMonth(-1)}
+          className="w-6 h-6 rounded-full text-black flex items-center justify-center hover:bg-teal-800 hover:text-white transition-colors"
         >
-          <svg
-            className="w-5 h-5 text-gray-600"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M15 19l-7-7 7-7"
-            />
-          </svg>
+          {'<'}
         </button>
-        <h3 className="text-xl font-bold text-gray-800">
-          {monthNames[month]} {year}
-        </h3>
-        <button
-          onClick={goToNextMonth}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-        >
-          <svg
-            className="w-5 h-5 text-gray-600"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 5l7 7-7 7"
-            />
-          </svg>
-        </button>
-      </div>
 
-      {/* Day Names */}
-      <div className="grid grid-cols-7 gap-1 mb-2">
-        {dayNames.map((day) => (
-          <div
-            key={day}
-            className="text-center text-xs font-semibold text-gray-600 py-2"
-          >
-            {day}
-          </div>
-        ))}
-      </div>
-
-      {/* Calendar Grid */}
-      <div className="grid grid-cols-7 gap-1 mb-6">
-        {renderCalendarDays()}
-      </div>
-
-      {/* Selected Date Events */}
-      {selectedDate && selectedDateEvents.length > 0 && (
-        <div className="border-t border-gray-200 pt-4">
-          <h4 className="font-semibold text-gray-800 mb-3">
-            Events on {monthNames[month]} {selectedDate}
-          </h4>
-          <div className="space-y-2">
-            {selectedDateEvents.map((event, index) => (
-              <div
-                key={index}
-                className="bg-orange-50 border-l-4 border-[#FF6B35] p-3 rounded-r-lg"
-              >
-                <p className="font-semibold text-gray-800">{event.name}</p>
-                <p className="text-sm text-gray-600">{event.type}</p>
-              </div>
-            ))}
-          </div>
+        {/* Current Month and Year */}
+        <div className="flex items-center">
+          <h1 className="text-md font-semibold mx-2 text-teal-600">
+            {currentMonth} {currentYear}
+          </h1>
         </div>
-      )}
 
-      {/* Upcoming Events List */}
-      {events.length > 0 && (
-        <div className="border-t border-gray-200 pt-4">
-          <h4 className="font-semibold text-gray-800 mb-3">Upcoming Events</h4>
-          <div className="space-y-2 max-h-48 overflow-y-auto">
-            {events.slice(0, 5).map((event, index) => (
+        {/* Next Month Button */}
+        <button
+          onClick={() => changeMonth(1)}
+          className="w-6 h-6 rounded-full text-black flex items-center justify-center hover:bg-teal-800 hover:text-white transition-colors"
+        >
+          {'>'}
+        </button>
+
+        {/* Add Event Button */}
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="w-8 h-8 bg-pink-500 text-white flex items-center justify-center rounded-xl hover:bg-pink-600 ml-4 transition-colors shadow-md"
+        >
+          +
+        </button>
+      </div>
+
+      {/* Events List */}
+      <div className="space-y-2 overflow-y-auto h-[30vh] custom-scrollbar">
+        {events.length > 0 ? (
+          events.map((event) => (
+            <div
+              key={event._id}
+              className="relative flex items-start gap-2 rounded-md transition-all duration-300 cursor-pointer hover:scale-[1.02]"
+              onClick={() => handleEventClick(event)}
+            >
+              {/* Date in a Circle */}
               <div
-                key={index}
-                className="flex items-start space-x-3 p-2 hover:bg-gray-50 rounded-lg transition-colors"
+                className="w-7 h-7 mt-3 flex items-center justify-center text-black font-bold rounded-full text-xs flex-shrink-0"
+                style={{ backgroundColor: colorMap.get(new Date(event.date).toDateString()) }}
               >
-                <div className="flex-shrink-0 w-12 h-12 bg-[#FF6B35] rounded-lg flex items-center justify-center text-white font-bold text-sm">
-                  {new Date(event.date).getDate()}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-gray-800 text-sm">{event.name}</p>
-                  <p className="text-xs text-gray-500">
-                    {new Date(event.date).toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric'
-                    })}
+                {new Date(event.date).getDate()}
+              </div>
+
+              {/* Event Details */}
+              <div
+                className="flex flex-col w-5/6 p-2 rounded-lg shadow-sm"
+                style={{ backgroundColor: colorMap.get(new Date(event.date).toDateString()) }}
+              >
+                <div className="flex justify-between items-center w-full">
+                  {/* Event Name */}
+                  <p
+                    className="text-xs font-bold text-black overflow-hidden text-ellipsis whitespace-nowrap max-w-[calc(100%-36px)]"
+                    title={event.name}
+                  >
+                    {event.name}
                   </p>
-                  <span className="inline-block mt-1 text-xs px-2 py-0.5 bg-blue-100 text-[#1976D2] rounded">
-                    {event.type}
-                  </span>
+
+                  {/* Delete Button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteEvent(event._id);
+                    }}
+                    className="text-md hover:bg-red-800 hover:text-white rounded-full p-1 transition-colors flex-shrink-0"
+                    title="Delete event"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
                 </div>
+
+                {/* Event Description */}
+                <p
+                  className="text-xs text-black mt-1 font-mono overflow-hidden text-ellipsis whitespace-nowrap max-w-[calc(100%-48px)]"
+                  title={event.description}
+                >
+                  {event.description}
+                </p>
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
+          ))
+        ) : (
+          <p className="text-gray-400 text-center text-xs py-4">No events scheduled for this month</p>
+        )}
+      </div>
+
+      {/* Add Event Modal */}
+      {isModalOpen && (
+        <AddEventModal
+          onClose={() => setIsModalOpen(false)}
+          onSave={handleAddEvent}
+        />
       )}
 
-      {events.length === 0 && (
-        <div className="border-t border-gray-200 pt-4 text-center text-gray-500 text-sm">
-          No upcoming events
-        </div>
+      {/* Event Detail Modal */}
+      {isEventDetailOpen && selectedEvent && (
+        <EventDetailModal
+          event={selectedEvent}
+          onClose={() => setIsEventDetailOpen(false)}
+          onUserJoined={handleUserJoined}
+        />
       )}
     </div>
   );

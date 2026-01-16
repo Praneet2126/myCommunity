@@ -52,14 +52,13 @@ const messageSchema = new mongoose.Schema({
 messageSchema.index({ chat_type: 1, chat_id: 1, created_at: -1 });
 messageSchema.index({ sender_id: 1 });
 
-// Set chat_ref based on chat_type before validation
-messageSchema.pre('validate', function(next) {
+// Set chat_ref based on chat_type before validation (Mongoose 7+ async pattern)
+messageSchema.pre('validate', async function() {
   if (this.chat_type === 'city') {
     this.chat_ref = 'CityChat';
   } else if (this.chat_type === 'private') {
     this.chat_ref = 'PrivateChat';
   }
-  next();
 });
 
 module.exports = mongoose.model('Message', messageSchema);
