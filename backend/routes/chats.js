@@ -6,6 +6,7 @@ const Message = require('../models/Message');
 const User = require('../models/User');
 const { authenticate } = require('../middleware/auth');
 const { privateChatValidation, messageValidation, paginationValidation } = require('../middleware/validator');
+const contentModerator = require('../moderation');
 
 // Get user's private chats
 router.get('/', authenticate, async (req, res, next) => {
@@ -309,6 +310,22 @@ router.post('/:chatId/messages', authenticate, messageValidation, async (req, re
       return res.status(403).json({
         success: false,
         message: 'You are not a member of this chat'
+      });
+    }
+
+    // Content moderation check
+    const moderationResult = await contentModerator.moderate(
+      content,
+      req.user._id.toString(),
+      'private'
+    );
+
+    if (!moderationResult.allowed) {
+      return res.status(403).json({
+        success: false,
+        message: 'Message blocked by content moderation',
+        reason: moderationResult.reason || 'Content violates community guidelines',
+        flags: moderationResult.flags
       });
     }
 

@@ -6,6 +6,7 @@ const CityChat = require('../models/CityChat');
 const Message = require('../models/Message');
 const { authenticate } = require('../middleware/auth');
 const { messageValidation, paginationValidation } = require('../middleware/validator');
+const contentModerator = require('../moderation');
 
 // Get all active cities
 router.get('/', async (req, res, next) => {
@@ -237,6 +238,22 @@ router.post('/:cityId/chat/messages', authenticate, messageValidation, async (re
       return res.status(404).json({
         success: false,
         message: 'City chat not found'
+      });
+    }
+
+    // Content moderation check
+    const moderationResult = await contentModerator.moderate(
+      content,
+      req.user._id.toString(),
+      'city'
+    );
+
+    if (!moderationResult.allowed) {
+      return res.status(403).json({
+        success: false,
+        message: 'Message blocked by content moderation',
+        reason: moderationResult.reason || 'Content violates community guidelines',
+        flags: moderationResult.flags
       });
     }
 
