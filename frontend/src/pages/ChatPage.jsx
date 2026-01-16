@@ -28,14 +28,11 @@ function ChatPage() {
   // Load city data
   useEffect(() => {
     if (cityName) {
-      const loadCity = async () => {
-        const city = await getCityById(cityName);
-        if (city) {
-          selectCity(city.id || city._id);
-          setCity(city.id || city._id);
-        }
-      };
-      loadCity();
+      const city = getCityById(cityName);
+      if (city) {
+        selectCity(city.id);
+        setCity(city.id);
+      }
     }
   }, [cityName, selectCity, setCity]);
 
