@@ -69,6 +69,10 @@ export const ChatProvider = ({ children }) => {
     // Handle new city messages (including broadcast of own messages)
     const handleNewCityMessage = (data) => {
       console.log('Received new city message:', data);
+
+      // #region agent log
+      fetch('http://127.0.0.1:7246/ingest/ed889ba1-73d9-4a1d-bf22-c8e51587df89',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix-1',hypothesisId:'D1',location:'frontend/src/context/ChatContext.jsx:handleNewCityMessage',message:'ws:new-city-message:timestampFields',data:{hasCreatedAt:data?.createdAt!=null,hasCreated_at:data?.created_at!=null,hasCreated:data?.created!=null,keys:Object.keys(data||{}).slice(0,20)},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       
       const incomingMessage = {
         _id: data._id,
@@ -76,7 +80,7 @@ export const ChatProvider = ({ children }) => {
         sender_id: data.sender_id,
         message_type: data.message_type,
         media_url: data.media_url,
-        createdAt: data.createdAt,
+        createdAt: data.createdAt || data.created_at,
         is_edited: data.is_edited,
         is_deleted: data.is_deleted
       };
@@ -157,12 +161,24 @@ export const ChatProvider = ({ children }) => {
    */
   const loadMessages = useCallback(async (cityId) => {
     const targetCityId = cityId || activeCityId;
-    if (!targetCityId || !token) return;
+    if (!targetCityId || !token) {
+      // #region agent log
+      fetch('http://127.0.0.1:7246/ingest/ed889ba1-73d9-4a1d-bf22-c8e51587df89',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix-1',hypothesisId:'H1',location:'frontend/src/context/ChatContext.jsx:loadMessages',message:'loadMessages:skipped',data:{hasCityId:!!targetCityId,hasToken:!!token},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+      return;
+    }
     
     try {
       setLoading(true);
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-      const url = `${API_URL}/api/cities/${targetCityId}/chat/messages`;
+      const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      // VITE_API_URL may already include `/api` (e.g. http://localhost:3000/api).
+      // Normalize so we always produce exactly one `/api` in the final URL.
+      const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
+      const url = `${BASE_URL}/api/cities/${targetCityId}/chat/messages`;
+
+      // #region agent log
+      fetch('http://127.0.0.1:7246/ingest/ed889ba1-73d9-4a1d-bf22-c8e51587df89',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix-1',hypothesisId:'H2',location:'frontend/src/context/ChatContext.jsx:loadMessages',message:'loadMessages:request',data:{apiUrlEnv:import.meta.env.VITE_API_URL?true:false,computedUrl:url,cityId:targetCityId},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       
       const response = await fetch(url, {
         headers: {
@@ -171,12 +187,34 @@ export const ChatProvider = ({ children }) => {
         }
       });
       
-      const data = await response.json();
+      let data = null;
+      try {
+        data = await response.json();
+      } catch (e) {
+        // #region agent log
+        fetch('http://127.0.0.1:7246/ingest/ed889ba1-73d9-4a1d-bf22-c8e51587df89',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix-1',hypothesisId:'H2',location:'frontend/src/context/ChatContext.jsx:loadMessages',message:'loadMessages:responseJsonParseFailed',data:{status:response.status,ok:response.ok},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
+        throw e;
+      }
+
+      // #region agent log
+      fetch('http://127.0.0.1:7246/ingest/ed889ba1-73d9-4a1d-bf22-c8e51587df89',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix-1',hypothesisId:'H3',location:'frontend/src/context/ChatContext.jsx:loadMessages',message:'loadMessages:response',data:{status:response.status,ok:response.ok,success:!!data?.success,count:Array.isArray(data?.data)?data.data.length:null,message:data?.message||null},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+
+      // #region agent log
+      fetch('http://127.0.0.1:7246/ingest/ed889ba1-73d9-4a1d-bf22-c8e51587df89',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix-1',hypothesisId:'D2',location:'frontend/src/context/ChatContext.jsx:loadMessages',message:'rest:history:firstMessageTimestampFields',data:{firstHasCreatedAt:data?.data?.[0]?.createdAt!=null,firstHasCreated_at:data?.data?.[0]?.created_at!=null,firstKeys:data?.data?.[0]?Object.keys(data.data[0]).slice(0,20):[],count:Array.isArray(data?.data)?data.data.length:null},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       
       if (data.success) {
-        setMessages(data.data || []);
+        const normalized = (data.data || []).map((m) => ({
+          ...m,
+          createdAt: m.createdAt || m.created_at
+        }));
+        setMessages(normalized);
         // Clear any pending messages when loading fresh data
         pendingMessagesRef.current.clear();
+      } else {
+        console.error('loadMessages: API error', data.message);
       }
     } catch (error) {
       console.error('Error loading messages:', error);
@@ -206,8 +244,23 @@ export const ChatProvider = ({ children }) => {
     
     // Load messages for the new city
     loadMessages(activeCityId);
+
+    // #region agent log
+    fetch('http://127.0.0.1:7246/ingest/ed889ba1-73d9-4a1d-bf22-c8e51587df89',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix-1',hypothesisId:'H4',location:'frontend/src/context/ChatContext.jsx:joinEffect',message:'joinEffect:joinedAndRequestedLoad',data:{activeCityId, socketConnected:true, hasToken:!!token},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     
   }, [activeCityId, socketConnected, loadMessages]);
+
+  /**
+   * Load messages when token becomes available (handles page reload case)
+   */
+  useEffect(() => {
+    // If we have a city set and token just became available, load messages
+    if (activeCityId && token && messages.length === 0 && !loading) {
+      console.log('Token available, loading messages for city:', activeCityId);
+      loadMessages(activeCityId);
+    }
+  }, [token, activeCityId, messages.length, loading, loadMessages]);
 
   /**
    * Send a message via WebSocket with optimistic UI update
@@ -268,12 +321,25 @@ export const ChatProvider = ({ children }) => {
    */
   const setCity = (cityId) => {
     // Only update if city actually changed
-    if (activeCityId === cityId) return;
+    if (activeCityId === cityId) {
+      // Even if same city, try to load messages if we don't have any
+      if (messages.length === 0 && token && !loading) {
+        loadMessages(cityId);
+      }
+      return;
+    }
+
+    // #region agent log
+    fetch('http://127.0.0.1:7246/ingest/ed889ba1-73d9-4a1d-bf22-c8e51587df89',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix-1',hypothesisId:'H4',location:'frontend/src/context/ChatContext.jsx:setCity',message:'setCity:called',data:{cityId,nextHasToken:!!token,prevCityId:activeCityId,prevMsgCount:messages.length},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     
     setActiveCityId(cityId);
     setActiveChatId('public');
     setMessages([]);
     pendingMessagesRef.current.clear();
+    
+    // Reset the current city ref so the effect will join the new city
+    currentCityRef.current = null;
   };
 
   /**
