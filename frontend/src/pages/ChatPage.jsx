@@ -27,13 +27,16 @@ function ChatPage() {
 
   // Load city data
   useEffect(() => {
-    if (cityName) {
-      const city = getCityById(cityName);
-      if (city) {
-        selectCity(city.id);
-        setCity(city.id);
+    const loadCity = async () => {
+      if (cityName) {
+        const city = await getCityById(cityName);
+        if (city) {
+          selectCity(city.id);
+          setCity(city.id);
+        }
       }
-    }
+    };
+    loadCity();
   }, [cityName, selectCity, setCity]);
 
   // Set active chat from URL

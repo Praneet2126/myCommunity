@@ -14,10 +14,17 @@ export const CityProvider = ({ children }) => {
 
   // Load all cities on mount
   useEffect(() => {
-    const loadCities = () => {
-      const allCities = getAllCities();
-      setCities(allCities);
-      setLoading(false);
+    const loadCities = async () => {
+      setLoading(true);
+      try {
+        const allCities = await getAllCities();
+        setCities(allCities);
+      } catch (error) {
+        console.error('Error loading cities:', error);
+        setCities([]);
+      } finally {
+        setLoading(false);
+      }
     };
     loadCities();
   }, []);
@@ -26,9 +33,14 @@ export const CityProvider = ({ children }) => {
    * Select a city by ID
    * @param {string} cityId - City ID
    */
-  const selectCity = (cityId) => {
-    const city = getCityById(cityId);
-    setSelectedCity(city);
+  const selectCity = async (cityId) => {
+    try {
+      const city = await getCityById(cityId);
+      setSelectedCity(city);
+    } catch (error) {
+      console.error('Error selecting city:', error);
+      setSelectedCity(null);
+    }
   };
 
   /**
