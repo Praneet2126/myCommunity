@@ -249,7 +249,7 @@ function ChatWindow({
         ) : (
           <div>
             {messages.map((message) => (
-              <ChatMessage key={message.id} message={message} />
+              <ChatMessage key={message._id || message.id} message={message} />
             ))}
             <div ref={messagesEndRef} />
           </div>

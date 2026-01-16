@@ -10,17 +10,19 @@ const AuthContext = createContext();
  */
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [token, setToken] = useState(() => localStorage.getItem('token'));
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // Load user from localStorage on mount
   useEffect(() => {
     const loadUser = async () => {
-      const token = localStorage.getItem('token');
+      const storedToken = localStorage.getItem('token');
       const storedUser = localStorage.getItem('user');
 
-      if (token && storedUser) {
+      if (storedToken && storedUser) {
         try {
+          setToken(storedToken);
           setUser(JSON.parse(storedUser));
           setIsLoggedIn(true);
           
@@ -37,6 +39,7 @@ export const AuthProvider = ({ children }) => {
           localStorage.removeItem('token');
           localStorage.removeItem('refreshToken');
           localStorage.removeItem('user');
+          setToken(null);
           setUser(null);
           setIsLoggedIn(false);
         }
@@ -63,6 +66,7 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('refreshToken', refreshToken);
         localStorage.setItem('user', JSON.stringify(newUser));
         
+        setToken(accessToken);
         setUser(newUser);
         setIsLoggedIn(true);
         
@@ -90,6 +94,7 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('refreshToken', refreshToken);
         localStorage.setItem('user', JSON.stringify(loggedInUser));
         
+        setToken(accessToken);
         setUser(loggedInUser);
         setIsLoggedIn(true);
         
@@ -114,6 +119,7 @@ export const AuthProvider = ({ children }) => {
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
+      setToken(null);
       setUser(null);
       setIsLoggedIn(false);
     }
@@ -149,6 +155,7 @@ export const AuthProvider = ({ children }) => {
     user,
     isLoggedIn,
     loading,
+    token,
     signup,
     login,
     logout,

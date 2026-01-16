@@ -81,3 +81,110 @@ export const getCityById = async (cityId) => {
 export const getCityByName = async (cityName) => {
   return getCityById(cityName);
 };
+
+/**
+ * Join a city
+ * @param {string} cityId - City ID
+ * @returns {Promise<Object>} Result object
+ */
+export const joinCity = async (cityId) => {
+  try {
+    const token = localStorage.getItem('token');
+    
+    if (!token) {
+      throw new Error('You must be logged in to join a city');
+    }
+
+    const response = await fetch(`${API_URL}/cities/${cityId}/join`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      // If already a member, that's okay
+      if (data.message && data.message.includes('already a member')) {
+        return { success: true, alreadyMember: true };
+      }
+      throw new Error(data.message || 'Failed to join city');
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error joining city:', error);
+    throw error;
+  }
+};
+
+/**
+ * Leave a city
+ * @param {string} cityId - City ID
+ * @returns {Promise<Object>} Result object
+ */
+export const leaveCity = async (cityId) => {
+  try {
+    const token = localStorage.getItem('token');
+
+    if (!token) {
+      throw new Error('You must be logged in to leave a city');
+    }
+
+    const response = await fetch(`${API_URL}/cities/${cityId}/leave`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to leave city');
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error leaving city:', error);
+    throw error;
+  }
+};
+
+/**
+ * Check if user is a member of a city
+ * @param {string} cityId - City ID
+ * @returns {Promise<boolean>} True if user is a member
+ */
+export const checkMembership = async (cityId) => {
+  try {
+    const token = localStorage.getItem('token');
+
+    if (!token) {
+      return false;
+    }
+
+    const response = await fetch(`${API_URL}/cities/${cityId}/members`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      return false;
+    }
+
+    const data = await response.json();
+    
+    // Check if current user is in the members list
+    const userId = JSON.parse(localStorage.getItem('user'))?._id;
+    return data.data.some(membership => membership.user_id._id === userId);
+  } catch (error) {
+    console.error('Error checking membership:', error);
+    return false;
+  }
+};
