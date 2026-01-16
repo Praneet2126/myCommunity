@@ -120,6 +120,11 @@ function ChatPage() {
               messages={messages}
               onSendMessage={sendMessage}
               chatName={chatDisplayName}
+              privateChats={privateChats}
+              activeChatId={activeChatId}
+              onSelectChat={setChat}
+              onCreateChat={createPrivateChat}
+              cityName={selectedCity.displayName}
             />
           </div>
         </div>
