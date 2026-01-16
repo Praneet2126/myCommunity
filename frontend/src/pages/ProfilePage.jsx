@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { uploadProfilePhoto, updateProfile } from '../services/uploadService';
+import { uploadProfilePhoto, updateProfile, changePassword } from '../services/uploadService';
 
 /**
  * Profile Page Component
@@ -19,6 +19,19 @@ function ProfilePage() {
   });
   const [updateError, setUpdateError] = useState('');
   const [updateSuccess, setUpdateSuccess] = useState('');
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [passwordFormData, setPasswordFormData] = useState({
+    current_password: '',
+    new_password: '',
+    confirm_password: ''
+  });
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [isPhotoViewOpen, setIsPhotoViewOpen] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const fileInputRef = useRef(null);
   const { user, logout, updateUser, refreshProfile } = useAuth();
   const navigate = useNavigate();
@@ -43,7 +56,7 @@ function ProfilePage() {
 
   const handleViewPhoto = () => {
     if (hasProfilePhoto) {
-      window.open(user.profile_photo_url, '_blank');
+      setIsPhotoViewOpen(true);
     }
     setIsPhotoMenuOpen(false);
   };
@@ -135,16 +148,77 @@ function ProfilePage() {
     setUpdateError('');
   };
 
-  // Mock data for communities and groups
-  const userProfile = {
-    communities: [
-      { id: 1, name: 'Mumbai Explorers', members: 2500, image: 'https://images.unsplash.com/photo-1529253355930-ddbe423a2ac7?w=400' },
-      { id: 2, name: 'Delhi Food Tours', members: 1800, image: 'https://images.unsplash.com/photo-1587330979470-3595ac045ab0?w=400' },
-    ],
-    groups: [
-      { id: 1, name: 'Weekend Travelers', members: 12 },
-    ],
+  const handlePasswordFormChange = (e) => {
+    const { name, value } = e.target;
+    setPasswordFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setPasswordError('');
+    setPasswordSuccess('');
+
+    // Validate passwords
+    if (!passwordFormData.current_password || !passwordFormData.new_password || !passwordFormData.confirm_password) {
+      setPasswordError('All fields are required');
+      return;
+    }
+
+    if (passwordFormData.new_password !== passwordFormData.confirm_password) {
+      setPasswordError('New passwords do not match');
+      return;
+    }
+
+    if (passwordFormData.new_password.length < 6) {
+      setPasswordError('New password must be at least 6 characters long');
+      return;
+    }
+
+    setIsChangingPassword(true);
+
+    try {
+      const response = await changePassword({
+        current_password: passwordFormData.current_password,
+        new_password: passwordFormData.new_password
+      });
+
+      if (response.success) {
+        setPasswordSuccess('Password changed successfully!');
+        setPasswordFormData({
+          current_password: '',
+          new_password: '',
+          confirm_password: ''
+        });
+        
+        // Close modal after 2 seconds
+        setTimeout(() => {
+          setIsChangePasswordOpen(false);
+          setPasswordSuccess('');
+        }, 2000);
+      }
+    } catch (error) {
+      setPasswordError(error.message || 'Failed to change password. Please try again.');
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
+  const handleCancelPasswordChange = () => {
+    setIsChangePasswordOpen(false);
+    setPasswordFormData({
+      current_password: '',
+      new_password: '',
+      confirm_password: ''
+    });
+    setPasswordError('');
+    setPasswordSuccess('');
+  };
+
+  // State for private chats/groups
+  const [privateChats, setPrivateChats] = useState([]);
 
   // Redirect if not logged in
   if (!user) {
@@ -318,16 +392,6 @@ function ProfilePage() {
               Profile
             </button>
             <button
-              onClick={() => setActiveTab('communities')}
-              className={`py-4 px-2 border-b-2 font-semibold text-sm transition-colors ${
-                activeTab === 'communities'
-                  ? 'border-[#4169e1] text-[#4169e1]'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Communities
-            </button>
-            <button
               onClick={() => setActiveTab('groups')}
               className={`py-4 px-2 border-b-2 font-semibold text-sm transition-colors ${
                 activeTab === 'groups'
@@ -497,45 +561,59 @@ function ProfilePage() {
           </div>
         )}
 
-        {/* Communities Tab */}
-        {activeTab === 'communities' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {userProfile.communities.map((community) => (
-              <div key={community.id} className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100 hover:shadow-md transition-shadow">
-                <img src={community.image} alt={community.name} className="w-full h-48 object-cover" />
-                <div className="p-6">
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">{community.name}</h3>
-                  <p className="text-sm text-gray-600">{community.members.toLocaleString()} members</p>
-                  <button className="mt-4 w-full bg-[#4169e1] text-white py-2 rounded-lg font-semibold hover:bg-[#4169e1]/90 transition-colors">
-                    Visit Community
-                  </button>
-                </div>
-                    </div>
-            ))}
-                    </div>
-        )}
-
         {/* Groups Tab */}
         {activeTab === 'groups' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {userProfile.groups.map((group) => (
-              <div key={group.id} className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-                <div className="flex items-center space-x-3 mb-4">
-                  <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
-                    <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
+          <div>
+            {privateChats.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {privateChats.map((group) => (
+                  <div key={group.id} className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100 hover:shadow-md transition-shadow">
+                    {/* City Badge */}
+                    {group.cityName && (
+                      <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-4 py-2">
+                        <div className="flex items-center space-x-2">
+                          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          <span className="text-white text-sm font-semibold">{group.cityName}</span>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div className="p-6">
+                      <div className="flex items-center space-x-3 mb-4">
+                        <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                          <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-bold text-gray-900 truncate">{group.name}</h3>
+                          <p className="text-sm text-gray-600">{group.members || 0} members</p>
+                        </div>
+                      </div>
+                      {group.description && (
+                        <p className="text-sm text-gray-600 mb-4 line-clamp-2">{group.description}</p>
+                      )}
+                      <button className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors">
+                        Open Chat
+                      </button>
                     </div>
-                    <div>
-                    <h3 className="font-bold text-gray-900">{group.name}</h3>
-                    <p className="text-sm text-gray-600">{group.members} members</p>
                   </div>
-                </div>
-                <button className="w-full bg-gray-100 text-gray-700 py-2 rounded-lg font-semibold hover:bg-gray-200 transition-colors">
-                  Manage Group
-                </button>
+                ))}
               </div>
-            ))}
+            ) : (
+              <div className="text-center py-20">
+                <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-bold text-gray-700 mb-2">No Private Groups Yet</h3>
+                <p className="text-gray-500">Create a private chat group from any city page to connect with other travelers</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -547,6 +625,28 @@ function ProfilePage() {
                 <h3 className="text-lg font-bold text-gray-900 mb-6">Account Settings</h3>
                 
                 <div className="space-y-2">
+                  {/* Change Password Button */}
+                  <button
+                    onClick={() => setIsChangePasswordOpen(true)}
+                    className="w-full flex items-center justify-between p-4 rounded-lg hover:bg-blue-50 transition-colors border border-gray-100"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                      </div>
+                      <div className="text-left">
+                        <p className="font-semibold text-gray-900">Change Password</p>
+                        <p className="text-sm text-gray-500">Update your password</p>
+                      </div>
+                    </div>
+                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+
+                  {/* Logout Button */}
                   <button
                     onClick={handleLogout}
                     className="w-full flex items-center justify-between p-4 rounded-lg hover:bg-red-50 transition-colors border border-gray-100"
@@ -572,6 +672,216 @@ function ProfilePage() {
           </div>
         )}
       </div>
+
+      {/* Change Password Modal */}
+      {isChangePasswordOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+            {/* Header */}
+            <div className="bg-[#4169e1] px-8 py-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-white">Change Password</h2>
+                <button
+                  onClick={handleCancelPasswordChange}
+                  className="text-white hover:text-gray-200 transition-colors"
+                  aria-label="Close"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <p className="text-blue-100 text-sm mt-2">Update your account password</p>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleChangePassword} className="p-8">
+              {/* Error Message */}
+              {passwordError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start space-x-2">
+                  <svg className="w-5 h-5 text-red-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                  <p className="text-red-800 text-sm">{passwordError}</p>
+                </div>
+              )}
+
+              {/* Success Message */}
+              {passwordSuccess && (
+                <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-start space-x-2">
+                  <svg className="w-5 h-5 text-green-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <p className="text-green-800 text-sm">{passwordSuccess}</p>
+                </div>
+              )}
+
+              {/* Current Password */}
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Current Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showCurrentPassword ? "text" : "password"}
+                    name="current_password"
+                    value={passwordFormData.current_password}
+                    onChange={handlePasswordFormChange}
+                    required
+                    className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter current password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                    aria-label={showCurrentPassword ? "Hide password" : "Show password"}
+                  >
+                    {showCurrentPassword ? (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* New Password */}
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  New Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showNewPassword ? "text" : "password"}
+                    name="new_password"
+                    value={passwordFormData.new_password}
+                    onChange={handlePasswordFormChange}
+                    required
+                    className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter new password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                    aria-label={showNewPassword ? "Hide password" : "Show password"}
+                  >
+                    {showNewPassword ? (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Must be at least 6 characters</p>
+              </div>
+
+              {/* Confirm New Password */}
+              <div className="mb-6">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Confirm New Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    name="confirm_password"
+                    value={passwordFormData.confirm_password}
+                    onChange={handlePasswordFormChange}
+                    required
+                    className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Confirm new password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                    aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                  >
+                    {showConfirmPassword ? (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Buttons */}
+              <div className="flex space-x-3">
+                <button
+                  type="button"
+                  onClick={handleCancelPasswordChange}
+                  className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+                  disabled={isChangingPassword}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isChangingPassword}
+                  className="flex-1 px-6 py-3 bg-[#4169e1] text-white rounded-lg font-semibold hover:bg-[#4169e1]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isChangingPassword ? 'Changing...' : 'Change Password'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Photo View Modal - Circular Display */}
+      {isPhotoViewOpen && hasProfilePhoto && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center">
+          {/* Photo Display in Circular Form */}
+          <div className="relative">
+            <div className="w-96 h-96 rounded-full overflow-hidden shadow-2xl border-8 border-white">
+              <img
+                src={user.profile_photo_url}
+                alt="Profile"
+                className="w-full h-full object-cover"
+              />
+            </div>
+
+            {/* Close Button - Royal Blue X on Top Right */}
+            <button
+              onClick={() => setIsPhotoViewOpen(false)}
+              className="absolute -top-4 -right-4 w-12 h-12 bg-[#4169E1] hover:bg-[#4169E1]/90 rounded-full flex items-center justify-center transition-all shadow-lg group"
+              aria-label="Close photo view"
+            >
+              <svg 
+                className="w-6 h-6 text-white group-hover:scale-110 transition-transform" 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Transparent Click Area to Close */}
+          <div
+            className="absolute inset-0 -z-10"
+            onClick={() => setIsPhotoViewOpen(false)}
+          />
+      </div>
+      )}
     </div>
   );
 }
