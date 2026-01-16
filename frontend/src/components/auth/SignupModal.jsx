@@ -87,17 +87,17 @@ function SignupModal({ isOpen, onClose, onSwitchToLogin }) {
         const userData = {
           full_name: formData.name,
           username: formData.username,
-          email: formData.email,
+        email: formData.email,
           password: formData.password,
           phone: formData.phone || undefined
         };
         
         await signup(userData);
-        
+      
         // Reset form and close modal on success
         setFormData({ name: '', username: '', email: '', phone: '', password: '', confirmPassword: '' });
-        setErrors({});
-        onClose();
+      setErrors({});
+      onClose();
       } catch (error) {
         setServerError(error.message || 'Failed to create account. Please try again.');
       } finally {
@@ -114,7 +114,7 @@ function SignupModal({ isOpen, onClose, onSwitchToLogin }) {
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm"
       onClick={handleBackdropClick}
     >
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">

@@ -16,21 +16,21 @@ import NotFound from './pages/NotFound';
 function App() {
   return (
     <AuthProvider>
-      <CityProvider>
-        <ChatProvider>
-          <BrowserRouter>
-            <Layout>
-              <Routes>
-                <Route path="/" element={<HomePage />} />
-                <Route path="/city/:cityName" element={<CityPage />} />
-                <Route path="/city/:cityName/chat/:chatId" element={<ChatPage />} />
-                <Route path="/profile" element={<ProfilePage />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </Layout>
-          </BrowserRouter>
-        </ChatProvider>
-      </CityProvider>
+    <CityProvider>
+      <ChatProvider>
+        <BrowserRouter>
+          <Layout>
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/city/:cityName" element={<CityPage />} />
+              <Route path="/city/:cityName/chat/:chatId" element={<ChatPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Layout>
+        </BrowserRouter>
+      </ChatProvider>
+    </CityProvider>
     </AuthProvider>
   );
 }
