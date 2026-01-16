@@ -19,11 +19,21 @@ export const CityProvider = ({ children }) => {
       try {
         setLoading(true);
         setError(null);
+        console.log('CityContext: Loading cities...');
         const allCities = await getAllCities();
-        setCities(allCities);
+        console.log('CityContext: Loaded cities:', allCities);
+        
+        if (allCities && allCities.length > 0) {
+          setCities(allCities);
+        } else {
+          console.warn('CityContext: No cities returned');
+          setError('No cities found in the database');
+          setCities([]);
+        }
       } catch (err) {
-        console.error('Error loading cities:', err);
-        setError(err.message || 'Failed to load cities');
+        console.error('CityContext: Error loading cities:', err);
+        const errorMessage = err.message || 'Failed to load cities. Make sure the backend server is running on http://localhost:3000';
+        setError(errorMessage);
         setCities([]); // Set empty array on error
       } finally {
         setLoading(false);
