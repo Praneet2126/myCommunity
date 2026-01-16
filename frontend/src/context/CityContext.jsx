@@ -11,30 +11,17 @@ export const CityProvider = ({ children }) => {
   const [cities, setCities] = useState([]);
   const [selectedCity, setSelectedCity] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
   // Load all cities on mount
   useEffect(() => {
     const loadCities = async () => {
+      setLoading(true);
       try {
-        setLoading(true);
-        setError(null);
-        console.log('CityContext: Loading cities...');
         const allCities = await getAllCities();
-        console.log('CityContext: Loaded cities:', allCities);
-        
-        if (allCities && allCities.length > 0) {
-          setCities(allCities);
-        } else {
-          console.warn('CityContext: No cities returned');
-          setError('No cities found in the database');
-          setCities([]);
-        }
-      } catch (err) {
-        console.error('CityContext: Error loading cities:', err);
-        const errorMessage = err.message || 'Failed to load cities. Make sure the backend server is running on http://localhost:3000';
-        setError(errorMessage);
-        setCities([]); // Set empty array on error
+        setCities(allCities);
+      } catch (error) {
+        console.error('Error loading cities:', error);
+        setCities([]);
       } finally {
         setLoading(false);
       }
@@ -48,24 +35,10 @@ export const CityProvider = ({ children }) => {
    */
   const selectCity = async (cityId) => {
     try {
-      // First try to find in already loaded cities
-      const cityFromList = cities.find(
-        city => 
-          city.id === cityId || 
-          city._id === cityId ||
-          city.name?.toLowerCase() === cityId.toLowerCase()
-      );
-      
-      if (cityFromList) {
-        setSelectedCity(cityFromList);
-        return;
-      }
-      
-      // If not found, fetch from API
       const city = await getCityById(cityId);
       setSelectedCity(city);
-    } catch (err) {
-      console.error('Error selecting city:', err);
+    } catch (error) {
+      console.error('Error selecting city:', error);
       setSelectedCity(null);
     }
   };
@@ -81,7 +54,6 @@ export const CityProvider = ({ children }) => {
     cities,
     selectedCity,
     loading,
-    error,
     selectCity,
     clearSelectedCity
   };

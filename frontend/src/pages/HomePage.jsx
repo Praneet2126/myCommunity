@@ -3,7 +3,7 @@ import CityCard from '../components/city/CityCard';
 import { APP_TAGLINE } from '../utils/constants';
 
 function HomePage() {
-  const { cities, loading, error } = useCity();
+  const { cities, loading } = useCity();
 
   return (
     <div className="min-h-screen bg-white">
@@ -118,27 +118,11 @@ function HomePage() {
         {loading ? (
           <div className="text-center py-20">
             <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-500 border-t-transparent mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading cities...</p>
-          </div>
-        ) : error ? (
-          <div className="text-center py-20">
-            <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
-              <svg className="w-12 h-12 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <h3 className="text-lg font-semibold text-red-800 mb-2">Failed to load cities</h3>
-              <p className="text-red-600 text-sm">{error}</p>
-              <p className="text-gray-600 text-xs mt-2">Make sure the backend server is running on http://localhost:3000</p>
-            </div>
-          </div>
-        ) : cities.length === 0 ? (
-          <div className="text-center py-20">
-            <p className="text-gray-600">No cities available</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {cities.map(city => (
-              <CityCard key={city._id || city.id || city.name} city={city} />
+              <CityCard key={city.id} city={city} />
             ))}
           </div>
         )}

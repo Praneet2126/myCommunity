@@ -9,7 +9,7 @@ import { Link } from 'react-router-dom';
 function CityCard({ city }) {
   return (
     <Link
-      to={`/city/${city.name || city.id || city._id}`}
+      to={`/city/${city.id}`}
       className="group relative overflow-hidden rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2"
     >
       {/* City Image */}
