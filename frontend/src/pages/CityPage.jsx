@@ -14,6 +14,7 @@ function CityPage() {
   const { selectCity, selectedCity } = useCity();
   const { user, isLoggedIn } = useAuth();
   const {
+    activeCityId,
     activeChatId,
     messages,
     privateChats,
@@ -143,6 +144,7 @@ function CityPage() {
                 <ChatList
                   privateChats={privateChats}
                   activeChatId={activeChatId}
+                  activeCityId={activeCityId}
                   onSelectChat={setChat}
                   onCreateChat={createPrivateChat}
                   cityName={selectedCity.displayName}

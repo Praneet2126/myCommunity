@@ -83,8 +83,11 @@ router.get('/search-by-email', authenticate, async (req, res, next) => {
       });
     }
 
-    const user = await User.findOne({ email: email.toLowerCase() })
-      .select('_id username email full_name profile_photo_url');
+    // Exclude the current user from search results (can't add yourself to a group)
+    const user = await User.findOne({ 
+      email: email.toLowerCase(),
+      _id: { $ne: req.user._id }
+    }).select('_id username email full_name profile_photo_url');
 
     if (!user) {
       return res.status(404).json({
