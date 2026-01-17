@@ -1,0 +1,57 @@
+# Content Moderation Test Examples
+# Format: EXPECTED_RESULT|MESSAGE_TEXT
+# EXPECTED_RESULT can be: BLOCK, FLAG, or ALLOW
+# Lines starting with # are comments and will be ignored
+
+# Spam examples
+BLOCK|BUY NOW!!! CLICK HERE!!! SPECIAL DEAL!!!
+BLOCK|aaaaaaaaaaaaaaaaaaaa
+BLOCK|Check out this amazing deal!!!!! Only $99!!!!!
+FLAG|This is a great hotel with amazing reviews!!!
+
+# Promotion examples
+BLOCK|DM me for the best hotel deals! Contact me now!
+BLOCK|Limited time offer! 50% off! Act now! Call 123-456-7890
+FLAG|I found a good deal on Booking.com, you should check it out
+ALLOW|I stayed at the Marriott and it was great
+
+# Suspicious links
+BLOCK|Check this out: http://192.168.1.1/offer
+BLOCK|Visit bit.ly/xyz123 for amazing deals
+FLAG|Here's a link: https://example.com
+ALLOW|I recommend checking out booking.com for hotels
+
+# Toxic content (will need AI)
+BLOCK|You are an idiot
+FLAG|That's a stupid idea
+ALLOW|I disagree with your opinion
+
+# Normal messages
+ALLOW|Hello, how are you doing?
+ALLOW|Has anyone been to Paris? I'm planning a trip
+ALLOW|The weather in Mumbai is great today!
+ALLOW|Thanks for the recommendation!
+
+# Edge cases
+ALLOW|I love traveling to NYC!
+ALLOW|The hotel was $200 per night
+FLAG|FREE SHIPPING! BUY NOW! LIMITED TIME!
+BLOCK|spam spam spam spam spam
+
+# Travel-specific legitimate content
+ALLOW|I'm planning a trip to Goa next month
+ALLOW|The beaches in Maldives are beautiful
+ALLOW|Has anyone tried the street food in Bangkok?
+ALLOW|I recommend visiting the Taj Mahal at sunrise
+
+# More spam patterns
+BLOCK|!!!!!URGENT!!!!! CLICK NOW!!!!!
+BLOCK|$$$$$ MAKE MONEY FAST $$$$$
+FLAG|Check out my travel blog at example.com
+ALLOW|I found a great restaurant recommendation
+
+# Link variations
+BLOCK|Visit http://suspicious-site.tk/offer
+FLAG|Check this: https://bit.ly/abc123
+ALLOW|Here's the official site: https://www.booking.com
+ALLOW|I booked through Expedia and it was fine

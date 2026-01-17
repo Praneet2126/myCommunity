@@ -1,16 +1,22 @@
-import { Link } from 'react-router-dom';
-
 /**
  * CityCard component
  * Displays city information in a card format
  * @param {Object} props - Component props
  * @param {Object} props.city - City object with id, name, description, image
+ * @param {Function} props.onClick - Optional click handler for the card
  */
-function CityCard({ city }) {
+function CityCard({ city, onClick }) {
+  const handleClick = (e) => {
+    if (onClick) {
+      e.preventDefault();
+      onClick(city);
+    }
+  };
+
   return (
-    <Link
-      to={`/city/${city.id}`}
-      className="group relative overflow-hidden rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2"
+    <div
+      onClick={handleClick}
+      className="group relative overflow-hidden rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 cursor-pointer"
     >
       {/* City Image */}
       <div className="relative h-64 overflow-hidden">
@@ -51,7 +57,7 @@ function CityCard({ city }) {
           </div>
         </div>
       </div>
-    </Link>
+    </div>
   );
 }
 

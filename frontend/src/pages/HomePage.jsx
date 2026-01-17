@@ -1,18 +1,34 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCity } from '../context/CityContext';
+import { useAuth } from '../context/AuthContext';
 import CityCard from '../components/city/CityCard';
+import LoginModal from '../components/auth/LoginModal';
+import SignupModal from '../components/auth/SignupModal';
 import { APP_TAGLINE } from '../utils/constants';
 import { searchCities } from '../services/cityService';
 
 function HomePage() {
   const { cities, loading } = useCity();
+  const { isLoggedIn } = useAuth();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [isSignupOpen, setIsSignupOpen] = useState(false);
+  const [pendingCityId, setPendingCityId] = useState(null);
+  const [randomCities, setRandomCities] = useState([]);
   const searchRef = useRef(null);
+  
+  // Shuffle cities for random display
+  useEffect(() => {
+    if (cities && cities.length > 0) {
+      const shuffled = [...cities].sort(() => Math.random() - 0.5);
+      setRandomCities(shuffled.slice(0, 6));
+    }
+  }, [cities]);
   
   // Handle search input change
   const handleSearchChange = async (e) => {
@@ -39,11 +55,47 @@ function HomePage() {
     }
   };
   
+  // Handle city card click
+  const handleCityClick = (city) => {
+    if (isLoggedIn) {
+      navigate(`/city/${city.id}`);
+    } else {
+      setPendingCityId(city.id);
+      setIsLoginOpen(true);
+    }
+  };
+
   // Handle city selection from dropdown
   const handleCitySelect = (city) => {
     setSearchQuery('');
     setShowDropdown(false);
-    navigate(`/city/${city.id}`);
+    if (isLoggedIn) {
+      navigate(`/city/${city.id}`);
+    } else {
+      setPendingCityId(city.id);
+      setIsLoginOpen(true);
+    }
+  };
+
+  // Handle modal close
+  const handleCloseLogin = () => {
+    setIsLoginOpen(false);
+    setPendingCityId(null);
+  };
+
+  const handleCloseSignup = () => {
+    setIsSignupOpen(false);
+    setPendingCityId(null);
+  };
+
+  const handleSwitchToSignup = () => {
+    setIsLoginOpen(false);
+    setIsSignupOpen(true);
+  };
+
+  const handleSwitchToLogin = () => {
+    setIsSignupOpen(false);
+    setIsLoginOpen(true);
   };
   
   // Close dropdown when clicking outside
@@ -57,6 +109,16 @@ function HomePage() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Navigate to pending city after successful login
+  useEffect(() => {
+    if (isLoggedIn && pendingCityId) {
+      setIsLoginOpen(false);
+      setIsSignupOpen(false);
+      navigate(`/city/${pendingCityId}`);
+      setPendingCityId(null);
+    }
+  }, [isLoggedIn, pendingCityId, navigate]);
 
   return (
     <div className="min-h-screen bg-white">
@@ -229,12 +291,26 @@ function HomePage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {cities.map(city => (
-              <CityCard key={city.id} city={city} />
+            {randomCities.map(city => (
+              <CityCard key={city.id} city={city} onClick={handleCityClick} />
             ))}
           </div>
         )}
       </div>
+
+      {/* Login Modal */}
+      <LoginModal
+        isOpen={isLoginOpen}
+        onClose={handleCloseLogin}
+        onSwitchToSignup={handleSwitchToSignup}
+      />
+
+      {/* Signup Modal */}
+      <SignupModal
+        isOpen={isSignupOpen}
+        onClose={handleCloseSignup}
+        onSwitchToLogin={handleSwitchToLogin}
+      />
     </div>
   );
 }

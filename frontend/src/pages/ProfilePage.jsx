@@ -640,7 +640,7 @@ function ProfilePage() {
 
         {/* Groups Tab */}
         {activeTab === 'groups' && (
-          <div>
+                    <div>
             {loadingGroups ? (
               <div className="flex items-center justify-center py-20">
                 <div className="text-center">
@@ -671,12 +671,12 @@ function ProfilePage() {
                           <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                           </svg>
-                        </div>
+                    </div>
                         <div className="flex-1 min-w-0">
                           <h3 className="font-bold text-gray-900 truncate">{group.name}</h3>
                           <p className="text-sm text-gray-600">{group.members || 0} members</p>
-                        </div>
-                      </div>
+                    </div>
+                    </div>
                       {group.description && (
                         <p className="text-sm text-gray-600 mb-4 line-clamp-2">{group.description}</p>
                       )}
@@ -815,6 +815,7 @@ function ProfilePage() {
                     value={passwordFormData.current_password}
                     onChange={handlePasswordFormChange}
                     required
+                    autoComplete="off"
                     className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Enter current password"
                   />
@@ -850,6 +851,7 @@ function ProfilePage() {
                     value={passwordFormData.new_password}
                     onChange={handlePasswordFormChange}
                     required
+                    autoComplete="new-password"
                     className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Enter new password"
                   />
@@ -886,6 +888,7 @@ function ProfilePage() {
                     value={passwordFormData.confirm_password}
                     onChange={handlePasswordFormChange}
                     required
+                    autoComplete="new-password"
                     className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Confirm new password"
                   />
@@ -925,9 +928,9 @@ function ProfilePage() {
                   className="flex-1 px-6 py-3 bg-[#4169e1] text-white rounded-lg font-semibold hover:bg-[#4169e1]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isChangingPassword ? 'Changing...' : 'Change Password'}
-                </button>
-              </div>
-            </form>
+                  </button>
+                </div>
+              </form>
           </div>
         </div>
       )}
