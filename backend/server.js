@@ -61,6 +61,7 @@ app.post('/api/cities/seed', async (req, res, next) => {
     const CityChat = require('./models/CityChat');
 
     const cities = [
+    
       {
         name: 'Mumbai',
         displayName: 'Mumbai',
