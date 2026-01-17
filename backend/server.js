@@ -61,40 +61,13 @@ app.post('/api/cities/seed', async (req, res, next) => {
     const CityChat = require('./models/CityChat');
 
     const cities = [
+    
       {
-        name: 'Mumbai',
-        displayName: 'Mumbai',
-        description: 'The City of Dreams - Financial capital of India',
-        image: 'https://images.unsplash.com/photo-1529253355930-ddbe423a2ac7?w=800',
-        tagline: 'Experience the vibrant energy of India\'s financial capital'
-      },
-      {
-        name: 'Delhi',
-        displayName: 'Delhi',
-        description: 'The heart of India - Rich history and culture',
-        image: 'https://images.unsplash.com/photo-1587474260584-136574528ed5?w=800',
-        tagline: 'Discover the historic capital of India'
-      },
-      {
-        name: 'Bangalore',
-        displayName: 'Bangalore',
-        description: 'The Silicon Valley of India - Tech hub and Garden City',
-        image: 'https://images.unsplash.com/photo-1596176530529-78163a4f7af2?w=800',
-        tagline: 'Explore the tech capital with perfect weather'
-      },
-      {
-        name: 'Goa',
-        displayName: 'Goa',
-        description: 'Beach paradise - Sun, sand, and Portuguese heritage',
-        image: 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=800',
-        tagline: 'Relax on pristine beaches and enjoy the vibrant nightlife'
-      },
-      {
-        name: 'Jaipur',
-        displayName: 'Jaipur',
-        description: 'The Pink City - Royal heritage and magnificent forts',
-        image: 'https://images.unsplash.com/photo-1599661046289-e31897846e41?w=800',
-        tagline: 'Step into the royal history of Rajasthan'
+        name: 'Kolkata',
+        displayName: 'Kolkata',
+        description: 'The City of Joy - Cultural capital',
+        image: 'https://unsplash.com/photos/a-large-bridge-spanning-over-a-large-body-of-water-5-eNnQ4fEvk',
+        tagline: 'Experience the rich heritage of Kolkata'
       }
     ];
 
