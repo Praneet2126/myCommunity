@@ -243,6 +243,7 @@ function SignupModal({ isOpen, onClose, onSwitchToLogin }) {
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
+                autoComplete="new-password"
                 className={`w-full px-4 py-3 pr-12 border rounded-lg focus:outline-none focus:ring-2 transition-all ${
                   errors.password
                     ? 'border-red-500 focus:ring-red-200'
@@ -285,6 +286,7 @@ function SignupModal({ isOpen, onClose, onSwitchToLogin }) {
                 name="confirmPassword"
                 value={formData.confirmPassword}
                 onChange={handleChange}
+                autoComplete="new-password"
                 className={`w-full px-4 py-3 pr-12 border rounded-lg focus:outline-none focus:ring-2 transition-all ${
                   errors.confirmPassword
                     ? 'border-red-500 focus:ring-red-200'

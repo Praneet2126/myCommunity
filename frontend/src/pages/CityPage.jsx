@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useCity } from '../context/CityContext';
 import { useChat } from '../context/ChatContext';
 import { useAuth } from '../context/AuthContext';
@@ -11,6 +11,7 @@ import { getCityById, joinCity } from '../services/cityService';
 
 function CityPage() {
   const { cityName } = useParams();
+  const navigate = useNavigate();
   const { selectCity, selectedCity } = useCity();
   const { user, isLoggedIn } = useAuth();
   const {
@@ -30,6 +31,13 @@ function CityPage() {
   
   // Track if we've already initialized for this city
   const initializedCityRef = useRef(null);
+
+  // Redirect to home if not logged in
+  useEffect(() => {
+    if (!isLoggedIn) {
+      navigate('/', { replace: true });
+    }
+  }, [isLoggedIn, navigate]);
 
   // Memoize the load function to prevent recreation
   const loadCityAndJoin = useCallback(async () => {
