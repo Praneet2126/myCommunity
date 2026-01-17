@@ -1,10 +1,11 @@
-import { useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useCity } from '../context/CityContext';
 import { useChat } from '../context/ChatContext';
+import { useAuth } from '../context/AuthContext';
 import ChatList from '../components/chat/ChatList';
 import ChatWindow from '../components/chat/ChatWindow';
-import { getCityById } from '../services/cityService';
+import { getCityById, joinCity } from '../services/cityService';
 
 /**
  * ChatPage component
@@ -13,7 +14,9 @@ import { getCityById } from '../services/cityService';
 
 function ChatPage() {
   const { cityName, chatId } = useParams();
+  const navigate = useNavigate();
   const { selectCity, selectedCity } = useCity();
+  const { user, isLoggedIn } = useAuth();
   const {
     activeChatId,
     messages,
@@ -25,20 +28,62 @@ function ChatPage() {
     getCurrentChat
   } = useChat();
 
-  // Load city data
+  const [joining, setJoining] = useState(false);
+  
+  // Track if we've already initialized for this city
+  const initializedCityRef = useRef(null);
+
+  // Redirect to home if not logged in
   useEffect(() => {
-    if (cityName) {
-      const city = getCityById(cityName);
+    if (!isLoggedIn) {
+      navigate('/', { replace: true });
+    }
+  }, [isLoggedIn, navigate]);
+
+  // Memoize the load function to prevent recreation
+  const loadCityAndJoin = useCallback(async () => {
+    if (!cityName || initializedCityRef.current === cityName) return;
+    
+    try {
+      const city = await getCityById(cityName);
       if (city) {
+        // Mark this city as initialized
+        initializedCityRef.current = cityName;
+        
         selectCity(city.id);
+        
+        // Auto-join city if user is logged in
+        if (isLoggedIn && user) {
+          setJoining(true);
+          
+          try {
+            await joinCity(city.id);
+            console.log('Joined city for chat');
+          } catch (error) {
+            console.error('Failed to join city:', error);
+          } finally {
+            setJoining(false);
+          }
+        }
+        
+        // Set city for chat context
         setCity(city.id);
       }
+    } catch (error) {
+      console.error('Error loading city:', error);
     }
-  }, [cityName, selectCity, setCity]);
+  }, [cityName, isLoggedIn, user, selectCity, setCity]);
 
-  // Set active chat from URL
+  // Load city data and auto-join (only when cityName changes)
   useEffect(() => {
-    if (chatId) {
+    loadCityAndJoin();
+  }, [loadCityAndJoin]);
+
+  // Set active chat from URL (only when chatId changes)
+  const previousChatIdRef = useRef(null);
+  useEffect(() => {
+    if (chatId && chatId !== previousChatIdRef.current) {
+      previousChatIdRef.current = chatId;
       setChat(chatId);
     }
   }, [chatId, setChat]);
@@ -117,6 +162,11 @@ function ChatPage() {
               messages={messages}
               onSendMessage={sendMessage}
               chatName={chatDisplayName}
+              privateChats={privateChats}
+              activeChatId={activeChatId}
+              onSelectChat={setChat}
+              onCreateChat={createPrivateChat}
+              cityName={selectedCity.displayName}
             />
           </div>
         </div>

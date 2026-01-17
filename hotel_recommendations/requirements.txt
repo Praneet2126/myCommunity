@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+aiohttp
+requests
+pydantic
+torch
+clip @ git+https://github.com/openai/CLIP.git
+numpy

@@ -33,6 +33,14 @@ module.exports = (io, socket) => {
         });
       }
 
+      // Ensure CityChat exists (create if not)
+      let cityChat = await CityChat.findOne({ city_id: cityId });
+      if (!cityChat) {
+        cityChat = new CityChat({ city_id: cityId });
+        await cityChat.save();
+        console.log(`📝 Created CityChat for city: ${city.name}`);
+      }
+
       // Join the room
       const roomName = `city-${cityId}`;
       socket.join(roomName);
@@ -124,11 +132,12 @@ module.exports = (io, socket) => {
         });
       }
 
-      // Get city chat
-      const cityChat = await CityChat.findOne({ city_id: cityId });
-
+      // Ensure CityChat exists (create if not)
+      let cityChat = await CityChat.findOne({ city_id: cityId });
       if (!cityChat) {
-        return socket.emit('error', { message: 'City chat not found' });
+        cityChat = new CityChat({ city_id: cityId });
+        await cityChat.save();
+        console.log(`📝 Created CityChat for city: ${cityId}`);
       }
 
       // Content moderation check

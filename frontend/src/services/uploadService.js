@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 /**
  * Upload profile photo to Cloudinary
@@ -85,6 +85,36 @@ export const getUserProfile = async () => {
 
   if (!response.ok) {
     throw new Error(data.message || 'Failed to fetch profile');
+  }
+
+  return data;
+};
+
+/**
+ * Change user password
+ * @param {Object} passwordData - Object containing current_password and new_password
+ * @returns {Promise<Object>}
+ */
+export const changePassword = async (passwordData) => {
+  const token = localStorage.getItem('token');
+  
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
+  const response = await fetch(`${API_URL}/users/change-password`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify(passwordData)
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to change password');
   }
 
   return data;

@@ -1,0 +1,152 @@
+{
+    "extracted_preferences": {
+        "area": null,
+        "max_price": 20000.0,
+        "min_price": null,
+        "amenities": [],
+        "room_types": [],
+        "visual_descriptors": [
+            "beach",
+            "sea",
+            "ocean",
+            "waterfront",
+            "sand",
+            "beach view"
+        ],
+        "other_requirements": []
+    },
+    "recommendations": [
+        {
+            "hotel": {
+                "name": "Rega Candolim",
+                "hotel_code": "1000000121",
+                "amenities": [
+                    "Activities & Experiences",
+                    "Balcony",
+                    "Banquet",
+                    "Bar",
+                    "Barbeque",
+                    "Bathtub",
+                    "Bed",
+                    "Beverage Menu",
+                    "Bonfire",
+                    "Camp Site",
+                    "Club house",
+                    "Conference Room",
+                    "Dining",
+                    "Elevator",
+                    "Entrance",
+                    "Facade",
+                    "Fitness Centre",
+                    "Food",
+                    "Food Menu",
+                    "Garden",
+                    "Golf Court",
+                    "Gym",
+                    "Jacuzzi",
+                    "Kitchen",
+                    "Liquid Soap Dispenser",
+                    "Living Area",
+                    "Lobby/Common Area",
+                    "Lounge",
+                    "Menu",
+                    "Outside View",
+                    "Parking",
+                    "Play Area",
+                    "Private Pool",
+                    "Reception",
+                    "Registration Certificate",
+                    "Restaurant/cafe",
+                    "Room",
+                    "Signature Amenity",
+                    "Spa",
+                    "Study Area",
+                    "Swimming Pool",
+                    "Terrace",
+                    "Toiletries",
+                    "View ",
+                    "Washroom"
+                ],
+                "room_types": [
+                    "Family Suite with Balcony",
+                    "Club Room with Balcony",
+                    "Standard Room",
+                    "Club Room with Balcony Holiday Selection",
+                    "Standard Room Holiday Selection"
+                ],
+                "description": "Detailed information for Rega Candolim with 45 amenities and 5 room types."
+            },
+            "explanation": "I recommend Rega Candolim because its images confirm your requested vibe and it has Visual Vibe Match.",
+            "matched_preferences": [
+                "Visual Vibe Match"
+            ]
+        },
+        {
+            "hotel": {
+                "name": "Adamo The Bellus Calangute",
+                "hotel_code": "1000000073",
+                "amenities": [
+                    "Activities & Experiences",
+                    "Balcony",
+                    "Banquet",
+                    "Bar",
+                    "Barbeque",
+                    "Bathtub",
+                    "Bed",
+                    "Beverage Menu",
+                    "Bonfire",
+                    "Camp Site",
+                    "Club house",
+                    "Conference Room",
+                    "Dining",
+                    "Elevator",
+                    "Entrance",
+                    "Facade",
+                    "Fitness Centre",
+                    "Food",
+                    "Food Menu",
+                    "Garden",
+                    "Golf Court",
+                    "Gym",
+                    "Jacuzzi",
+                    "Kitchen",
+                    "Liquid Soap Dispenser",
+                    "Living Area",
+                    "Lobby/Common Area",
+                    "Lounge",
+                    "Menu",
+                    "Others",
+                    "Outside View",
+                    "Parking",
+                    "Play Area",
+                    "Private Pool",
+                    "Reception",
+                    "Registration Certificate",
+                    "Restaurant/cafe",
+                    "Room",
+                    "Signature Amenity",
+                    "Spa",
+                    "Study Area",
+                    "Swimming Pool",
+                    "Terrace",
+                    "Toiletries",
+                    "View ",
+                    "Washroom"
+                ],
+                "room_types": [
+                    "Bellus Suites Room with Private Jacuzzi and Pool view",
+                    "Deluxe Double Or Twin Room",
+                    "Suite Room with Bathtub",
+                    "Regency Room"
+                ],
+                "description": "Detailed information for Adamo The Bellus Calangute with 46 amenities and 4 room types."
+            },
+            "explanation": "I recommend Adamo The Bellus Calangute because its images confirm your requested vibe and it has Visual Vibe Match.",
+            "matched_preferences": [
+                "Visual Vibe Match"
+            ]
+        }
+    ],
+    "is_ready": false,
+    "readiness_score": 0.6
+}
