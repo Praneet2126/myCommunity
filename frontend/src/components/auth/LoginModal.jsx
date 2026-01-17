@@ -86,7 +86,7 @@ function LoginModal({ isOpen, onClose, onSwitchToSignup }) {
         {/* Header */}
         <div className="bg-[#4169e1] px-8 py-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-white">Welcome Back</h2>
+            <h2 className="text-2xl font-bold text-white">Welcome Back!</h2>
             <button
               onClick={onClose}
               className="text-white hover:text-gray-200 transition-colors"
@@ -137,6 +137,7 @@ function LoginModal({ isOpen, onClose, onSwitchToSignup }) {
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
+                autoComplete="off"
                 className={`w-full px-4 py-3 pr-12 border rounded-lg focus:outline-none focus:ring-2 transition-all ${
                   errors.password
                     ? 'border-red-500 focus:ring-red-200'

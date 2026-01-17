@@ -1,6 +1,7 @@
 const PrivateChat = require('../../models/PrivateChat');
 const PrivateChatParticipant = require('../../models/PrivateChatParticipant');
 const Message = require('../../models/Message');
+const contentModerator = require('../../moderation');
 
 module.exports = (io, socket) => {
   
@@ -122,6 +123,21 @@ module.exports = (io, socket) => {
         });
       }
 
+      // Content moderation check
+      const moderationResult = await contentModerator.moderate(
+        content,
+        socket.user._id.toString(),
+        'private'
+      );
+
+      if (!moderationResult.allowed) {
+        return socket.emit('error', {
+          message: 'Message blocked by content moderation',
+          reason: moderationResult.reason || 'Content violates community guidelines',
+          flags: moderationResult.flags
+        });
+      }
+
       // Create message
       const message = new Message({
         sender_id: socket.user._id,
@@ -182,6 +198,21 @@ module.exports = (io, socket) => {
       if (message.sender_id.toString() !== socket.user._id.toString()) {
         return socket.emit('error', { 
           message: 'You can only edit your own messages' 
+        });
+      }
+
+      // Content moderation check for edited content
+      const moderationResult = await contentModerator.moderate(
+        content,
+        socket.user._id.toString(),
+        'private'
+      );
+
+      if (!moderationResult.allowed) {
+        return socket.emit('error', {
+          message: 'Edited message blocked by content moderation',
+          reason: moderationResult.reason || 'Content violates community guidelines',
+          flags: moderationResult.flags
         });
       }
 

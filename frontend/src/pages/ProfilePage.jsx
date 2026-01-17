@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useChat } from '../context/ChatContext';
 import { uploadProfilePhoto, updateProfile, changePassword } from '../services/uploadService';
 
 /**
@@ -15,6 +16,7 @@ function ProfilePage() {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [profileFormData, setProfileFormData] = useState({
     full_name: '',
+    username: '',
     phone: ''
   });
   const [updateError, setUpdateError] = useState('');
@@ -33,7 +35,8 @@ function ProfilePage() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const fileInputRef = useRef(null);
-  const { user, logout, updateUser, refreshProfile } = useAuth();
+  const { user, token, logout, updateUser, refreshProfile } = useAuth();
+  const { setCity, setChat } = useChat();
   const navigate = useNavigate();
 
   // Initialize profile form data when user changes
@@ -41,6 +44,7 @@ function ProfilePage() {
     if (user) {
       setProfileFormData({
         full_name: user.full_name || '',
+        username: user.username || '',
         phone: user.phone || ''
       });
     }
@@ -143,6 +147,7 @@ function ProfilePage() {
     setIsEditingProfile(false);
     setProfileFormData({
       full_name: user?.full_name || '',
+      username: user?.username || '',
       phone: user?.phone || ''
     });
     setUpdateError('');
@@ -219,6 +224,63 @@ function ProfilePage() {
 
   // State for private chats/groups
   const [privateChats, setPrivateChats] = useState([]);
+  const [loadingGroups, setLoadingGroups] = useState(false);
+
+  // Fetch user's private chats/groups
+  const fetchPrivateGroups = useCallback(async () => {
+    if (!token) return;
+    
+    setLoadingGroups(true);
+    try {
+      const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
+      
+      const response = await fetch(`${BASE_URL}/api/chats`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Transform to frontend format
+        const chats = (data.data || []).map(chat => ({
+          id: chat._id,
+          name: chat.name,
+          description: chat.description,
+          cityId: chat.city_id?._id || chat.city_id,
+          cityName: chat.city_id?.displayName || chat.city_id?.name,
+          createdBy: chat.created_by,
+          createdAt: chat.created_at,
+          members: chat.participant_count || 0
+        }));
+        
+        setPrivateChats(chats);
+      }
+    } catch (error) {
+      console.error('Error fetching private groups:', error);
+    } finally {
+      setLoadingGroups(false);
+    }
+  }, [token]);
+
+  // Fetch private groups when tab changes to 'groups'
+  useEffect(() => {
+    if (activeTab === 'groups' && token) {
+      fetchPrivateGroups();
+    }
+  }, [activeTab, token, fetchPrivateGroups]);
+
+  // Handle opening a private chat
+  const handleOpenChat = (group) => {
+    if (group.cityId) {
+      setCity(group.cityId);
+      setChat(group.id);
+      navigate(`/city/${group.cityId}`);
+    }
+  };
 
   // Redirect if not logged in
   if (!user) {
@@ -323,7 +385,7 @@ function ProfilePage() {
                           </div>
                           <div>
                             <p className="font-semibold text-gray-900">View Photo</p>
-                            <p className="text-xs text-gray-500">See full size</p>
+                            <p className="text-xs text-gray-500">Click here to view</p>
                           </div>
                         </button>
                         <button
@@ -468,6 +530,21 @@ function ProfilePage() {
                     />
                   </div>
                   <div>
+                    <label className="text-sm font-semibold text-gray-600">Username</label>
+                    <input
+                      type="text"
+                      name="username"
+                      value={profileFormData.username}
+                      onChange={handleProfileFormChange}
+                      className="w-full mt-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4169e1]/30 focus:border-[#4169e1]"
+                      required
+                      pattern="^[a-zA-Z0-9_]+$"
+                      title="Username can only contain letters, numbers, and underscores"
+                      minLength={3}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Username must be at least 3 characters (letters, numbers, underscores only)</p>
+                  </div>
+                  <div>
                     <label className="text-sm font-semibold text-gray-600">Email</label>
                     <input
                       type="email"
@@ -563,8 +640,15 @@ function ProfilePage() {
 
         {/* Groups Tab */}
         {activeTab === 'groups' && (
-          <div>
-            {privateChats.length > 0 ? (
+                    <div>
+            {loadingGroups ? (
+              <div className="flex items-center justify-center py-20">
+                <div className="text-center">
+                  <div className="w-12 h-12 border-4 border-[#4169e1] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                  <p className="text-gray-500">Loading your groups...</p>
+                </div>
+              </div>
+            ) : privateChats.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {privateChats.map((group) => (
                   <div key={group.id} className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100 hover:shadow-md transition-shadow">
@@ -587,16 +671,19 @@ function ProfilePage() {
                           <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                           </svg>
-                        </div>
+                    </div>
                         <div className="flex-1 min-w-0">
                           <h3 className="font-bold text-gray-900 truncate">{group.name}</h3>
                           <p className="text-sm text-gray-600">{group.members || 0} members</p>
-                        </div>
-                      </div>
+                    </div>
+                    </div>
                       {group.description && (
                         <p className="text-sm text-gray-600 mb-4 line-clamp-2">{group.description}</p>
                       )}
-                      <button className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors">
+                      <button 
+                        onClick={() => handleOpenChat(group)}
+                        className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                      >
                         Open Chat
                       </button>
                     </div>
@@ -728,6 +815,7 @@ function ProfilePage() {
                     value={passwordFormData.current_password}
                     onChange={handlePasswordFormChange}
                     required
+                    autoComplete="off"
                     className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Enter current password"
                   />
@@ -763,6 +851,7 @@ function ProfilePage() {
                     value={passwordFormData.new_password}
                     onChange={handlePasswordFormChange}
                     required
+                    autoComplete="new-password"
                     className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Enter new password"
                   />
@@ -799,6 +888,7 @@ function ProfilePage() {
                     value={passwordFormData.confirm_password}
                     onChange={handlePasswordFormChange}
                     required
+                    autoComplete="new-password"
                     className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Confirm new password"
                   />
@@ -838,9 +928,9 @@ function ProfilePage() {
                   className="flex-1 px-6 py-3 bg-[#4169e1] text-white rounded-lg font-semibold hover:bg-[#4169e1]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isChangingPassword ? 'Changing...' : 'Change Password'}
-                </button>
-              </div>
-            </form>
+                  </button>
+                </div>
+              </form>
           </div>
         </div>
       )}

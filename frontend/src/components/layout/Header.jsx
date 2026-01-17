@@ -52,16 +52,23 @@ function Header() {
             >
               Home
             </Link>
+
+
+            
             <Link
               to="/cities"
               className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
-                location.pathname.startsWith('/city')
+                location.pathname.startsWith('/cities')
                   ? 'text-blue-600 bg-blue-50'
                   : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50'
               }`}
             >
               Cities
             </Link>
+
+
+
+
             <Link
               to="/events"
               className="px-4 py-2 rounded-lg text-sm font-semibold text-gray-700 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200"

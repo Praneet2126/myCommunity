@@ -46,9 +46,9 @@ function ChatWindow({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showPrivateChatsDropdown]);
 
-  const handleCreateChat = (chatName, description) => {
+  const handleCreateChat = async (chatName, description, participants) => {
     if (onCreateChat) {
-      const newChat = onCreateChat(chatName, description);
+      const newChat = await onCreateChat(chatName, description, participants);
       // Automatically switch to the newly created chat
       if (newChat && newChat.id && onSelectChat) {
         onSelectChat(newChat.id);

@@ -6,6 +6,16 @@ const privateChatSchema = new mongoose.Schema({
     trim: true,
     maxlength: [100, 'Chat name cannot exceed 100 characters']
   },
+  description: {
+    type: String,
+    trim: true,
+    maxlength: [500, 'Description cannot exceed 500 characters']
+  },
+  city_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'City',
+    required: true
+  },
   created_by: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -22,6 +32,7 @@ const privateChatSchema = new mongoose.Schema({
 });
 
 privateChatSchema.index({ created_by: 1 });
+privateChatSchema.index({ city_id: 1 });
 privateChatSchema.index({ last_message_at: -1 });
 
 module.exports = mongoose.model('PrivateChat', privateChatSchema);

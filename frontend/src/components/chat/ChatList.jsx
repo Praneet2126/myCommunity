@@ -10,18 +10,25 @@ import CreatePrivateChat from './CreatePrivateChat';
  * @param {Function} props.onSelectChat - Callback when chat is selected
  * @param {Function} props.onCreateChat - Callback to create new private chat
  * @param {string} props.cityName - Name of the city
+ * @param {string} props.activeCityId - Current city ID to filter private chats
  */
 function ChatList({
   privateChats,
   activeChatId,
   onSelectChat,
   onCreateChat,
-  cityName
+  cityName,
+  activeCityId
 }) {
   const [showCreateModal, setShowCreateModal] = useState(false);
 
-  const handleCreateChat = (chatName, description) => {
-    onCreateChat(chatName, description);
+  // Filter private chats for current city
+  const cityPrivateChats = privateChats.filter(chat => chat.cityId === activeCityId);
+  // Other private chats from different cities
+  const otherPrivateChats = privateChats.filter(chat => chat.cityId !== activeCityId);
+
+  const handleCreateChat = async (chatName, description, participants) => {
+    await onCreateChat(chatName, description, participants);
     setShowCreateModal(false);
   };
 
@@ -75,16 +82,16 @@ function ChatList({
           </div>
         </button>
 
-        {/* Private Chats */}
-        {privateChats.length > 0 && (
+        {/* Private Chats for Current City */}
+        {cityPrivateChats.length > 0 && (
           <div className="px-4 py-2">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-              Private Chats
+              Private Chats in {cityName}
             </p>
           </div>
         )}
 
-        {privateChats.map((chat) => (
+        {cityPrivateChats.map((chat) => (
           <button
             key={chat.id}
             onClick={() => onSelectChat(chat.id)}
@@ -107,6 +114,40 @@ function ChatList({
             </div>
           </button>
         ))}
+
+        {/* Private Chats from Other Cities */}
+        {otherPrivateChats.length > 0 && (
+          <>
+            <div className="px-4 py-2 mt-2">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                Other Cities
+              </p>
+            </div>
+            {otherPrivateChats.map((chat) => (
+              <button
+                key={chat.id}
+                onClick={() => onSelectChat(chat.id)}
+                className={`w-full text-left px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors ${
+                  activeChatId === chat.id
+                    ? 'bg-orange-50 border-l-4 border-l-[#FF6B35]'
+                    : ''
+                }`}
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 rounded-full bg-[#9C27B0] flex items-center justify-center text-white font-bold">
+                    {chat.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-800 truncate">{chat.name}</p>
+                    <p className="text-xs text-purple-600 truncate">
+                      📍 {chat.cityName || 'Unknown City'}
+                    </p>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </>
+        )}
 
         {privateChats.length === 0 && (
           <div className="px-4 py-8 text-center">

@@ -102,14 +102,26 @@ const messageValidation = [
 
 const privateChatValidation = [
   body('name')
-    .optional()
     .trim()
+    .notEmpty()
+    .withMessage('Chat name is required')
     .isLength({ max: 100 })
     .withMessage('Chat name cannot exceed 100 characters'),
+  body('description')
+    .optional()
+    .trim()
+    .isLength({ max: 500 })
+    .withMessage('Description cannot exceed 500 characters'),
+  body('city_id')
+    .notEmpty()
+    .withMessage('City ID is required')
+    .isMongoId()
+    .withMessage('Invalid city ID'),
   body('participant_ids')
-    .isArray({ min: 1 })
-    .withMessage('At least one participant is required'),
+    .isArray()
+    .withMessage('Participant IDs must be an array'),
   body('participant_ids.*')
+    .optional()
     .isMongoId()
     .withMessage('Invalid participant ID'),
   validate

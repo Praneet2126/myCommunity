@@ -20,10 +20,21 @@ router.get('/profile', authenticate, async (req, res, next) => {
 // Update user profile
 router.put('/profile', authenticate, updateProfileValidation, async (req, res, next) => {
   try {
-    const { full_name, phone, profile_photo_url } = req.body;
+    const { full_name, username, phone, profile_photo_url } = req.body;
 
     const updateData = {};
     if (full_name) updateData.full_name = full_name;
+    if (username) {
+      // Check if username is already taken by another user
+      const existingUser = await User.findOne({ username, _id: { $ne: req.user._id } });
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          message: 'Username is already taken'
+        });
+      }
+      updateData.username = username;
+    }
     if (phone) updateData.phone = phone;
     if (profile_photo_url) updateData.profile_photo_url = profile_photo_url;
 
@@ -83,8 +94,11 @@ router.get('/search-by-email', authenticate, async (req, res, next) => {
       });
     }
 
-    const user = await User.findOne({ email: email.toLowerCase() })
-      .select('_id username email full_name profile_photo_url');
+    // Exclude the current user from search results (can't add yourself to a group)
+    const user = await User.findOne({ 
+      email: email.toLowerCase(),
+      _id: { $ne: req.user._id }
+    }).select('_id username email full_name profile_photo_url');
 
     if (!user) {
       return res.status(404).json({

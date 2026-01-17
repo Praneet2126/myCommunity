@@ -6,6 +6,7 @@ const Message = require('../models/Message');
 const User = require('../models/User');
 const { authenticate } = require('../middleware/auth');
 const { privateChatValidation, messageValidation, paginationValidation } = require('../middleware/validator');
+const contentModerator = require('../moderation');
 
 // Get user's private chats
 router.get('/', authenticate, async (req, res, next) => {
@@ -14,18 +15,43 @@ router.get('/', authenticate, async (req, res, next) => {
       user_id: req.user._id
     }).populate({
       path: 'chat_id',
-      populate: {
-        path: 'created_by',
-        select: 'username full_name profile_photo_url'
-      }
+      populate: [
+        {
+          path: 'created_by',
+          select: 'username full_name profile_photo_url'
+        },
+        {
+          path: 'city_id',
+          select: 'name displayName'
+        }
+      ]
     }).sort({ 'chat_id.last_message_at': -1 });
 
     const chats = participations.map(p => p.chat_id).filter(chat => chat !== null);
 
+    // Get participant counts for each chat
+    const chatIds = chats.map(c => c._id);
+    const participantCounts = await PrivateChatParticipant.aggregate([
+      { $match: { chat_id: { $in: chatIds } } },
+      { $group: { _id: '$chat_id', count: { $sum: 1 } } }
+    ]);
+    
+    // Create a map of chat_id -> count
+    const countMap = {};
+    participantCounts.forEach(pc => {
+      countMap[pc._id.toString()] = pc.count;
+    });
+
+    // Add participant_count to each chat
+    const chatsWithCounts = chats.map(chat => ({
+      ...chat.toObject(),
+      participant_count: countMap[chat._id.toString()] || 0
+    }));
+
     res.status(200).json({
       success: true,
-      count: chats.length,
-      data: chats
+      count: chatsWithCounts.length,
+      data: chatsWithCounts
     });
   } catch (error) {
     next(error);
@@ -35,7 +61,17 @@ router.get('/', authenticate, async (req, res, next) => {
 // Create new private chat
 router.post('/', authenticate, privateChatValidation, async (req, res, next) => {
   try {
-    const { name, participant_ids } = req.body;
+    const { name, description, city_id, participant_ids } = req.body;
+
+    // Verify city exists
+    const City = require('../models/City');
+    const city = await City.findById(city_id);
+    if (!city) {
+      return res.status(404).json({
+        success: false,
+        message: 'City not found'
+      });
+    }
 
     // Verify all participants exist
     const participants = await User.find({
@@ -51,6 +87,8 @@ router.post('/', authenticate, privateChatValidation, async (req, res, next) => 
 
     const chat = new PrivateChat({
       name,
+      description,
+      city_id,
       created_by: req.user._id
     });
 
@@ -78,7 +116,8 @@ router.post('/', authenticate, privateChatValidation, async (req, res, next) => 
     }
 
     const populatedChat = await PrivateChat.findById(chat._id)
-      .populate('created_by', 'username full_name profile_photo_url');
+      .populate('created_by', 'username full_name profile_photo_url')
+      .populate('city_id', 'name displayName');
 
     res.status(201).json({
       success: true,
@@ -309,6 +348,22 @@ router.post('/:chatId/messages', authenticate, messageValidation, async (req, re
       return res.status(403).json({
         success: false,
         message: 'You are not a member of this chat'
+      });
+    }
+
+    // Content moderation check
+    const moderationResult = await contentModerator.moderate(
+      content,
+      req.user._id.toString(),
+      'private'
+    );
+
+    if (!moderationResult.allowed) {
+      return res.status(403).json({
+        success: false,
+        message: 'Message blocked by content moderation',
+        reason: moderationResult.reason || 'Content violates community guidelines',
+        flags: moderationResult.flags
       });
     }
 
