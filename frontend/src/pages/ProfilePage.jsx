@@ -16,6 +16,7 @@ function ProfilePage() {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [profileFormData, setProfileFormData] = useState({
     full_name: '',
+    username: '',
     phone: ''
   });
   const [updateError, setUpdateError] = useState('');
@@ -43,6 +44,7 @@ function ProfilePage() {
     if (user) {
       setProfileFormData({
         full_name: user.full_name || '',
+        username: user.username || '',
         phone: user.phone || ''
       });
     }
@@ -145,6 +147,7 @@ function ProfilePage() {
     setIsEditingProfile(false);
     setProfileFormData({
       full_name: user?.full_name || '',
+      username: user?.username || '',
       phone: user?.phone || ''
     });
     setUpdateError('');
@@ -382,7 +385,7 @@ function ProfilePage() {
                           </div>
                           <div>
                             <p className="font-semibold text-gray-900">View Photo</p>
-                            <p className="text-xs text-gray-500">See full size</p>
+                            <p className="text-xs text-gray-500">Click here to view</p>
                           </div>
                         </button>
                         <button
@@ -525,6 +528,21 @@ function ProfilePage() {
                       className="w-full mt-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4169e1]/30 focus:border-[#4169e1]"
                       required
                     />
+                  </div>
+                  <div>
+                    <label className="text-sm font-semibold text-gray-600">Username</label>
+                    <input
+                      type="text"
+                      name="username"
+                      value={profileFormData.username}
+                      onChange={handleProfileFormChange}
+                      className="w-full mt-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4169e1]/30 focus:border-[#4169e1]"
+                      required
+                      pattern="^[a-zA-Z0-9_]+$"
+                      title="Username can only contain letters, numbers, and underscores"
+                      minLength={3}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Username must be at least 3 characters (letters, numbers, underscores only)</p>
                   </div>
                   <div>
                     <label className="text-sm font-semibold text-gray-600">Email</label>

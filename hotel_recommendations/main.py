@@ -1,9 +1,24 @@
 from fastapi import FastAPI, Depends
 from typing import List
-from .models import ChatAnalysisRequest, RecommendationResponse
-from .services import HotelService, ChatAnalyzer, RecommendationService
+from models import ChatAnalysisRequest, RecommendationResponse
+from services import HotelService, ChatAnalyzer, RecommendationService
 
 app = FastAPI(title="Hotel Recommendation AI")
+
+@app.get("/")
+async def root():
+    """Root endpoint with API information."""
+    return {
+        "message": "Hotel Recommendation AI API",
+        "version": "1.0.0",
+        "endpoints": {
+            "health": "/health",
+            "recommend": "/recommend (POST)",
+            "docs": "/docs",
+            "redoc": "/redoc"
+        },
+        "description": "AI-powered hotel recommendation engine that extracts preferences from chat messages"
+    }
 
 # Singleton Instances
 def get_hotel_service():

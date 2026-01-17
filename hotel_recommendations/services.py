@@ -9,7 +9,7 @@ try:
 except ImportError:
     clip = None
 from typing import List, Dict, Any, Optional, Tuple
-from .models import Hotel, UserPreferences, ChatMessage, DetailedRecommendation
+from models import Hotel, UserPreferences, ChatMessage, DetailedRecommendation
 
 class HotelService:
     _instance = None
