@@ -5,7 +5,7 @@ import numpy as np
 import pickle
 import torch
 try:
-    import clip
+    import clip  # type: ignore
 except ImportError:
     clip = None
 from typing import List, Dict, Any, Optional, Tuple
@@ -87,6 +87,105 @@ class ChatAnalyzer:
         return active[0] if active else None, False
 
     @staticmethod
+    def extract_dynamic_descriptors(text: str) -> List[str]:
+        """
+        Extract dynamic textual descriptors from chat messages.
+        Finds descriptive phrases like "green bed", "wooden flooring", "modern decor", etc.
+        Uses pattern matching to identify adjective+noun combinations and descriptive phrases.
+        """
+        descriptors = []
+        text_lower = text.lower()
+        
+        # Common adjectives for visual descriptions
+        visual_adjectives = [
+            "green", "blue", "red", "white", "black", "brown", "yellow", "pink", "purple", "orange",
+            "wooden", "marble", "glass", "metal", "stone", "brick", "concrete",
+            "modern", "traditional", "vintage", "contemporary", "classic", "luxury", "premium",
+            "large", "small", "big", "tiny", "huge", "spacious", "compact",
+            "bright", "dark", "light", "dim", "colorful", "vibrant",
+            "soft", "hard", "smooth", "rough", "shiny", "matte", "glossy",
+            "round", "square", "rectangular", "circular",
+            "infinity", "private", "shared", "outdoor", "indoor"
+        ]
+        
+        # Common nouns for hotel/room features
+        visual_nouns = [
+            "bed", "beds", "bedroom", "room", "rooms", "flooring", "floor", "walls", "wall",
+            "decor", "decoration", "furniture", "furnishings", "design", "style", "theme",
+            "pool", "pools", "spa", "bathroom", "bath", "shower", "bathtub", "bathtubs",
+            "view", "views", "balcony", "terrace", "patio", "garden", "lawn",
+            "facade", "exterior", "interior", "ceiling", "windows", "window",
+            "curtains", "carpet", "rug", "tiles", "tile", "paint", "paintings",
+            "lighting", "lights", "lamp", "lamps", "chandelier", "mirror", "mirrors",
+            "sofa", "couch", "chair", "chairs", "table", "desk", "wardrobe", "closet"
+        ]
+        
+        # Pattern 1: Adjective + Noun (e.g., "green bed", "wooden flooring")
+        for adj in visual_adjectives:
+            for noun in visual_nouns:
+                pattern = rf"\b{adj}\s+{noun}\b"
+                matches = re.findall(pattern, text_lower)
+                for match in matches:
+                    descriptor = match.strip()
+                    if not ChatAnalyzer.is_negative(text_lower, descriptor):
+                        if descriptor not in descriptors:
+                            descriptors.append(descriptor)
+        
+        # Pattern 2: "with X" or "that has X" (e.g., "room with green bed", "hotel that has wooden flooring")
+        with_patterns = [
+            r"with\s+([a-z]+\s+[a-z]+)",  # "with green bed"
+            r"that\s+has\s+([a-z]+\s+[a-z]+)",  # "that has wooden flooring"
+            r"having\s+([a-z]+\s+[a-z]+)",  # "having modern decor"
+            r"featuring\s+([a-z]+\s+[a-z]+)",  # "featuring infinity pool"
+        ]
+        
+        for pattern in with_patterns:
+            matches = re.findall(pattern, text_lower)
+            for match in matches:
+                descriptor = match.strip()
+                # Check if it's a valid descriptor (contains adjective + noun)
+                words = descriptor.split()
+                if len(words) == 2:
+                    adj, noun = words
+                    if adj in visual_adjectives or noun in visual_nouns:
+                        if not ChatAnalyzer.is_negative(text_lower, descriptor):
+                            if descriptor not in descriptors:
+                                descriptors.append(descriptor)
+        
+        # Pattern 3: "X Y" where X is adjective and Y is noun (more flexible)
+        # This catches phrases like "modern room", "luxury hotel", "beach view"
+        flexible_pattern = rf"\b({'|'.join(visual_adjectives)})\s+({'|'.join(visual_nouns)})\b"
+        matches = re.findall(flexible_pattern, text_lower)
+        for match in matches:
+            if isinstance(match, tuple):
+                descriptor = " ".join(match).strip()
+            else:
+                descriptor = match.strip()
+            if not ChatAnalyzer.is_negative(text_lower, descriptor):
+                if descriptor not in descriptors:
+                    descriptors.append(descriptor)
+        
+        # Pattern 4: Extract noun phrases that might be visual descriptors
+        # Look for patterns like "X view", "X style", "X design"
+        noun_phrase_patterns = [
+            r"([a-z]+\s+view)",  # "beach view", "mountain view"
+            r"([a-z]+\s+style)",  # "modern style", "traditional style"
+            r"([a-z]+\s+design)",  # "minimalist design", "luxury design"
+            r"([a-z]+\s+decor)",  # "modern decor", "vintage decor"
+            r"([a-z]+\s+flooring)",  # "wooden flooring", "marble flooring"
+        ]
+        
+        for pattern in noun_phrase_patterns:
+            matches = re.findall(pattern, text_lower)
+            for match in matches:
+                descriptor = match.strip()
+                if not ChatAnalyzer.is_negative(text_lower, descriptor):
+                    if descriptor not in descriptors:
+                        descriptors.append(descriptor)
+        
+        return descriptors
+
+    @staticmethod
     def extract_preferences(messages: List[ChatMessage]) -> UserPreferences:
         relevant_messages = [m for m in messages if ChatAnalyzer.is_hotel_relevant(m.text)]
         combined_text = " ".join([m.text.lower() for m in relevant_messages if m.text])
@@ -119,12 +218,20 @@ class ChatAnalyzer:
             if k in combined_text and not ChatAnalyzer.is_negative(combined_text, k):
                 prefs.amenities.append(v)
         
-        # 4. Visual Traits
+        # 4. Visual Traits (Hardcoded keywords - kept for backward compatibility)
         visual_keywords = ["wooden flooring", "infinity pool", "glass facade", "modern decor", "traditional style", "bathtubs", "sea view", "beach view"]
         for vk in visual_keywords:
             if vk in combined_text and not ChatAnalyzer.is_negative(combined_text, vk):
                 if vk not in prefs.visual_descriptors:
                     prefs.visual_descriptors.append(vk)
+        
+        # 5. Dynamic Textual Descriptors - Extract from all messages
+        for msg in relevant_messages:
+            if msg.text:
+                dynamic_descriptors = ChatAnalyzer.extract_dynamic_descriptors(msg.text)
+                for desc in dynamic_descriptors:
+                    if desc not in prefs.visual_descriptors:
+                        prefs.visual_descriptors.append(desc)
         
         return prefs
 
@@ -155,10 +262,17 @@ class VisualSearchService:
         except Exception as e:
             print(f"Visual Search Init Error: {e}")
 
-    def get_visual_scores(self, descriptors: List[str]) -> Dict[str, float]:
+    def get_visual_scores(self, descriptors: List[str]) -> Dict[str, Any]:
+        """
+        Get visual similarity scores for hotels based on textual descriptors.
+        Returns a dictionary with hotel_code as key and a dict containing:
+        - score: best similarity score
+        - matched_descriptors: list of descriptors that matched with their scores
+        """
         if not descriptors or self._model is None or self._ai_features is None:
             # Fallback mock for demonstration if CLIP is not available
-            return {"1000000073": 0.85, "1000000121": 0.92}
+            return {"1000000073": {"score": 0.85, "matched_descriptors": []}, 
+                    "1000000121": {"score": 0.92, "matched_descriptors": []}}
         
         hotel_scores = {}
         try:
@@ -166,14 +280,36 @@ class VisualSearchService:
                 text_tokens = clip.tokenize(descriptors).to(self.device)
                 text_features = self._model.encode_text(text_tokens)
                 text_features /= text_features.norm(dim=-1, keepdim=True)
+                
+                # Calculate similarities: shape (num_images, num_descriptors)
                 similarities = np.dot(self._ai_features, text_features.cpu().numpy().T)
-                max_similarities = np.max(similarities, axis=1)
-                for i, score in enumerate(max_similarities):
+                
+                # For each image, find which descriptors match best
+                for i, image_similarities in enumerate(similarities):
                     if i in self._mapping:
                         hotel_code = str(self._mapping[i]["hotel_id"])
-                        if hotel_code not in hotel_scores or score > hotel_scores[hotel_code]:
-                            hotel_scores[hotel_code] = float(score)
-        except:
+                        max_score = float(np.max(image_similarities))
+                        
+                        # Track which descriptors matched (score > threshold)
+                        matched_descriptors = []
+                        for desc_idx, desc_score in enumerate(image_similarities):
+                            if desc_score > 0.25:  # CLIP threshold
+                                matched_descriptors.append({
+                                    "descriptor": descriptors[desc_idx],
+                                    "score": float(desc_score)
+                                })
+                        
+                        # Sort matched descriptors by score
+                        matched_descriptors.sort(key=lambda x: x["score"], reverse=True)
+                        
+                        # Update hotel score if this is the best match
+                        if hotel_code not in hotel_scores or max_score > hotel_scores[hotel_code]["score"]:
+                            hotel_scores[hotel_code] = {
+                                "score": max_score,
+                                "matched_descriptors": matched_descriptors
+                            }
+        except Exception as e:
+            print(f"Error in get_visual_scores: {e}")
             pass
         return hotel_scores
 
@@ -197,16 +333,30 @@ class RecommendationService:
         for hotel in hotels:
             score = 0
             matched = []
+            matched_descriptors = []
             
             # Price Filter
             if preferences.max_price and getattr(hotel, 'price', 0) > preferences.max_price: continue
             
-            # Visual Match
-            v_val = v_scores.get(hotel.hotel_code, 0)
-            if v_val > 0.25: # CLIP Threshold
+            # Visual Match with dynamic descriptors
+            v_data = v_scores.get(hotel.hotel_code, {})
+            if isinstance(v_data, dict):
+                v_val = v_data.get("score", 0)
+                matched_descriptors = v_data.get("matched_descriptors", [])
+            else:
+                # Backward compatibility
+                v_val = v_data if isinstance(v_data, (int, float)) else 0
+                matched_descriptors = []
+            
+            if v_val > 0.25:  # CLIP Threshold
                 score += (v_val * 15)
-                matched.append("Visual Vibe Match")
-
+                # Add top matched descriptors to matched list
+                if matched_descriptors:
+                    top_descriptors = [d["descriptor"] for d in matched_descriptors[:3]]  # Top 3
+                    matched.extend(top_descriptors)
+                else:
+                    matched.append("Visual Vibe Match")
+            
             # Amenities
             for am in preferences.amenities:
                 if any(am.lower() in hotel_am.lower() for hotel_am in hotel.amenities):
@@ -214,7 +364,17 @@ class RecommendationService:
                     matched.append(am)
 
             if score > 0:
-                explanation = f"I recommend {hotel.name} because its images confirm your requested vibe and it has {', '.join(matched)}."
+                # Build explanation with specific matched descriptors
+                if matched_descriptors:
+                    desc_list = [d["descriptor"] for d in matched_descriptors[:3]]
+                    explanation = f"I recommend {hotel.name} because its images match your preferences: {', '.join(desc_list)}."
+                    # Add amenities if any matched
+                    matched_amenities = [am for am in matched if am in preferences.amenities]
+                    if matched_amenities:
+                        explanation += f" It also has {', '.join(matched_amenities)}."
+                else:
+                    explanation = f"I recommend {hotel.name} because its images confirm your requested vibe and it has {', '.join(matched)}."
+                
                 scored_recs.append((score, DetailedRecommendation(hotel=hotel, explanation=explanation, matched_preferences=matched)))
 
         scored_recs.sort(key=lambda x: x[0], reverse=True)
