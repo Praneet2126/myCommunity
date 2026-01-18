@@ -1,0 +1,7 @@
+# Dependencies from sentiment_analyzer
+torch>=2.0.0
+transformers>=4.30.0
+numpy>=1.24.0
+
+# No additional dependencies required
+# message_tagger uses only standard library
