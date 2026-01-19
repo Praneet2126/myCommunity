@@ -32,20 +32,28 @@ def get_moderation_service():
     from services.moderation_service import ModerationService
     return ModerationService()
 
+def get_activity_recommendation_service():
+    """Lazy import for activity recommendation service"""
+    from services.activity_recommendation_service import ActivityRecommendationService
+    return ActivityRecommendationService()
+
 # Initialize services
 hotel_recommendation_service = None
 image_search_service = None
 moderation_service = None
+activity_recommendation_service = None
 
 def init_services():
     """Initialize services on first use"""
-    global hotel_recommendation_service, image_search_service, moderation_service
+    global hotel_recommendation_service, image_search_service, moderation_service, activity_recommendation_service
     if hotel_recommendation_service is None:
         hotel_recommendation_service = get_hotel_recommendation_service()
     if image_search_service is None:
         image_search_service = get_image_search_service()
     if moderation_service is None:
         moderation_service = get_moderation_service()
+    if activity_recommendation_service is None:
+        activity_recommendation_service = get_activity_recommendation_service()
 
 app = FastAPI(
     title="AI Microservice",
@@ -336,6 +344,204 @@ async def moderate_content_batch(requests: List[ContentModerationRequest]):
         return results
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error in batch moderation: {str(e)}")
+
+
+# ============= Activity Recommendations Endpoints =============
+
+class ActivityPlace(BaseModel):
+    name: str
+    duration: str
+    score: float = 0.0
+    category: str = "General"
+    region: str = "Unknown"
+    lat: Optional[float] = None
+    lon: Optional[float] = None
+    best_time: str = "Flexible"
+
+
+class ProcessMessageRequest(BaseModel):
+    chat_id: str
+    user: str
+    message: str
+
+
+class ProcessMessageResponse(BaseModel):
+    message_count: int
+    recommendations: List[ActivityPlace]
+    trigger_rec: bool
+
+
+class AddToCartRequest(BaseModel):
+    chat_id: str
+    user: str
+    place_name: str
+
+
+class CartItem(BaseModel):
+    place_name: str
+    added_by: str
+    count: int = 1
+
+
+class Cart(BaseModel):
+    items: List[CartItem] = []
+    num_days: int = 3
+    num_people: int = 2
+
+
+class UpdateCartSettingsRequest(BaseModel):
+    chat_id: str
+    num_days: int
+    num_people: int
+
+
+class ActivityInItinerary(ActivityPlace):
+    start_time: str
+    end_time: str
+    travel_time_from_prev: str = "0 mins"
+
+
+class ItineraryDay(BaseModel):
+    day: int
+    activities: List[ActivityInItinerary]
+    total_duration_mins: int
+
+
+class Itinerary(BaseModel):
+    chat_id: str
+    days: List[ItineraryDay]
+    num_people: int
+
+
+@app.post("/api/v1/activities/message", response_model=ProcessMessageResponse)
+async def process_activity_message(request: ProcessMessageRequest):
+    """
+    Process a chat message and return activity recommendations when threshold is reached.
+    
+    This endpoint analyzes chat messages and provides activity recommendations based on 
+    semantic search. Recommendations are triggered every 7 messages.
+    
+    Request body:
+    {
+        "chat_id": "city_goa_123",
+        "user": "john_doe",
+        "message": "I want to visit beaches and try water sports"
+    }
+    """
+    try:
+        init_services()
+        
+        result = activity_recommendation_service.process_message(
+            chat_id=request.chat_id,
+            user=request.user,
+            message=request.message
+        )
+        
+        return ProcessMessageResponse(
+            message_count=result["message_count"],
+            recommendations=[ActivityPlace(**rec) for rec in result["recommendations"]],
+            trigger_rec=result["trigger_rec"]
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error processing message: {str(e)}")
+
+
+@app.post("/api/v1/activities/cart/add")
+async def add_activity_to_cart(request: AddToCartRequest):
+    """
+    Add an activity to the cart for a specific chat.
+    
+    Request body:
+    {
+        "chat_id": "city_goa_123",
+        "user": "john_doe",
+        "place_name": "Baga Beach"
+    }
+    """
+    try:
+        init_services()
+        
+        result = activity_recommendation_service.add_to_cart(
+            chat_id=request.chat_id,
+            user=request.user,
+            place_name=request.place_name
+        )
+        
+        if result.get("status") == "error":
+            raise HTTPException(status_code=400, detail=result.get("error", "Failed to add to cart"))
+        
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error adding to cart: {str(e)}")
+
+
+@app.get("/api/v1/activities/cart/{chat_id}", response_model=Cart)
+async def get_activity_cart(chat_id: str):
+    """
+    Get the current activity cart for a chat.
+    
+    Returns the list of activities added to the cart along with settings (num_days, num_people).
+    """
+    try:
+        init_services()
+        
+        cart_data = activity_recommendation_service.get_cart(chat_id)
+        return Cart(**cart_data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting cart: {str(e)}")
+
+
+@app.post("/api/v1/activities/cart/update")
+async def update_activity_cart_settings(request: UpdateCartSettingsRequest):
+    """
+    Update cart settings (number of days and people).
+    
+    Request body:
+    {
+        "chat_id": "city_goa_123",
+        "num_days": 3,
+        "num_people": 4
+    }
+    """
+    try:
+        init_services()
+        
+        result = activity_recommendation_service.update_cart_settings(
+            chat_id=request.chat_id,
+            num_days=request.num_days,
+            num_people=request.num_people
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating cart settings: {str(e)}")
+
+
+@app.post("/api/v1/activities/itinerary/generate", response_model=Itinerary)
+async def generate_activity_itinerary(chat_id: str):
+    """
+    Generate an itinerary from cart activities using AI or deterministic scheduling.
+    
+    This endpoint takes all activities in the cart and generates a day-by-day itinerary
+    with time slots, considering travel time, best time to visit, and regional clustering.
+    
+    Query parameters:
+    - chat_id: The chat ID for which to generate the itinerary
+    """
+    try:
+        init_services()
+        
+        result = activity_recommendation_service.generate_itinerary(chat_id)
+        
+        if result.get("status") == "error":
+            raise HTTPException(status_code=400, detail=result.get("error", "Failed to generate itinerary"))
+        
+        return Itinerary(**result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating itinerary: {str(e)}")
 
 
 if __name__ == "__main__":
