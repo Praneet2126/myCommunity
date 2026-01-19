@@ -67,6 +67,8 @@ def init_moderation_service():
     global moderation_service
     if moderation_service is None:
         moderation_service = get_moderation_service()
+    if activity_recommendation_service is None:
+        activity_recommendation_service = get_activity_recommendation_service()
 
 def init_activity_recommendation_service():
     """Initialize activity recommendation service on first use."""
