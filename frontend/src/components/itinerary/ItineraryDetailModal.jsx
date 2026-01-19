@@ -1,8 +1,16 @@
+import { useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
+import { saveItinerary } from '../../services/itineraryService';
+
 /**
  * ItineraryDetailModal Component
  * Shows detailed day-wise and time-wise schedule for an itinerary
  */
-function ItineraryDetailModal({ itinerary, onClose }) {
+function ItineraryDetailModal({ itinerary, onClose, cityId = '' }) {
+  const { token } = useAuth();
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState('');
+
   if (!itinerary) return null;
 
   const getActivitiesByDay = (activities, day) => {
@@ -18,6 +26,104 @@ function ItineraryDetailModal({ itinerary, onClose }) {
 
   // Get all unique days from activities
   const uniqueDays = [...new Set(itinerary.activities.map(act => act.day))].sort();
+
+  const handleSaveItinerary = async () => {
+    console.log('=== SAVE BUTTON CLICKED ===');
+    console.log('Token present:', !!token);
+    console.log('Itinerary:', itinerary);
+    console.log('City ID:', cityId);
+    
+    if (!token) {
+      setSaveMessage('Please login to save itineraries');
+      setTimeout(() => setSaveMessage(''), 3000);
+      return;
+    }
+
+    setIsSaving(true);
+    setSaveMessage('');
+
+    try {
+      // Transform itinerary data to match backend schema
+      const daysMap = {};
+      
+      itinerary.activities.forEach(activity => {
+        const day = activity.day;
+        if (!daysMap[day]) {
+          daysMap[day] = {
+            day: day,
+            activities: [],
+            total_duration_mins: 0
+          };
+        }
+        
+        // Parse time - handle formats like "9:00 AM", "9:00 AM - 11:00 AM", etc.
+        let startTime = activity.time;
+        let endTime = activity.time;
+        
+        if (activity.time.includes(' - ')) {
+          const [start, end] = activity.time.split(' - ');
+          startTime = start.trim();
+          endTime = end.trim();
+        } else {
+          // If no end time, estimate based on duration
+          startTime = activity.time;
+          endTime = activity.time; // Keep same for now
+        }
+        
+        daysMap[day].activities.push({
+          name: activity.activity,
+          start_time: startTime,
+          end_time: endTime,
+          location: activity.location || '',
+          duration: activity.duration || '',
+          travel_time_from_prev: '0 mins'
+        });
+      });
+
+      const daysArray = Object.values(daysMap).sort((a, b) => a.day - b.day);
+
+      // Validate we have activities
+      if (daysArray.length === 0) {
+        setSaveMessage('Error: No activities found in itinerary');
+        setIsSaving(false);
+        return;
+      }
+
+      const itineraryData = {
+        title: itinerary.title || 'Untitled Itinerary',
+        city_id: cityId || 'unknown',
+        days: daysArray,
+        num_people: 2, // Default, can be made dynamic
+        estimated_cost: itinerary.estimatedCost || '',
+        tags: itinerary.tags || []
+      };
+
+      console.log('Saving itinerary:', JSON.stringify(itineraryData, null, 2));
+      console.log('Days array length:', daysArray.length);
+      console.log('First day activities:', daysArray[0]?.activities?.length);
+      
+      const response = await saveItinerary(itineraryData, token);
+      console.log('Save itinerary response:', response);
+      
+      if (response.success) {
+        setSaveMessage('Itinerary saved successfully!');
+        // Close modal after a short delay
+        setTimeout(() => {
+          onClose();
+        }, 1500);
+      } else {
+        setSaveMessage(response.message || 'Failed to save itinerary');
+      }
+    } catch (error) {
+      console.error('Error saving itinerary:', error);
+      const errorMessage = error.message || 'Failed to save itinerary';
+      setSaveMessage(errorMessage);
+      // Keep error message visible longer
+      setTimeout(() => setSaveMessage(''), 5000);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div
@@ -157,13 +263,28 @@ function ItineraryDetailModal({ itinerary, onClose }) {
 
           {/* Action Buttons */}
           <div className="flex gap-3 mt-8 pt-6 border-t border-gray-200">
-            <button className="flex-1 bg-gradient-to-r from-[#FF6B35] to-[#E55A2B] text-white px-6 py-4 rounded-xl font-bold text-lg hover:from-[#E55A2B] hover:to-[#D1491F] transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
-              Save Itinerary
+            <button 
+              onClick={handleSaveItinerary}
+              disabled={isSaving}
+              className="flex-1 bg-gradient-to-r from-[#FF6B35] to-[#E55A2B] text-white px-6 py-4 rounded-xl font-bold text-lg hover:from-[#E55A2B] hover:to-[#D1491F] transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+            >
+              {isSaving ? 'Saving...' : 'Save Itinerary'}
             </button>
             <button className="px-6 py-4 border-2 border-gray-300 text-gray-700 rounded-xl font-bold hover:border-[#FF6B35] hover:text-[#FF6B35] transition-all">
               Share
             </button>
           </div>
+
+          {/* Save Message */}
+          {saveMessage && (
+            <div className={`mt-4 p-3 rounded-lg ${
+              saveMessage.includes('success') 
+                ? 'bg-green-50 text-green-700 border border-green-200' 
+                : 'bg-red-50 text-red-700 border border-red-200'
+            }`}>
+              {saveMessage}
+            </div>
+          )}
         </div>
       </div>
     </div>

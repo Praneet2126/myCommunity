@@ -8,8 +8,9 @@ import ItineraryDetailModal from './ItineraryDetailModal';
  * @param {string} props.chatType - 'community' or 'private'
  * @param {string} props.cityName - Name of the city
  * @param {string} props.chatName - Name of the current chat (for private chats)
+ * @param {string} props.cityId - ID of the city
  */
-function ItineraryDisplay({ chatType = 'community', cityName = 'City', chatName = '' }) {
+function ItineraryDisplay({ chatType = 'community', cityName = 'City', chatName = '', cityId = '' }) {
   const [selectedItinerary, setSelectedItinerary] = useState(null);
   const [viewingItinerary, setViewingItinerary] = useState(null);
 
@@ -168,6 +169,7 @@ function ItineraryDisplay({ chatType = 'community', cityName = 'City', chatName 
         <ItineraryDetailModal
           itinerary={viewingItinerary}
           onClose={() => setViewingItinerary(null)}
+          cityId={cityId}
         />
       )}
     </div>
