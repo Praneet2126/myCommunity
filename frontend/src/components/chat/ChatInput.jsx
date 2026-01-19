@@ -5,8 +5,9 @@ import { useState } from 'react';
  * Input field for sending messages
  * @param {Object} props - Component props
  * @param {Function} props.onSend - Callback function when message is sent
+ * @param {Function} props.onAIClick - Callback function when AI Summary button is clicked
  */
-function ChatInput({ onSend }) {
+function ChatInput({ onSend, onAIClick }) {
   const [message, setMessage] = useState('');
 
   const handleSubmit = (e) => {
@@ -18,8 +19,9 @@ function ChatInput({ onSend }) {
   };
 
   const handleAISummary = () => {
-    // TODO: Add AI summary generation logic
-    console.log('Generate AI Summary clicked');
+    if (onAIClick) {
+      onAIClick();
+    }
   };
 
   return (

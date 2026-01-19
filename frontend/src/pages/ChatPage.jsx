@@ -5,7 +5,7 @@ import { useChat } from '../context/ChatContext';
 import { useAuth } from '../context/AuthContext';
 import ChatList from '../components/chat/ChatList';
 import ChatWindow from '../components/chat/ChatWindow';
-import { getCityById, joinCity, checkMembership } from '../services/cityService';
+import { getCityById, joinCity } from '../services/cityService';
 
 /**
  * ChatPage component
@@ -52,21 +52,13 @@ function ChatPage() {
         
         selectCity(city.id);
         
-        // Auto-join city if user is logged in and not already a member
+        // Auto-join city if user is logged in
         if (isLoggedIn && user) {
           setJoining(true);
           
           try {
-            // Check if user is already a member first
-            const isMember = await checkMembership(city.id);
-            
-            if (!isMember) {
-              // Only join if not already a member
-              await joinCity(city.id);
-              console.log('Joined city for chat');
-            } else {
-              console.log('Already a member of city:', city.displayName);
-            }
+            await joinCity(city.id);
+            console.log('Joined city for chat');
           } catch (error) {
             console.error('Failed to join city:', error);
           } finally {

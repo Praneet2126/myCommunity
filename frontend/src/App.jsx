@@ -7,10 +7,11 @@ import HomePage from './pages/HomePage';
 import CityPage from './pages/CityPage';
 import CitiesPage from './pages/CitiesPage';
 import EventsPage from './pages/EventsPage';
-import MylensPage from './pages/MylensPage';
 import ChatPage from './pages/ChatPage';
 import ProfilePage from './pages/ProfilePage';
 import NotFound from './pages/NotFound';
+import MylensPage from './pages/MylensPage';
+
 
 /**
  * App component

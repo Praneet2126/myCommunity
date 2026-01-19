@@ -26,7 +26,7 @@ function CityPage() {
     createPrivateChat,
     getCurrentChat
   } = useChat();
-  
+
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState(null);
   
@@ -54,22 +54,14 @@ function CityPage() {
         // Set the city for chat context
         setCity(city.id);
         
-        // Auto-join city if user is logged in and not already a member
+        // Auto-join city if user is logged in
         if (isLoggedIn && user) {
           setJoining(true);
           setJoinError(null);
           
           try {
-            // Check if user is already a member first
-            const isMember = await checkMembership(city.id);
-            
-            if (!isMember) {
-              // Only join if not already a member
-              const result = await joinCity(city.id);
-              console.log('Joined city:', result);
-            } else {
-              console.log('Already a member of city:', city.displayName);
-            }
+            const result = await joinCity(city.id);
+            console.log('Joined city:', result);
           } catch (error) {
             console.error('Failed to join city:', error);
             setJoinError(error.message);
@@ -158,14 +150,14 @@ function CityPage() {
             ">
               {/* Chat List (hidden on mobile) */}
               <div className="hidden lg:block">
-                <ChatList
-                  privateChats={privateChats}
-                  activeChatId={activeChatId}
+              <ChatList
+                privateChats={privateChats}
+                activeChatId={activeChatId}
                   activeCityId={activeCityId}
-                  onSelectChat={setChat}
-                  onCreateChat={createPrivateChat}
-                  cityName={selectedCity.displayName}
-                />
+                onSelectChat={setChat}
+                onCreateChat={createPrivateChat}
+                cityName={selectedCity.displayName}
+              />
               </div>
 
               {/* Chat Window */}
