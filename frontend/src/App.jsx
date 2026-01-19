@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { useLayoutEffect } from 'react';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { CityProvider } from './context/CityContext';
 import { ChatProvider } from './context/ChatContext';
@@ -12,6 +13,22 @@ import ProfilePage from './pages/ProfilePage';
 import NotFound from './pages/NotFound';
 import MylensPage from './pages/MylensPage';
 
+/**
+ * ScrollToTop component
+ * Scrolls to top of page on route change
+ */
+function ScrollToTop() {
+  const { pathname } = useLocation();
+
+  useLayoutEffect(() => {
+    // Scroll to top using multiple methods for cross-browser compatibility
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, [pathname]);
+
+  return null;
+}
 
 /**
  * App component
@@ -23,6 +40,7 @@ function App() {
     <CityProvider>
       <ChatProvider>
         <BrowserRouter>
+          <ScrollToTop />
           <Layout>
             <Routes>
               <Route path="/" element={<HomePage />} />

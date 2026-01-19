@@ -92,18 +92,6 @@ function ItineraryDisplay({ chatType = 'community', cityName = 'City', chatName 
   };
 
   const itineraries = chatType === 'community' ? communityItineraries : [privateItinerary];
-  const displayItinerary = selectedItinerary || (chatType === 'community' ? communityItineraries[0] : privateItinerary);
-
-  const getActivitiesByDay = (activities, day) => {
-    return activities.filter(act => act.day === day);
-  };
-
-  const getDayLabel = (day) => {
-    if (day === 1) return 'Day 1';
-    if (day === 2) return 'Day 2';
-    if (day === 3) return 'Day 3';
-    return `Day ${day}`;
-  };
 
   return (
     <div className="w-full h-full max-w-md p-3 rounded-3xl shadow-lg bg-gradient-to-t bg-white text-black transition-all duration-300 flex flex-col">
@@ -131,114 +119,48 @@ function ItineraryDisplay({ chatType = 'community', cityName = 'City', chatName 
         )}
       </div>
 
-      {/* Itinerary Selector (only for community) */}
-      {chatType === 'community' && itineraries.length > 1 && (
-        <div className="mb-4 space-y-2 flex-shrink-0">
-          {itineraries.map((itinerary) => (
-            <button
-              key={itinerary.id}
-              onClick={() => {
-                setSelectedItinerary(itinerary);
-                setViewingItinerary(itinerary);
-              }}
-              className={`w-full text-left p-3 rounded-lg border-2 transition-all hover:shadow-md ${
-                selectedItinerary?.id === itinerary.id || (!selectedItinerary && itinerary.id === communityItineraries[0].id)
-                  ? 'border-[#FF6B35] bg-orange-50'
-                  : 'border-gray-200 hover:border-gray-300 bg-white'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <h3 className="font-semibold text-sm text-gray-800">{itinerary.title}</h3>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-xs text-gray-600">{itinerary.days} days</span>
-                    <span className="text-xs text-gray-400">•</span>
-                    <span className="text-xs text-gray-600">{itinerary.estimatedCost}</span>
-                  </div>
+      {/* Itinerary List with Scrollbar */}
+      <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar space-y-2 pr-1">
+        {itineraries.map((itinerary) => (
+          <div
+            key={itinerary.id}
+            onClick={() => setViewingItinerary(itinerary)}
+            className={`w-full text-left p-3 rounded-lg border-2 transition-all hover:shadow-md cursor-pointer ${
+              selectedItinerary?.id === itinerary.id || (!selectedItinerary && itinerary.id === itineraries[0].id)
+                ? 'border-[#FF6B35] bg-orange-50'
+                : 'border-gray-200 hover:border-gray-300 bg-white'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <h3 className="font-semibold text-sm text-gray-800">{itinerary.title}</h3>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-xs text-gray-600">{itinerary.days} days</span>
+                  <span className="text-xs text-gray-400">•</span>
+                  <span className="text-xs text-gray-600">{itinerary.estimatedCost}</span>
                 </div>
+              </div>
+              {itinerary.popularity && (
                 <div className="flex items-center gap-1">
                   <svg className="w-4 h-4 text-orange-500" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333v5.834a1 1 0 001.581.814l3.854-2.925a1 1 0 00.392-1.242l-1.829-4.243a1 1 0 00-1.15-.666L6 10.333zM16 3.5a1.5 1.5 0 00-3 0v7a1.5 1.5 0 003 0v-7zM12.5 2.5a1.5 1.5 0 00-1.5 1.5v8a1.5 1.5 0 003 0V4a1.5 1.5 0 00-1.5-1.5z" />
                   </svg>
                   <span className="text-xs font-semibold text-orange-600">{itinerary.popularity}%</span>
                 </div>
-              </div>
-              <div className="flex flex-wrap gap-1 mt-2">
-                {itinerary.tags.slice(0, 2).map((tag, idx) => (
-                  <span
-                    key={idx}
-                    className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Selected Itinerary Summary */}
-      <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
-        <div
-          onClick={() => setViewingItinerary(displayItinerary)}
-          className="bg-gradient-to-br from-orange-50 to-white rounded-xl p-4 border border-orange-100 cursor-pointer hover:shadow-md transition-shadow"
-        >
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-bold text-base text-gray-800">{displayItinerary.title}</h3>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-600 bg-white px-2 py-1 rounded-full border border-gray-200">
-                {displayItinerary.days} days
-              </span>
-              <span className="text-xs text-gray-600 bg-white px-2 py-1 rounded-full border border-gray-200">
-                {displayItinerary.estimatedCost}
-              </span>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-1 mt-2">
+              {itinerary.tags.slice(0, 2).map((tag, idx) => (
+                <span
+                  key={idx}
+                  className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full"
+                >
+                  {tag}
+                </span>
+              ))}
             </div>
           </div>
-
-          {/* Tags */}
-          <div className="flex flex-wrap gap-1 mb-4">
-            {displayItinerary.tags.map((tag, idx) => (
-              <span
-                key={idx}
-                className="text-xs px-2 py-1 bg-[#FF6B35]/10 text-[#FF6B35] rounded-full font-medium"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-
-          {/* Quick Summary */}
-          <div className="space-y-2 mb-4">
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <svg className="w-4 h-4 text-[#FF6B35]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-              </svg>
-              <span>{displayItinerary.activities.length} activities scheduled</span>
-            </div>
-            {displayItinerary.popularity && (
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <svg className="w-4 h-4 text-orange-500" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333v5.834a1 1 0 001.581.814l3.854-2.925a1 1 0 00.392-1.242l-1.829-4.243a1 1 0 00-1.15-.666L6 10.333zM16 3.5a1.5 1.5 0 00-3 0v7a1.5 1.5 0 003 0v-7zM12.5 2.5a1.5 1.5 0 00-1.5 1.5v8a1.5 1.5 0 003 0V4a1.5 1.5 0 00-1.5-1.5z" />
-                </svg>
-                <span>{displayItinerary.popularity}% of community recommends this</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Action Buttons */}
-      <div className="mt-4 pt-4 border-t border-gray-200 flex-shrink-0 space-y-2">
-        <button
-          onClick={() => setViewingItinerary(displayItinerary)}
-          className="w-full bg-[#FF6B35] text-white py-2 rounded-lg font-semibold text-sm hover:bg-[#E55A2B] transition-colors"
-        >
-          View Full Schedule
-        </button>
-        <button className="w-full bg-gray-100 text-gray-700 py-2 rounded-lg font-semibold text-sm hover:bg-gray-200 transition-colors">
-          {chatType === 'community' ? 'Save Itinerary' : 'Edit Itinerary'}
-        </button>
+        ))}
       </div>
 
       {/* Itinerary Detail Modal */}
