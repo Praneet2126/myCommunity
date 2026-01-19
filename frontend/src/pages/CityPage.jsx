@@ -7,7 +7,7 @@ import CityHero from '../components/city/CityHero';
 import ChatList from '../components/chat/ChatList';
 import ChatWindow from '../components/chat/ChatWindow';
 import EventCalendar from '../components/calendar/EventCalendar';
-import { getCityById, joinCity } from '../services/cityService';
+import { getCityById, joinCity, checkMembership } from '../services/cityService';
 
 function CityPage() {
   const { cityName } = useParams();
@@ -53,14 +53,22 @@ function CityPage() {
         // Set the city for chat context
         setCity(city.id);
         
-        // Auto-join city if user is logged in
+        // Auto-join city if user is logged in and not already a member
         if (isLoggedIn && user) {
           setJoining(true);
           setJoinError(null);
           
           try {
-            const result = await joinCity(city.id);
-            console.log('Joined city:', result);
+            // Check if user is already a member first
+            const isMember = await checkMembership(city.id);
+            
+            if (!isMember) {
+              // Only join if not already a member
+              const result = await joinCity(city.id);
+              console.log('Joined city:', result);
+            } else {
+              console.log('Already a member of city:', city.displayName);
+            }
           } catch (error) {
             console.error('Failed to join city:', error);
             setJoinError(error.message);

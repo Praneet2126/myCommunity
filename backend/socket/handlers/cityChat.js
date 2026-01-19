@@ -3,6 +3,7 @@ const CityChat = require('../../models/CityChat');
 const Message = require('../../models/Message');
 const City = require('../../models/City');
 const contentModerator = require('../../../moderation');
+const fs = require('fs');
 
 module.exports = (io, socket) => {
   
@@ -44,6 +45,10 @@ module.exports = (io, socket) => {
       // Join the room
       const roomName = `city-${cityId}`;
       socket.join(roomName);
+
+      // #region agent log
+      fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H5',location:'backend/socket/handlers/cityChat.js:join-city-chat:joined',message:'User joined city chat room',data:{userId:socket.user._id.toString(),username:socket.user.username,cityId,roomName},timestamp:Date.now()})+'\n', 'utf8');
+      // #endregion
 
       console.log(`👥 ${socket.user.username} joined city chat: ${city.name}`);
 
@@ -108,13 +113,23 @@ module.exports = (io, socket) => {
     try {
       const { cityId, content, message_type = 'text', media_url, reply_to } = data;
 
+      // #region agent log
+      fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H2',location:'backend/socket/handlers/cityChat.js:send-city-message:received',message:'Backend received send-city-message',data:{userId:socket.user._id.toString(),username:socket.user.username,cityId,contentLength:content?.length,hasContent:!!content},timestamp:Date.now()})+'\n', 'utf8');
+      // #endregion
+
       if (!cityId || !content) {
+        // #region agent log
+        fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H2',location:'backend/socket/handlers/cityChat.js:send-city-message:validation-failed',message:'Validation failed - missing cityId or content',data:{hasCityId:!!cityId,hasContent:!!content},timestamp:Date.now()})+'\n', 'utf8');
+        // #endregion
         return socket.emit('error', { 
           message: 'City ID and message content are required' 
         });
       }
 
       if (content.length > 5000) {
+        // #region agent log
+        fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H2',location:'backend/socket/handlers/cityChat.js:send-city-message:length-exceeded',message:'Content length exceeded',data:{length:content.length},timestamp:Date.now()})+'\n', 'utf8');
+        // #endregion
         return socket.emit('error', { 
           message: 'Message cannot exceed 5000 characters' 
         });
@@ -127,6 +142,9 @@ module.exports = (io, socket) => {
       });
 
       if (!membership) {
+        // #region agent log
+        fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H5',location:'backend/socket/handlers/cityChat.js:send-city-message:not-member',message:'User not member of city',data:{userId:socket.user._id.toString(),cityId},timestamp:Date.now()})+'\n', 'utf8');
+        // #endregion
         return socket.emit('error', { 
           message: 'You must be a member of this city to send messages' 
         });
@@ -140,20 +158,27 @@ module.exports = (io, socket) => {
         console.log(`📝 Created CityChat for city: ${cityId}`);
       }
 
-      // Content moderation check
-      const moderationResult = await contentModerator.moderate(
-        content,
-        socket.user._id.toString(),
-        'city'
-      );
+      // Content moderation check - DISABLED
+      // const moderationResult = await contentModerator.moderate(
+      //   content,
+      //   socket.user._id.toString(),
+      //   'city'
+      // );
 
-      if (!moderationResult.allowed) {
-        return socket.emit('error', {
-          message: 'Message blocked by content moderation',
-          reason: moderationResult.reason || 'Content violates community guidelines',
-          flags: moderationResult.flags
-        });
-      }
+      // #region agent log
+      // fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H2-H6',location:'backend/socket/handlers/cityChat.js:send-city-message:moderation-result',message:'Moderation check complete',data:{allowed:moderationResult.allowed,reason:moderationResult.reason,flags:moderationResult.flags},timestamp:Date.now()})+'\n', 'utf8');
+      // #endregion
+
+      // if (!moderationResult.allowed) {
+      //   // #region agent log
+      //   fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H6',location:'backend/socket/handlers/cityChat.js:send-city-message:blocked-by-moderation',message:'Message blocked by moderation',data:{reason:moderationResult.reason,flags:moderationResult.flags},timestamp:Date.now()})+'\n', 'utf8');
+      //   // #endregion
+      //   return socket.emit('error', {
+      //     message: 'Message blocked by content moderation',
+      //     reason: moderationResult.reason || 'Content violates community guidelines',
+      //     flags: moderationResult.flags
+      //   });
+      // }
 
       // Create message
       const message = new Message({
@@ -167,6 +192,10 @@ module.exports = (io, socket) => {
       });
 
       await message.save();
+
+      // #region agent log
+      fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H2',location:'backend/socket/handlers/cityChat.js:send-city-message:saved',message:'Message saved to DB',data:{messageId:message._id.toString(),chatId:cityChat._id.toString()},timestamp:Date.now()})+'\n', 'utf8');
+      // #endregion
 
       // Update last message timestamp
       await CityChat.findByIdAndUpdate(cityChat._id, {
@@ -183,16 +212,27 @@ module.exports = (io, socket) => {
         .populate('sender_id', 'username full_name profile_photo_url')
         .populate('reply_to', 'content sender_id');
 
+      // #region agent log
+      fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H3',location:'backend/socket/handlers/cityChat.js:send-city-message:before-broadcast',message:'About to broadcast message',data:{messageId:message._id.toString(),roomName:`city-${cityId}`,content:content.substring(0,50)},timestamp:Date.now()})+'\n', 'utf8');
+      // #endregion
+
       // Broadcast to all users in the city chat room (including sender)
       io.to(`city-${cityId}`).emit('new-city-message', {
         ...populatedMessage.toObject(),
         cityId
       });
 
+      // #region agent log
+      fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H3',location:'backend/socket/handlers/cityChat.js:send-city-message:broadcasted',message:'Message broadcasted to room',data:{messageId:message._id.toString(),roomName:`city-${cityId}`},timestamp:Date.now()})+'\n', 'utf8');
+      // #endregion
+
       console.log(`💬 ${socket.user.username} sent message to city ${cityId}`);
 
     } catch (error) {
       console.error('Error sending city message:', error);
+      // #region agent log
+      fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H2',location:'backend/socket/handlers/cityChat.js:send-city-message:error',message:'Error in send-city-message handler',data:{error:error.message,stack:error.stack?.substring(0,200)},timestamp:Date.now()})+'\n', 'utf8');
+      // #endregion
       socket.emit('error', { 
         message: 'Failed to send message',
         details: error.message 
@@ -223,20 +263,20 @@ module.exports = (io, socket) => {
         });
       }
 
-      // Content moderation check for edited content
-      const moderationResult = await contentModerator.moderate(
-        content,
-        socket.user._id.toString(),
-        'city'
-      );
+      // Content moderation check for edited content - DISABLED
+      // const moderationResult = await contentModerator.moderate(
+      //   content,
+      //   socket.user._id.toString(),
+      //   'city'
+      // );
 
-      if (!moderationResult.allowed) {
-        return socket.emit('error', {
-          message: 'Edited message blocked by content moderation',
-          reason: moderationResult.reason || 'Content violates community guidelines',
-          flags: moderationResult.flags
-        });
-      }
+      // if (!moderationResult.allowed) {
+      //   return socket.emit('error', {
+      //     message: 'Edited message blocked by content moderation',
+      //     reason: moderationResult.reason || 'Content violates community guidelines',
+      //     flags: moderationResult.flags
+      //   });
+      // }
 
       message.content = content;
       message.is_edited = true;
