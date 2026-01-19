@@ -213,14 +213,14 @@ function EventsPage() {
       {/* Events Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
         {/* Results Header */}
-        <div className="mb-10 flex items-center justify-between">
+        <div className="mb-1 flex items-center justify-between">
           <div>
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
+            {/* <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
               {filteredEvents.length === 0 && !loading
                 ? 'No events found'
                 : `${filteredEvents.length} ${filteredEvents.length === 1 ? 'Event' : 'Events'} Found`
               }
-            </h2>
+            </h2> */}
             {searchQuery && (
               <p className="text-gray-600 mt-1 text-base">
                 Showing results for <span className="font-semibold text-gray-900">"{searchQuery}"</span>
