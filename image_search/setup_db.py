@@ -12,7 +12,9 @@ from glob import glob
 import random
 
 def setup_database():
-    conn = sqlite3.connect("hotels.db")
+    base_path = os.path.dirname(os.path.abspath(__file__))
+    db_path = os.path.join(base_path, "hotels.db")
+    conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     cursor.execute("DROP TABLE IF EXISTS hotels")
     cursor.execute("""
@@ -21,7 +23,8 @@ def setup_database():
             name TEXT,
             stars INTEGER,
             price INTEGER,
-            description TEXT
+            description TEXT,
+            external_link TEXT
         )
     """)
     conn.commit()
@@ -67,14 +70,32 @@ def main():
     mapping = {}
     faiss_id = 0
     
-    if not os.path.exists("hotels"):
-        print("Error: 'hotels' folder not found.")
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(base_dir)
+    parent_dir = os.path.dirname(project_root)
+    
+    # Search for hotels folder in multiple locations
+    possible_hotels_dirs = [
+        os.path.join(base_dir, "hotels"),
+        os.path.join(project_root, "hotels"),
+        os.path.join(parent_dir, "hotels")
+    ]
+    
+    hotels_dir = None
+    for d in possible_hotels_dirs:
+        if os.path.exists(d) and os.path.isdir(d):
+            hotels_dir = d
+            break
+    
+    if not hotels_dir:
+        print(f"Error: 'hotels' folder not found. Checked: {possible_hotels_dirs}")
         return
 
-    hotel_folders = sorted([f for f in os.listdir("hotels") if os.path.isdir(os.path.join("hotels", f))])
+    print(f"Using hotels directory: {hotels_dir}")
+    hotel_folders = sorted([f for f in os.listdir(hotels_dir) if os.path.isdir(os.path.join(hotels_dir, f))])
     
     for folder in hotel_folders:
-        folder_path = os.path.join("hotels", folder)
+        folder_path = os.path.join(hotels_dir, folder)
         info_path = os.path.join(folder_path, "info.json")
         if not os.path.exists(info_path): continue
             
@@ -82,8 +103,44 @@ def main():
             with open(info_path, "r") as f:
                 data = json.load(f)
             
-            cursor.execute("INSERT INTO hotels (name, stars, price, description) VALUES (?, ?, ?, ?)",
-                         (data.get("name", folder), data.get("stars", 0), random.randint(5000, 25000), data.get("description", "")))
+            stars = data.get("stars")
+            price = data.get("price")
+            external_link = data.get("external_link", "")
+            
+            # Construct MakeMyTrip search link if no valid link exists
+            if not external_link or "goibibo" in external_link.lower():
+                import urllib.parse
+                hotel_name = data.get('name', folder)
+                search_query = hotel_name if "goa" in hotel_name.lower() else f"{hotel_name} Goa"
+                encoded_name = urllib.parse.quote(search_query)
+                external_link = f"https://www.makemytrip.com/hotels/hotel-listing/?searchText={encoded_name}"
+            
+            if not stars or stars == 0:
+                stars = random.randint(3, 5)
+                
+            if not price or price == 0:
+                price = random.randint(5000, 25000)
+                
+            amenities = data.get("amenities", [])
+            description = data.get("description", "")
+            
+            # Create highly specific description based on actual amenities
+            if "Detailed information for" in description or not description or "Verified property data" in description:
+                features = []
+                if any(a in str(amenities).lower() for a in ["pool", "swimming"]): features.append("a sparkling swimming pool")
+                if any(a in str(amenities).lower() for a in ["spa", "massage"]): features.append("rejuvenating spa services")
+                if any(a in str(amenities).lower() for a in ["gym", "fitness"]): features.append("a modern fitness center")
+                if any(a in str(amenities).lower() for a in ["beach", "sea view"]): features.append("stunning coastal views")
+                if any(a in str(amenities).lower() for a in ["restaurant", "dining"]): features.append("multi-cuisine dining options")
+                
+                if features:
+                    desc_features = ", ".join(features[:-1]) + (f" and {features[-1]}" if len(features) > 1 else features[0])
+                    description = f"Welcome to {data.get('name', folder)}. This {stars}-star property features {desc_features}, making it a top choice for travelers."
+                else:
+                    description = f"Experience world-class hospitality at {data.get('name', folder)}, featuring essential amenities and comfortable accommodations."
+
+            cursor.execute("INSERT INTO hotels (name, stars, price, description, external_link) VALUES (?, ?, ?, ?, ?)",
+                         (data.get("name", folder), stars, price, description, external_link))
             hotel_id = cursor.lastrowid
             
             image_paths = []
@@ -121,11 +178,15 @@ def main():
     conn.close()
     
     if all_ai_features:
-        np.save("hotel_features_ai.npy", np.vstack(all_ai_features))
-        np.save("hotel_features_color.npy", np.vstack(all_color_features))
-        with open("mapping.pkl", "wb") as f:
+        ai_feat_path = os.path.join(base_dir, "hotel_features_ai.npy")
+        color_feat_path = os.path.join(base_dir, "hotel_features_color.npy")
+        mapping_path = os.path.join(base_dir, "mapping.pkl")
+        
+        np.save(ai_feat_path, np.vstack(all_ai_features))
+        np.save(color_feat_path, np.vstack(all_color_features))
+        with open(mapping_path, "wb") as f:
             pickle.dump(mapping, f)
-        print("Ingestion complete. Hybrid Index created.")
+        print(f"Ingestion complete. Hybrid Index created at {base_dir}")
 
 if __name__ == "__main__":
     main()

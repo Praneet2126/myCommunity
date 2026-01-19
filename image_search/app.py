@@ -14,10 +14,21 @@ def load_resources():
     device = "cpu"
     model, preprocess = clip.load("ViT-L/14@336px", device=device)
     
-    ai_features = np.load("hotel_features_ai.npy") if os.path.exists("hotel_features_ai.npy") else None
-    color_features = np.load("hotel_features_color.npy") if os.path.exists("hotel_features_color.npy") else None
+    # Get the directory where app.py is located
+    base_path = os.path.dirname(os.path.abspath(__file__))
     
-    with open("mapping.pkl", "rb") as f:
+    ai_feat_path = os.path.join(base_path, "hotel_features_ai.npy")
+    color_feat_path = os.path.join(base_path, "hotel_features_color.npy")
+    mapping_path = os.path.join(base_path, "mapping.pkl")
+
+    ai_features = np.load(ai_feat_path) if os.path.exists(ai_feat_path) else None
+    color_features = np.load(color_feat_path) if os.path.exists(color_feat_path) else None
+    
+    if not os.path.exists(mapping_path):
+        st.error(f"Required file not found: {mapping_path}")
+        st.stop()
+
+    with open(mapping_path, "rb") as f:
         mapping = pickle.load(f)
     return model, preprocess, ai_features, color_features, mapping
 
@@ -36,9 +47,13 @@ def extract_color_texture_signature(image):
     return np.concatenate([hist, texture_sig]).astype("float32")
 
 def get_hotel_details(hotel_id):
-    conn = sqlite3.connect("hotels.db")
+    # Get the directory where app.py is located
+    base_path = os.path.dirname(os.path.abspath(__file__))
+    db_path = os.path.join(base_path, "hotels.db")
+    
+    conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    cursor.execute("SELECT name, stars, price, description FROM hotels WHERE id = ?", (hotel_id,))
+    cursor.execute("SELECT name, stars, price, description, external_link FROM hotels WHERE id = ?", (hotel_id,))
     row = cursor.fetchone()
     conn.close()
     return row
@@ -72,6 +87,25 @@ def main():
             ]
             
             st.info("Computing Global/Local dependencies & Color signatures...")
+            
+            # --- FEATURE DETECTION (New) ---
+            visual_features = [
+                "wooden flooring", "infinity pool", "modern decor", "traditional style", 
+                "beach view", "lush garden", "glass facade", "cozy lighting",
+                "spacious room", "balcony", "city skyline", "mountain view"
+            ]
+            
+            detected_tags = []
+            with torch.no_grad():
+                text_tokens = clip.tokenize(visual_features).to("cpu")
+                image_input = preprocess(enhanced_image).unsqueeze(0).to("cpu")
+                logits_per_image, _ = model(image_input, text_tokens)
+                probs = logits_per_image.softmax(dim=-1).cpu().numpy()[0]
+                
+                # Take features with > 15% probability confidence
+                for i, prob in enumerate(probs):
+                    if prob > 0.15:
+                        detected_tags.append(visual_features[i].title())
             
             # 1. AI Score (Semantic)
             ai_scores_list = []
@@ -109,62 +143,30 @@ def main():
             
             sorted_hotels = sorted(hotel_results.items(), key=lambda x: x[1]["score"], reverse=True)[:3]
             
-            # Display matching factors explanation
-            with st.expander("🔍 How Image Matching Works - Matching Factors Explained", expanded=False):
-                st.markdown("""
-                ### Image Matching Algorithm
-                
-                The system uses a **Hybrid Multi-Scale Visual Search** that combines two complementary approaches:
-                
-                #### 1. **AI Semantic Matching (70% weight)** - CLIP Model
-                - **Model**: ViT-L/14@336px (Vision Transformer Large)
-                - **What it captures**: 
-                  - Semantic understanding (beach view, pool, room type, architectural style)
-                  - Object recognition (furniture, amenities, decor)
-                  - Scene composition and layout
-                  - Visual concepts and context
-                - **How it works**: 
-                  - Analyzes the image at multiple scales (full image + cropped regions)
-                  - Extracts high-level visual features using deep learning
-                  - Understands "what" is in the image, not just pixel colors
-                
-                #### 2. **Color & Texture Matching (30% weight)** - Exact Visual Signature
-                - **Color Signature**: 
-                  - 3D RGB histogram (4 bins per channel = 64 dimensions)
-                  - Captures exact color distribution and palette
-                  - Identifies matching color schemes
-                - **Texture Signature**: 
-                  - Gradient-based features (Sobel-like)
-                  - Captures shapes, edges, and material textures
-                  - Identifies similar building materials, patterns, and surfaces
-                - **How it works**:
-                  - Extracts pixel-level visual characteristics
-                  - Matches exact color codes and texture patterns
-                  - Perfect for finding visually identical or very similar images
-                
-                #### 3. **Multi-Scale Analysis**
-                - Analyzes the full image (global context)
-                - Analyzes cropped regions (local details)
-                - Takes the best match across all scales
-                
-                #### 4. **Final Score Calculation**
-                ```
-                Final Score = (0.7 × AI Semantic Score) + (0.3 × Color/Texture Score)
-                ```
-                
-                This hybrid approach ensures matches are both **semantically relevant** (similar content/meaning) 
-                and **visually similar** (similar colors/textures).
-                """)
+            # --- PREPARE DATA FOR UI & FRONTEND ---
+            final_output = []
             
-            st.subheader("🏆 Top Matches (Ranked by Hybrid Visual Similarity)")
+            st.subheader("Top Matches (Ranked by Color, Shape & Semantic Similarity)")
             for hotel_id, res in sorted_hotels:
                 details = get_hotel_details(hotel_id)
                 if details:
-                    name, stars, price, desc = details
+                    name, stars, price, desc, link = details
                     score = res["score"]
                     ai_score = res["ai_score"]
                     color_score = res["color_score"]
                     match_path = res["image_path"]
+                    
+                    # Add to JSON output list
+                    final_output.append({
+                        "score": round(float(score), 2),
+                        "name": name,
+                        "description": desc,
+                        "price": price,
+                        "rating": stars,
+                        "best_match_photo": match_path,
+                        "detected_features": detected_tags + [f"{int(score*100)}% Match"],
+                        "external_link": link
+                    })
                     
                     with st.container():
                         col1, col2, col3 = st.columns([1, 2, 2])
@@ -177,15 +179,45 @@ def main():
                         with col2:
                             st.markdown(f"### {name}")
                             st.write(f"⭐ {stars} Stars | 💰 ₹{price}")
+                            
+                            # Display Detected Feature Tags
+                            if detected_tags:
+                                tag_html = "".join([f'<span style="background-color: #f0f2f6; color: #31333f; padding: 4px 10px; border-radius: 15px; margin-right: 5px; font-size: 0.8rem; border: 1px solid #dfe2e6;">{tag}</span>' for tag in detected_tags])
+                                st.markdown(tag_html, unsafe_allow_html=True)
+                                st.write("") # Spacer
+                                
                             st.write(desc)
-                        with col3:
-                            if os.path.exists(match_path):
-                                best_match_img = Image.open(match_path)
-                                st.image(best_match_img, caption=f"🎯 Best Match Image (Score: {score:.3f})", use_container_width=True)
-                                st.caption(f"Image Index: {res['image_index']} | Path: {os.path.basename(match_path)}")
+                            if link:
+                                st.markdown(f"[🔗 View on MakeMyTrip]({link})")
+                        with c3:
+                            # Robust path resolution for images
+                            full_match_path = match_path
+                            if not os.path.isabs(full_match_path):
+                                # Potential base directories to check
+                                app_dir = os.path.dirname(os.path.abspath(__file__))
+                                project_root = os.path.dirname(app_dir)
+                                parent_dir = os.path.dirname(project_root)
+                                
+                                possible_paths = [
+                                    os.path.join(app_dir, match_path),
+                                    os.path.join(project_root, match_path),
+                                    os.path.join(parent_dir, match_path)
+                                ]
+                                
+                                for p in possible_paths:
+                                    if os.path.exists(p):
+                                        full_match_path = p
+                                        break
+                            
+                            if os.path.exists(full_match_path):
+                                st.image(Image.open(full_match_path), caption="Exact Texture Match", use_container_width=True)
                             else:
                                 st.warning(f"Image not found: {match_path}")
                         st.divider()
+            
+            # Show JSON for Developer
+            with st.expander("🛠 Developer Tools: JSON Output for Frontend"):
+                st.json(final_output)
                         
         except Exception as e:
             st.error(f"Error: {e}")
