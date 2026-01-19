@@ -30,9 +30,13 @@ function ChatWindow({
   const currentPrivateChat = privateChats.find(chat => chat.id === activeChatId);
   const isPrivateChat = activeChatId !== 'public';
 
-  // Scroll to bottom when new messages arrive
+  // Scroll to bottom when new messages arrive (only within the chat container)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Small delay to let page scroll complete first
+    const timer = setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 100);
+    return () => clearTimeout(timer);
   }, [messages]);
 
   // Close dropdown when clicking outside

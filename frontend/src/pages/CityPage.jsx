@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useLayoutEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useCity } from '../context/CityContext';
 import { useChat } from '../context/ChatContext';
@@ -33,6 +33,13 @@ function CityPage() {
   
   // Track if we've already initialized for this city
   const initializedCityRef = useRef(null);
+
+  // Scroll to top when city page loads
+  useLayoutEffect(() => {
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, [cityName]);
 
   // Redirect to home if not logged in (only after auth has loaded)
   useEffect(() => {
