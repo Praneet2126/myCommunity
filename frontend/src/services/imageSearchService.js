@@ -22,7 +22,11 @@ export const searchSimilarHotels = async (imageFile) => {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      const errorMessage =
+        errorData.detail ||
+        errorData.message ||
+        `HTTP error! status: ${response.status}`;
+      throw new Error(errorMessage);
     }
 
     const data = await response.json();

@@ -44,14 +44,33 @@ moderation_service = None
 activity_recommendation_service = None
 
 def init_services():
-    """Initialize services on first use"""
-    global hotel_recommendation_service, image_search_service, moderation_service, activity_recommendation_service
+    """Initialize all services (legacy helper)."""
+    init_hotel_recommendation_service()
+    init_image_search_service()
+    init_moderation_service()
+    init_activity_recommendation_service()
+
+def init_hotel_recommendation_service():
+    """Initialize hotel recommendation service on first use."""
+    global hotel_recommendation_service
     if hotel_recommendation_service is None:
         hotel_recommendation_service = get_hotel_recommendation_service()
+
+def init_image_search_service():
+    """Initialize image search service on first use."""
+    global image_search_service
     if image_search_service is None:
         image_search_service = get_image_search_service()
+
+def init_moderation_service():
+    """Initialize moderation service on first use."""
+    global moderation_service
     if moderation_service is None:
         moderation_service = get_moderation_service()
+
+def init_activity_recommendation_service():
+    """Initialize activity recommendation service on first use."""
+    global activity_recommendation_service
     if activity_recommendation_service is None:
         activity_recommendation_service = get_activity_recommendation_service()
 
@@ -171,14 +190,17 @@ async def find_similar_hotels(
     - Returns top 3 similar hotels with similarity scores
     """
     try:
-        init_services()
+        init_image_search_service()
         
         if image is None:
             raise HTTPException(status_code=400, detail="Image file is required")
         
         # Read image
         image_data = await image.read()
-        pil_image = Image.open(io.BytesIO(image_data)).convert("RGB")
+        try:
+            pil_image = Image.open(io.BytesIO(image_data)).convert("RGB")
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Invalid image file: {str(e)}")
         
         # Search for similar hotels
         results = image_search_service.search_similar_hotels(pil_image, top_k=3)
@@ -224,7 +246,7 @@ async def recommend_hotels_from_chat(request: HotelRecommendationRequest):
     }
     """
     try:
-        init_services()
+        init_hotel_recommendation_service()
         
         result = hotel_recommendation_service.get_recommendations_from_chat(
             messages=request.messages,
@@ -307,7 +329,7 @@ async def moderate_content(request: ContentModerationRequest):
     """
     try:
         # Initialize moderation service if needed
-        init_services()
+        init_moderation_service()
         
         # Call the actual moderation service
         result = moderation_service.moderate_content(
@@ -330,7 +352,7 @@ async def moderate_content_batch(requests: List[ContentModerationRequest]):
     """
     try:
         # Initialize moderation service if needed
-        init_services()
+        init_moderation_service()
         
         results = []
         for request in requests:
@@ -429,7 +451,7 @@ async def process_activity_message(request: ProcessMessageRequest):
     }
     """
     try:
-        init_services()
+        init_activity_recommendation_service()
         
         result = activity_recommendation_service.process_message(
             chat_id=request.chat_id,
@@ -459,7 +481,7 @@ async def add_activity_to_cart(request: AddToCartRequest):
     }
     """
     try:
-        init_services()
+        init_activity_recommendation_service()
         
         result = activity_recommendation_service.add_to_cart(
             chat_id=request.chat_id,
@@ -485,7 +507,7 @@ async def get_activity_cart(chat_id: str):
     Returns the list of activities added to the cart along with settings (num_days, num_people).
     """
     try:
-        init_services()
+        init_activity_recommendation_service()
         
         cart_data = activity_recommendation_service.get_cart(chat_id)
         return Cart(**cart_data)
@@ -506,7 +528,7 @@ async def update_activity_cart_settings(request: UpdateCartSettingsRequest):
     }
     """
     try:
-        init_services()
+        init_activity_recommendation_service()
         
         result = activity_recommendation_service.update_cart_settings(
             chat_id=request.chat_id,
@@ -530,7 +552,7 @@ async def generate_activity_itinerary(chat_id: str):
     - chat_id: The chat ID for which to generate the itinerary
     """
     try:
-        init_services()
+        init_activity_recommendation_service()
         
         result = activity_recommendation_service.generate_itinerary(chat_id)
         
