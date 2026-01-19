@@ -3,19 +3,11 @@ import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import CreatePrivateChat from './CreatePrivateChat';
 import AIRecommendationModal from './AIRecommendationModal';
+import GroupProfileModal from './GroupProfileModal';
 
 /**
  * ChatWindow component
  * Main chat interface displaying messages and input
- * @param {Object} props - Component props
- * @param {Array} props.messages - Array of message objects
- * @param {Function} props.onSendMessage - Callback function to send message
- * @param {string} props.chatName - Name of the current chat
- * @param {Array} props.privateChats - Array of private chat objects (for mobile view)
- * @param {string} props.activeChatId - Currently active chat ID
- * @param {Function} props.onSelectChat - Callback when chat is selected
- * @param {Function} props.onCreateChat - Callback to create new private chat
- * @param {string} props.cityName - Name of the city
  */
 function ChatWindow({ 
   messages, 
@@ -31,6 +23,11 @@ function ChatWindow({
   const [showPrivateChatsDropdown, setShowPrivateChatsDropdown] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAIModal, setShowAIModal] = useState(false);
+  const [showGroupProfile, setShowGroupProfile] = useState(false);
+
+  // Get current private chat object
+  const currentPrivateChat = privateChats.find(chat => chat.id === activeChatId);
+  const isPrivateChat = activeChatId !== 'public';
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {
@@ -51,7 +48,6 @@ function ChatWindow({
   const handleCreateChat = async (chatName, description, participants) => {
     if (onCreateChat) {
       const newChat = await onCreateChat(chatName, description, participants);
-      // Automatically switch to the newly created chat
       if (newChat && newChat.id && onSelectChat) {
         onSelectChat(newChat.id);
       }
@@ -66,18 +62,72 @@ function ChatWindow({
       <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sm:py-4">
         {/* Desktop Header */}
         <div className="hidden lg:block">
-          <h2 className="text-xl font-bold text-gray-800">{chatName}</h2>
-          <p className="text-sm text-gray-500">Chat with fellow travelers</p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {/* Group Avatar for Private Chats */}
+              {isPrivateChat && (
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#1976D2] to-[#1565C0] flex items-center justify-center text-white font-bold">
+                  {chatName?.charAt(0).toUpperCase() || 'G'}
+                </div>
+              )}
+              <div>
+                <h2 className="text-xl font-bold text-gray-800">{chatName}</h2>
+                <p className="text-sm text-gray-500">
+                  {isPrivateChat 
+                    ? `Private Group · ${currentPrivateChat?.participants?.length || 0} members`
+                    : 'Chat with fellow travelers'
+                  }
+                </p>
+              </div>
+            </div>
+            {/* Arrow for Private Chat Profile - Right Corner */}
+            {isPrivateChat && (
+              <button
+                onClick={() => setShowGroupProfile(true)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                title="View group info"
+              >
+                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Mobile Header with Controls */}
         <div className="lg:hidden space-y-3">
           {/* Main Chat Title */}
           <div className="flex items-center justify-between">
-            <div className="flex-1 min-w-0">
-              <h2 className="text-lg font-bold text-gray-800 truncate">{chatName}</h2>
-              <p className="text-xs text-gray-500">Chat with fellow travelers</p>
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              {/* Group Avatar for Private Chats */}
+              {isPrivateChat && (
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#1976D2] to-[#1565C0] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                  {chatName?.charAt(0).toUpperCase() || 'G'}
+                </div>
+              )}
+              <div className="min-w-0">
+                <h2 className="text-lg font-bold text-gray-800 truncate">{chatName}</h2>
+                <p className="text-xs text-gray-500">
+                  {isPrivateChat 
+                    ? `Private · ${currentPrivateChat?.participants?.length || 0} members`
+                    : 'Chat with fellow travelers'
+                  }
+                </p>
+              </div>
             </div>
+            {/* Arrow for Private Chat Profile - Right Corner */}
+            {isPrivateChat && (
+              <button
+                onClick={() => setShowGroupProfile(true)}
+                className="p-1.5 hover:bg-gray-100 rounded-full transition-colors flex-shrink-0"
+                title="View group info"
+              >
+                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            )}
           </div>
 
           {/* Mobile Controls */}
@@ -274,6 +324,14 @@ function ChatWindow({
         isOpen={showAIModal}
         onClose={() => setShowAIModal(false)}
         messages={messages}
+      />
+
+      {/* Group Profile Modal */}
+      <GroupProfileModal
+        isOpen={showGroupProfile}
+        onClose={() => setShowGroupProfile(false)}
+        chat={currentPrivateChat}
+        cityName={cityName}
       />
     </div>
   );

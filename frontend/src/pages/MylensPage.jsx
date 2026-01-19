@@ -123,7 +123,7 @@ function MylensPage() {
             </div>
 
             <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-              MyLens
+              myLens
             </h1>
             <p className="text-lg text-gray-600 font-medium max-w-2xl mx-auto">
               Discover similar hotels using advanced AI image recognition. Upload a hotel image to find matching accommodations.

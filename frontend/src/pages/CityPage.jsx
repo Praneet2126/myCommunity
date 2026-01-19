@@ -14,7 +14,7 @@ function CityPage() {
   const { cityName } = useParams();
   const navigate = useNavigate();
   const { selectCity, selectedCity } = useCity();
-  const { user, isLoggedIn } = useAuth();
+  const { user, isLoggedIn, loading } = useAuth();
   const {
     activeCityId,
     activeChatId,
@@ -33,12 +33,12 @@ function CityPage() {
   // Track if we've already initialized for this city
   const initializedCityRef = useRef(null);
 
-  // Redirect to home if not logged in
+  // Redirect to home if not logged in (only after auth has loaded)
   useEffect(() => {
-    if (!isLoggedIn) {
+    if (!loading && !isLoggedIn) {
       navigate('/', { replace: true });
     }
-  }, [isLoggedIn, navigate]);
+  }, [loading, isLoggedIn, navigate]);
 
   // Memoize the load function to prevent recreation
   const loadCityAndJoin = useCallback(async () => {
