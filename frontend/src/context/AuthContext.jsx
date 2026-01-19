@@ -20,10 +20,6 @@ export const AuthProvider = ({ children }) => {
       const storedToken = localStorage.getItem('token');
       const storedUser = localStorage.getItem('user');
 
-      // #region agent log
-      fetch('http://127.0.0.1:7246/ingest/ed889ba1-73d9-4a1d-bf22-c8e51587df89',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix-1',hypothesisId:'H1',location:'frontend/src/context/AuthContext.jsx:loadUser',message:'loadUser:start',data:{hasStoredToken:!!storedToken,hasStoredUser:!!storedUser},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
-
       if (storedToken && storedUser) {
         try {
           setToken(storedToken);
@@ -46,17 +42,9 @@ export const AuthProvider = ({ children }) => {
           setToken(null);
           setUser(null);
           setIsLoggedIn(false);
-
-          // #region agent log
-          fetch('http://127.0.0.1:7246/ingest/ed889ba1-73d9-4a1d-bf22-c8e51587df89',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix-1',hypothesisId:'H1',location:'frontend/src/context/AuthContext.jsx:loadUser',message:'loadUser:clearedAuthDueToError',data:{errorName:error?.name||'Error'},timestamp:Date.now()})}).catch(()=>{});
-          // #endregion
         }
       }
       setLoading(false);
-
-      // #region agent log
-      fetch('http://127.0.0.1:7246/ingest/ed889ba1-73d9-4a1d-bf22-c8e51587df89',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix-1',hypothesisId:'H1',location:'frontend/src/context/AuthContext.jsx:loadUser',message:'loadUser:end',data:{isLoggedInAfter:!!(storedToken&&storedUser),loadingSetFalse:true},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
     };
 
     loadUser();
