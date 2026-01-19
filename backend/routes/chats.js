@@ -6,7 +6,7 @@ const Message = require('../models/Message');
 const User = require('../models/User');
 const { authenticate } = require('../middleware/auth');
 const { privateChatValidation, messageValidation, paginationValidation } = require('../middleware/validator');
-const contentModerator = require('../moderation');
+const contentModerator = require('../../moderation');
 
 // Get user's private chats
 router.get('/', authenticate, async (req, res, next) => {

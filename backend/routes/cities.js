@@ -6,7 +6,7 @@ const CityChat = require('../models/CityChat');
 const Message = require('../models/Message');
 const { authenticate } = require('../middleware/auth');
 const { messageValidation, paginationValidation } = require('../middleware/validator');
-const contentModerator = require('../moderation');
+const contentModerator = require('../../moderation');
 
 // Get all active cities
 router.get('/', async (req, res, next) => {

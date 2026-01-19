@@ -152,6 +152,302 @@ curl -X POST "http://localhost:8001/api/v1/hotels/recommend" \
 
 ---
 
+### 4. Chat Summarization
+**POST** `/api/v1/chat/summarize-messages`
+
+Summarize a list of chat messages. Requires at least 15 messages and 200 words to generate a summary.
+
+**Request:**
+- Method: `POST`
+- Content-Type: `application/json`
+- Body:
+
+```json
+{
+  "messages": [
+    "Message 1 text",
+    "Message 2 text",
+    "Message 3 text",
+    ...
+  ]
+}
+```
+
+**Response:**
+```json
+{
+  "summary": "Combined summary text...",
+  "key_points": [
+    "Key point 1",
+    "Key point 2",
+    "Key point 3"
+  ],
+  "message_count": 25,
+  "date_range": null
+}
+```
+
+**Example cURL:**
+```bash
+curl -X POST "http://localhost:8001/api/v1/chat/summarize-messages" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [
+      "User1: Planning a trip to Barcelona",
+      "User2: Looking for hotels near the beach",
+      "User3: Budget is around 20k per night",
+      ...
+    ]
+  }'
+```
+
+**Note:** The service requires:
+- Minimum 15 messages
+- Minimum 200 words total
+If thresholds are not met, returns a message indicating insufficient content.
+
+---
+
+### 5. Content Moderation
+**POST** `/api/v1/moderation/check`
+
+Check if content is safe, spam, or contains abusive language. Uses rule-based checks and AI-based toxicity detection.
+
+**Request:**
+- Method: `POST`
+- Content-Type: `application/json`
+- Body:
+
+```json
+{
+  "content": "Message text to moderate",
+  "user_id": "optional_user_id",
+  "message_id": "optional_message_id"
+}
+```
+
+**Response:**
+```json
+{
+  "is_safe": true,
+  "is_spam": false,
+  "is_abusive": false,
+  "confidence_score": 0.95,
+  "flagged_categories": [],
+  "suggested_action": null,
+  "reason": null
+}
+```
+
+**Example cURL:**
+```bash
+curl -X POST "http://localhost:8001/api/v1/moderation/check" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "content": "This is a test message",
+    "user_id": "user123"
+  }'
+```
+
+---
+
+### 6. Batch Content Moderation
+**POST** `/api/v1/moderation/batch`
+
+Check multiple content items in batch.
+
+**Request:**
+- Method: `POST`
+- Content-Type: `application/json`
+- Body: Array of moderation requests
+
+```json
+[
+  {
+    "content": "Message 1",
+    "user_id": "user1"
+  },
+  {
+    "content": "Message 2",
+    "user_id": "user2"
+  }
+]
+```
+
+**Response:** Array of `ContentModerationResponse` objects
+
+---
+
+### 7. Sentiment Analysis (Single Message)
+**POST** `/api/v1/sentiment/analyze`
+
+Analyze sentiment and extract tags from a single message.
+
+**Request:**
+- Method: `POST`
+- Content-Type: `application/json`
+- Body:
+
+```json
+{
+  "message_text": "Baga is crowded but great for families"
+}
+```
+
+**Response:**
+```json
+{
+  "message_sentiment": {
+    "sentiment": "positive",
+    "confidence": 0.85,
+    "raw_scores": {
+      "positive": 0.85,
+      "neutral": 0.10,
+      "negative": 0.05
+    }
+  },
+  "tags": {
+    "places": ["baga beach"],
+    "hotels": [],
+    "themes": ["crowded", "family"]
+  },
+  "tag_sentiments": [
+    {
+      "tag": "baga beach",
+      "tag_type": "place",
+      "sentiment": "positive",
+      "confidence": 0.85
+    },
+    {
+      "tag": "crowded",
+      "tag_type": "theme",
+      "sentiment": "positive",
+      "confidence": 0.85
+    }
+  ],
+  "has_tags": true
+}
+```
+
+**Example cURL:**
+```bash
+curl -X POST "http://localhost:8001/api/v1/sentiment/analyze" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message_text": "Baga is crowded but great for families"
+  }'
+```
+
+---
+
+### 8. Sentiment Analysis (Batch)
+**POST** `/api/v1/sentiment/analyze-batch`
+
+Analyze sentiment for multiple messages in batch.
+
+**Request:**
+- Method: `POST`
+- Content-Type: `application/json`
+- Body:
+
+```json
+{
+  "messages": [
+    "Message 1 text",
+    "Message 2 text",
+    "Message 3 text"
+  ]
+}
+```
+
+**Response:** Array of `SentimentAnalysisResponse` objects
+
+---
+
+### 9. Sentiment Aggregation
+**POST** `/api/v1/sentiment/aggregate`
+
+Aggregate sentiment by tags from message records. Useful for generating sentiment statistics by places, hotels, or themes.
+
+**Request:**
+- Method: `POST`
+- Content-Type: `application/json`
+- Body:
+
+```json
+{
+  "messages": [
+    {
+      "sentiment": "positive",
+      "tags": {
+        "places": ["goa"],
+        "hotels": [],
+        "themes": ["beach"]
+      }
+    },
+    {
+      "sentiment": "negative",
+      "tags": {
+        "places": ["goa"],
+        "hotels": [],
+        "themes": []
+      }
+    }
+  ]
+}
+```
+
+**Response:**
+```json
+{
+  "places": [
+    {
+      "entity_type": "place",
+      "entity_name": "goa",
+      "total_messages": 2,
+      "sentiment_distribution": {
+        "positive": 1,
+        "neutral": 0,
+        "negative": 1
+      },
+      "sentiment_score": 0.0,
+      "sentiment_label": "Mixed"
+    }
+  ],
+  "hotels": [],
+  "themes": [
+    {
+      "entity_type": "theme",
+      "entity_name": "beach",
+      "total_messages": 1,
+      "sentiment_distribution": {
+        "positive": 1,
+        "neutral": 0,
+        "negative": 0
+      },
+      "sentiment_score": 1.0,
+      "sentiment_label": "Mostly Positive"
+    }
+  ]
+}
+```
+
+**Example cURL:**
+```bash
+curl -X POST "http://localhost:8001/api/v1/sentiment/aggregate" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [
+      {
+        "sentiment": "positive",
+        "tags": {"places": ["goa"], "hotels": [], "themes": ["beach"]}
+      }
+    ]
+  }'
+```
+
+---
+
 ## Testing Checklist
 
 ### Image Search Endpoint
@@ -168,6 +464,29 @@ curl -X POST "http://localhost:8001/api/v1/hotels/recommend" \
 - [ ] Verify visual_descriptors are extracted
 - [ ] Check recommendations list is returned
 - [ ] Verify is_ready and readiness_score are included
+
+### Chat Summarization Endpoint
+- [ ] Send at least 15 messages with 200+ words
+- [ ] Verify summary is generated
+- [ ] Check key_points are returned (max 5)
+- [ ] Test with insufficient messages (should return appropriate message)
+- [ ] Verify message_count and word_count are accurate
+
+### Content Moderation Endpoint
+- [ ] Test with normal message (should allow)
+- [ ] Test with spam content (should flag/block)
+- [ ] Test with toxic content (should flag/block)
+- [ ] Verify confidence_score is between 0 and 1
+- [ ] Check flagged_categories are populated when violations detected
+- [ ] Test batch endpoint with multiple messages
+
+### Sentiment Analysis Endpoint
+- [ ] Analyze single message with sentiment
+- [ ] Verify tags are extracted (places, hotels, themes)
+- [ ] Check tag_sentiments are created for each tag
+- [ ] Test batch analysis
+- [ ] Test aggregation with multiple messages
+- [ ] Verify sentiment_score and sentiment_label in aggregation
 
 ---
 
@@ -189,4 +508,19 @@ curl -X POST "http://localhost:8001/api/v1/hotels/recommend" \
    - Image Search: `hotel_features_ai.npy`, `hotel_features_color.npy`, `mapping.pkl`, `hotels.db`
    - Hotel Recommendations: `hotel_data.json`, `hotel_features_ai.npy`, `mapping.pkl`
 
-4. The services are initialized at startup, so first request may take longer.
+4. **Chat Summarization** requires:
+   - Hugging Face API key (set `HF_API_KEY` or `HUGGINGFACE_API_KEY` environment variable)
+   - Minimum 15 messages and 200 words to generate summary
+   - Uses `facebook/bart-large-cnn` model via Hugging Face Inference API
+
+5. **Content Moderation** requires:
+   - Node.js installed and available in PATH
+   - Hugging Face API key for AI-based toxicity detection (optional, rule-based checks work without it)
+   - Moderation module located at `moderation/index.js`
+
+6. **Sentiment Analysis** requires:
+   - PyTorch and Transformers libraries
+   - Model downloads automatically on first use (requires internet)
+   - Uses `cardiffnlp/twitter-roberta-base-sentiment` model
+
+7. The services are initialized on first request, so first request may take longer (especially sentiment analysis which downloads the model).
