@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* Ensure instant scroll behavior for navigation */
+html {
+  scroll-behavior: auto;
+}
+
 /* Custom Scrollbar */
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
