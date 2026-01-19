@@ -24,7 +24,8 @@ function CityPage() {
     setCity,
     setChat,
     createPrivateChat,
-    getCurrentChat
+    getCurrentChat,
+    loadPrivateChats
   } = useChat();
 
   const [joining, setJoining] = useState(false);
@@ -171,6 +172,7 @@ function CityPage() {
                   onSelectChat={setChat}
                   onCreateChat={createPrivateChat}
                   cityName={selectedCity.displayName}
+                  onMembersChanged={loadPrivateChats}
                 />
               </div>
             </div>
