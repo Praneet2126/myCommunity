@@ -23,6 +23,36 @@ class SpamDetector {
   }
 
   /**
+   * Check for repeated words (e.g., "spam spam spam")
+   */
+  hasRepeatedWords(text) {
+    const words = text.trim().toLowerCase().split(/\s+/);
+    if (words.length < 3) return false;
+    
+    // Count occurrences of each word
+    const wordCounts = new Map();
+    for (const word of words) {
+      wordCounts.set(word, (wordCounts.get(word) || 0) + 1);
+    }
+    
+    // Check if any word appears 3+ times
+    for (const [word, count] of wordCounts.entries()) {
+      if (count >= 3 && word.length > 2) { // Ignore very short words
+        return true;
+      }
+    }
+    
+    // Check for consecutive repeated words (e.g., "spam spam spam")
+    for (let i = 0; i < words.length - 2; i++) {
+      if (words[i] === words[i + 1] && words[i] === words[i + 2] && words[i].length > 2) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+
+  /**
    * Check for excessive capitalization
    */
   hasExcessiveCaps(text) {
@@ -139,6 +169,12 @@ class SpamDetector {
     // Character repetition
     if (this.hasExcessiveRepetition(trimmed)) {
       flags.push('character_repetition');
+      decision = 'BLOCK';
+    }
+
+    // Word repetition (e.g., "spam spam spam")
+    if (this.hasRepeatedWords(trimmed)) {
+      flags.push('word_repetition');
       decision = 'BLOCK';
     }
 

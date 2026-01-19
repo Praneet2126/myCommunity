@@ -70,7 +70,7 @@ moderate();
                     cwd=str(self.moderation_path),
                     capture_output=True,
                     text=True,
-                    timeout=10  # Increased timeout for AI calls
+                    timeout=30  # Increased timeout for AI model loading (first-time can take longer)
                 )
                 
                 if result.returncode != 0:
@@ -90,7 +90,7 @@ moderate();
                 if temp_script.exists():
                     temp_script.unlink()
                     
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired as e:
             raise Exception("Moderation service timeout")
         except json.JSONDecodeError as e:
             raise Exception(f"Failed to parse moderation response: {str(e)}")
@@ -134,7 +134,18 @@ moderate();
             reason = result.get("reason", None)
             
             # Determine categories
-            is_spam = any("spam" in flag.lower() for flag in flags)
+            # Spam includes: spam flags, promotional content, excessive caps, word repetition, and suspicious links
+            spam_indicators = [
+                "spam", "promotional", "excessive_caps", "word_repetition", 
+                "character_repetition", "excessive_punctuation", "urgency_language",
+                "suspicious_link", "high_link_density", "url_shortener", 
+                "suspicious_tld", "affiliate_link", "insecure_link", 
+                "multiple_links", "suspicious_domain"
+            ]
+            is_spam = any(
+                any(indicator in flag.lower() for indicator in spam_indicators)
+                for flag in flags
+            )
             is_abusive = any(
                 flag in ["toxic", "severe_toxic", "obscene", "threat", "insult", "identity_hate"]
                 for flag in flags
@@ -157,13 +168,17 @@ moderate();
                 "reason": reason
             }
         except Exception as e:
-            # On error, default to safe but flag the error
+            # On error, check if it's a timeout
+            error_message = str(e)
+            is_timeout = "timeout" in error_message.lower()
+            
+            # Don't default to safe on timeout - treat as potential spam
             return {
-                "is_safe": True,
-                "is_spam": False,
+                "is_safe": False if is_timeout else True,
+                "is_spam": is_timeout,  # Treat timeout as potential spam
                 "is_abusive": False,
                 "confidence_score": 0.0,
-                "flagged_categories": ["moderation_error"],
-                "suggested_action": "review",
-                "reason": f"Moderation service error: {str(e)}"
+                "flagged_categories": (["moderation_error", "timeout"] if is_timeout else ["moderation_error"]),
+                "suggested_action": "block" if is_timeout else "review",
+                "reason": f"Moderation service error: {error_message}"
             }
