@@ -7,6 +7,11 @@ const User = require('../models/User');
 const { authenticate } = require('../middleware/auth');
 const { privateChatValidation, messageValidation, paginationValidation } = require('../middleware/validator');
 const contentModerator = require('../../moderation');
+const axios = require('axios');
+
+// LLM Service URL
+const LLM_SERVICE_URL = (process.env.LLM_SERVICE_URL || 'http://localhost:8001').replace(/\/$/, '');
+const LLM_ACTIVITIES_URL = `${LLM_SERVICE_URL}/api/v1/activities`;
 const { uploadChatImage } = require('../config/cloudinary');
 
 // Get user's private chats
@@ -866,6 +871,493 @@ router.delete('/:chatId/cart/:cartIndex', authenticate, async (req, res, next) =
       success: true,
       message: 'Item removed from cart successfully',
       data: updatedChat
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ==================== RECOMMENDATIONS ROUTES ====================
+
+// Analyze chat and get LLM recommendations
+router.post('/:chatId/analyze-chat', authenticate, async (req, res, next) => {
+  try {
+    const { chatId } = req.params;
+
+    const participant = await PrivateChatParticipant.findOne({
+      chat_id: chatId,
+      user_id: req.user._id
+    });
+
+    if (!participant) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not a member of this chat'
+      });
+    }
+
+    // Get recent messages from this chat
+    const messages = await Message.find({
+      chat_type: 'private',
+      chat_id: chatId,
+      is_deleted: false
+    })
+      .populate('sender_id', 'username full_name')
+      .sort({ created_at: -1 })
+      .limit(50); // Get last 50 messages
+
+    if (messages.length < 7) {
+      return res.status(400).json({
+        success: false,
+        message: 'Need at least 7 messages to analyze'
+      });
+    }
+
+    // Reverse to get chronological order
+    messages.reverse();
+
+    // Call LLM service
+    let newRecommendations = [];
+    let llmSuccessCount = 0;
+    for (const msg of messages) {
+      try {
+        const response = await axios.post(`${LLM_ACTIVITIES_URL}/message`, {
+          chat_id: chatId,
+          user: msg.sender_id?.username || 'User',
+          message: msg.content
+        });
+        llmSuccessCount += 1;
+
+        if (response.data?.trigger_rec && (response.data?.recommendations || []).length > 0) {
+          newRecommendations.push(...response.data.recommendations);
+        }
+      } catch (error) {
+        console.error('LLM service error:', error.message);
+      }
+    }
+
+    if (llmSuccessCount === 0) {
+      return res.status(503).json({
+        success: false,
+        message: 'LLM service unavailable. Start the AI service and try again.'
+      });
+    }
+
+    // Get chat and existing recommendations
+    const chat = await PrivateChat.findById(chatId);
+    const existingNames = new Set(chat.recommendations.map(r => r.name));
+
+    // Filter out duplicates
+    const uniqueNewRecs = newRecommendations.filter(r => !existingNames.has(r.name));
+
+    // Add new recommendations to chat
+    if (uniqueNewRecs.length > 0) {
+      const recsToAdd = uniqueNewRecs.map(r => ({
+        type: 'activity',
+        name: r.name,
+        duration: r.duration,
+        score: r.score,
+        category: r.category,
+        region: r.region,
+        lat: r.lat,
+        lon: r.lon,
+        best_time: r.best_time,
+        added_by: req.user._id,
+        added_at: new Date(),
+        votes: []
+      }));
+
+      await PrivateChat.findByIdAndUpdate(chatId, {
+        $push: { recommendations: { $each: recsToAdd } }
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Found ${uniqueNewRecs.length} new recommendations`,
+      newRecommendationsCount: uniqueNewRecs.length
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Add recommendation manually (from admin)
+router.post('/:chatId/recommendations', authenticate, async (req, res, next) => {
+  try {
+    const { chatId } = req.params;
+    const { recommendation } = req.body;
+
+    const participant = await PrivateChatParticipant.findOne({
+      chat_id: chatId,
+      user_id: req.user._id
+    });
+
+    if (!participant) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not a member of this chat'
+      });
+    }
+
+    const newRec = {
+      ...recommendation,
+      added_by: req.user._id,
+      added_at: new Date(),
+      votes: []
+    };
+
+    await PrivateChat.findByIdAndUpdate(chatId, {
+      $push: { recommendations: newRec }
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Recommendation added successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Vote for a recommendation
+router.post('/:chatId/recommendations/:recIndex/vote', authenticate, async (req, res, next) => {
+  try {
+    const { chatId, recIndex } = req.params;
+
+    const participant = await PrivateChatParticipant.findOne({
+      chat_id: chatId,
+      user_id: req.user._id
+    });
+
+    if (!participant) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not a member of this chat'
+      });
+    }
+
+    const chat = await PrivateChat.findById(chatId);
+    const rec = chat.recommendations[recIndex];
+
+    if (!rec) {
+      return res.status(404).json({
+        success: false,
+        message: 'Recommendation not found'
+      });
+    }
+
+    // Check if already voted
+    const hasVoted = rec.votes.some(v => v.user_id.toString() === req.user._id.toString());
+
+    if (hasVoted) {
+      // Remove vote
+      rec.votes = rec.votes.filter(v => v.user_id.toString() !== req.user._id.toString());
+    } else {
+      // Add vote
+      rec.votes.push({ user_id: req.user._id, voted_at: new Date() });
+    }
+
+    chat.recommendations[recIndex] = rec;
+    await chat.save();
+
+    res.status(200).json({
+      success: true,
+      message: hasVoted ? 'Vote removed' : 'Vote added',
+      voteCount: rec.votes.length
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Delete a recommendation
+router.delete('/:chatId/recommendations/:recIndex', authenticate, async (req, res, next) => {
+  try {
+    const { chatId, recIndex } = req.params;
+
+    const participant = await PrivateChatParticipant.findOne({
+      chat_id: chatId,
+      user_id: req.user._id
+    });
+
+    if (!participant) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not a member of this chat'
+      });
+    }
+
+    if (participant.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only admins can delete recommendations'
+      });
+    }
+
+    const chat = await PrivateChat.findById(chatId);
+    chat.recommendations.splice(recIndex, 1);
+    await chat.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Recommendation deleted successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ==================== CART ROUTES ====================
+
+// Add recommendation to cart
+router.post('/:chatId/cart/add', authenticate, async (req, res, next) => {
+  try {
+    const { chatId } = req.params;
+    const { recIndex } = req.body;
+
+    const participant = await PrivateChatParticipant.findOne({
+      chat_id: chatId,
+      user_id: req.user._id
+    });
+
+    if (!participant) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not a member of this chat'
+      });
+    }
+
+    if (participant.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only admins can add to cart'
+      });
+    }
+
+    const chat = await PrivateChat.findById(chatId);
+    const rec = chat.recommendations[recIndex];
+
+    if (!rec) {
+      return res.status(404).json({
+        success: false,
+        message: 'Recommendation not found'
+      });
+    }
+
+    // Check if already in cart
+    const existsInCart = chat.cart.some(item => item.name === rec.name);
+    if (existsInCart) {
+      return res.status(400).json({
+        success: false,
+        message: 'Item already in cart'
+      });
+    }
+
+    // Add to cart
+    const cartItem = {
+      name: rec.name,
+      type: rec.type || 'activity',
+      duration: rec.duration,
+      category: rec.category,
+      region: rec.region,
+      lat: rec.lat,
+      lon: rec.lon,
+      best_time: rec.best_time,
+      price: rec.price,
+      stars: rec.stars,
+      image_url: rec.image_url,
+      description: rec.description,
+      added_by: req.user._id,
+      added_at: new Date()
+    };
+
+    await PrivateChat.findByIdAndUpdate(chatId, {
+      $push: { cart: cartItem }
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Added to cart successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Remove item from cart
+router.delete('/:chatId/cart/:cartIndex', authenticate, async (req, res, next) => {
+  try {
+    const { chatId, cartIndex } = req.params;
+
+    const participant = await PrivateChatParticipant.findOne({
+      chat_id: chatId,
+      user_id: req.user._id
+    });
+
+    if (!participant) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not a member of this chat'
+      });
+    }
+
+    if (participant.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only admins can remove from cart'
+      });
+    }
+
+    const chat = await PrivateChat.findById(chatId);
+    chat.cart.splice(cartIndex, 1);
+    await chat.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Removed from cart successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ==================== ITINERARY ROUTES ====================
+
+// Generate itinerary from cart
+router.post('/:chatId/generate-itinerary', authenticate, async (req, res, next) => {
+  try {
+    const { chatId } = req.params;
+    const { num_days = 3, num_people = 2 } = req.body;
+
+    const participant = await PrivateChatParticipant.findOne({
+      chat_id: chatId,
+      user_id: req.user._id
+    });
+
+    if (!participant) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not a member of this chat'
+      });
+    }
+
+    if (participant.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only admins can generate itineraries'
+      });
+    }
+
+    const chat = await PrivateChat.findById(chatId);
+
+    if (chat.cart.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cart is empty. Add items to cart first.'
+      });
+    }
+
+    // Sync cart/settings with LLM service before itinerary generation
+    const username = req.user.username || req.user.full_name || 'User';
+    let existingCartItems = [];
+    try {
+      const cartResponse = await axios.get(`${LLM_ACTIVITIES_URL}/cart/${chatId}`);
+      existingCartItems = cartResponse.data?.items || [];
+    } catch (error) {
+      console.error('LLM cart fetch error:', error.message);
+    }
+
+    const existingNames = new Set(existingCartItems.map(item => item.place_name));
+    for (const item of chat.cart) {
+      if (!existingNames.has(item.name)) {
+        await axios.post(`${LLM_ACTIVITIES_URL}/cart/add`, {
+          chat_id: chatId,
+          user: username,
+          place_name: item.name
+        });
+      }
+    }
+
+    await axios.post(`${LLM_ACTIVITIES_URL}/cart/update`, {
+      chat_id: chatId,
+      num_days,
+      num_people
+    });
+
+    const response = await axios.post(`${LLM_ACTIVITIES_URL}/itinerary/generate`, null, {
+      params: { chat_id: chatId }
+    });
+
+    const itinerary = response.data;
+
+    // Add metadata
+    itinerary.created_by = req.user._id;
+    itinerary.created_at = new Date();
+    itinerary.num_days = num_days;
+    itinerary.num_people = num_people;
+
+    // Add itinerary to chat
+    await PrivateChat.findByIdAndUpdate(chatId, {
+      $push: { itineraries: itinerary }
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Itinerary generated successfully',
+      data: itinerary
+    });
+  } catch (error) {
+    if (error.code === 'ECONNREFUSED') {
+      return res.status(503).json({
+        success: false,
+        message: 'LLM service unavailable. Start the AI service and try again.'
+      });
+    }
+
+    if (error.response?.data?.detail) {
+      return res.status(error.response.status || 500).json({
+        success: false,
+        message: error.response.data.detail
+      });
+    }
+
+    console.error('Itinerary generation error:', error.message);
+    next(error);
+  }
+});
+
+// Delete an itinerary
+router.delete('/:chatId/itineraries/:itinIndex', authenticate, async (req, res, next) => {
+  try {
+    const { chatId, itinIndex } = req.params;
+
+    const participant = await PrivateChatParticipant.findOne({
+      chat_id: chatId,
+      user_id: req.user._id
+    });
+
+    if (!participant) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not a member of this chat'
+      });
+    }
+
+    if (participant.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only admins can delete itineraries'
+      });
+    }
+
+    const chat = await PrivateChat.findById(chatId);
+    chat.itineraries.splice(itinIndex, 1);
+    await chat.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Itinerary deleted successfully'
     });
   } catch (error) {
     next(error);

@@ -357,6 +357,12 @@ class ActivityRecommendationService:
         
         place = self.search_engine.get_place_by_name(place_name)
         if not place:
+            fallback = self.search_engine.search(place_name, top_k=1)
+            if fallback:
+                place_name = fallback[0]["name"]
+                place = self.search_engine.get_place_by_name(place_name)
+        
+        if not place:
             return {"error": "Place not found", "status": "error"}
         
         self.cart_manager.add_to_cart(chat_id, place_name, user)

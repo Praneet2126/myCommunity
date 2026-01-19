@@ -202,6 +202,163 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
     }
   };
 
+  // ==================== RECOMMENDATIONS & CART ====================
+
+  // Analyze chat and get recommendations from LLM
+  const [analyzingChat, setAnalyzingChat] = useState(false);
+  const handleAnalyzeChat = async () => {
+    try {
+      setAnalyzingChat(true);
+      const token = localStorage.getItem('token');
+      const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
+      
+      const response = await fetch(`${BASE_URL}/api/chats/${chat.id}/analyze-chat`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        await fetchChatDetails();
+        onMembersChanged && onMembersChanged();
+        if (data.newRecommendationsCount > 0) {
+          alert(`Found ${data.newRecommendationsCount} activity recommendations!`);
+          setActiveTab('recommendations');
+        } else {
+          alert('No new activity recommendations found.');
+        }
+      } else {
+        alert(data.message || 'Failed to analyze chat');
+      }
+    } catch (error) {
+      console.error('Analyze chat error:', error);
+      alert('Failed to analyze chat. Make sure the LLM service is running on port 8000.');
+    } finally {
+      setAnalyzingChat(false);
+    }
+  };
+
+  // Add recommendation to cart
+  const handleAddToCart = async (recIndex) => {
+    try {
+      setAddingToCart(recIndex);
+      const token = localStorage.getItem('token');
+      const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
+      
+      const response = await fetch(`${BASE_URL}/api/chats/${chat.id}/cart/add`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ recIndex })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        await fetchChatDetails();
+        onMembersChanged && onMembersChanged();
+        alert('Added to cart!');
+      } else {
+        alert(data.message || 'Failed to add to cart');
+      }
+    } catch (error) {
+      console.error('Add to cart error:', error);
+      alert('Failed to add to cart');
+    } finally {
+      setAddingToCart(null);
+    }
+  };
+
+  // Generate itinerary from cart
+  const [generatingItinerary, setGeneratingItinerary] = useState(false);
+  const [numDays, setNumDays] = useState(3);
+  const [numPeople, setNumPeople] = useState(2);
+  
+  const handleGenerateItinerary = async () => {
+    try {
+      setGeneratingItinerary(true);
+      const token = localStorage.getItem('token');
+      const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
+      
+      const response = await fetch(`${BASE_URL}/api/chats/${chat.id}/generate-itinerary`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ num_days: numDays, num_people: numPeople })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        await fetchChatDetails();
+        onMembersChanged && onMembersChanged();
+        alert('Itinerary generated successfully!');
+        setActiveTab('itineraries');
+      } else {
+        alert(data.message || 'Failed to generate itinerary');
+      }
+    } catch (error) {
+      console.error('Generate itinerary error:', error);
+      alert('Failed to generate itinerary. Make sure the LLM service is running on port 8000.');
+    } finally {
+      setGeneratingItinerary(false);
+    }
+  };
+
+  // Delete itinerary
+  const [showDeleteItineraryModal, setShowDeleteItineraryModal] = useState(false);
+  const [deletingItinerary, setDeletingItinerary] = useState(null);
+  
+  const handleOpenDeleteItinerary = (index) => {
+    setDeleteTargetIndex(index);
+    setShowDeleteItineraryModal(true);
+  };
+  
+  const handleDeleteItinerary = async () => {
+    if (deleteTargetIndex === null) return;
+
+    try {
+      setDeletingItinerary(deleteTargetIndex);
+      const token = localStorage.getItem('token');
+      const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
+      
+      const response = await fetch(`${BASE_URL}/api/chats/${chat.id}/itineraries/${deleteTargetIndex}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        await fetchChatDetails();
+        onMembersChanged && onMembersChanged();
+        setShowDeleteItineraryModal(false);
+        setDeleteTargetIndex(null);
+      } else {
+        alert(data.message || 'Failed to delete itinerary');
+      }
+    } catch (error) {
+      console.error('Delete itinerary error:', error);
+      alert('Failed to delete itinerary');
+    } finally {
+      setDeletingItinerary(null);
+    }
+  };
+
   // Open delete recommendation modal
   const handleOpenDeleteRecommendation = (index, hotelName) => {
     setDeleteTargetIndex(index);
@@ -304,40 +461,6 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
       alert('Failed to remove vote');
     } finally {
       setVotingRecommendation(null);
-    }
-  };
-
-  // Admin: Add recommendation to cart
-  const handleAddToCart = async (recommendationIndex) => {
-    if (!confirm('Add this recommendation to the cart?')) return;
-
-    try {
-      setAddingToCart(recommendationIndex);
-      const token = localStorage.getItem('token');
-      const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-      const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
-      
-      const response = await fetch(`${BASE_URL}/api/chats/${chat.id}/recommendations/${recommendationIndex}/add-to-cart`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        await fetchChatDetails();
-        onMembersChanged && onMembersChanged();
-        alert('Recommendation added to cart successfully!');
-      } else {
-        alert(data.message || 'Failed to add to cart');
-      }
-    } catch (error) {
-      console.error('Add to cart error:', error);
-      alert('Failed to add to cart');
-    } finally {
-      setAddingToCart(null);
     }
   };
 
@@ -684,6 +807,29 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
           {/* Recommendations Tab */}
           {activeTab === 'recommendations' && (
             <div className="space-y-3">
+              {/* Analyze Chat Button (Admin Only) */}
+              {isAdmin && (
+                <button
+                  onClick={handleAnalyzeChat}
+                  disabled={analyzingChat}
+                  className="w-full flex items-center justify-center gap-2 p-3 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {analyzingChat ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Analyzing Chat...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                      </svg>
+                      <span>Analyze Chat for Activities</span>
+                    </>
+                  )}
+                </button>
+              )}
+              
               {recommendations.length === 0 ? (
                 <div className="text-center py-8">
                   <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
@@ -696,13 +842,26 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
                 </div>
               ) : (
                 recommendations.map((rec, index) => {
-                  // Handle both old format (string) and new format (object)
-                  const hotelName = typeof rec === 'string' ? rec : rec.name || rec.title || 'Hotel';
+                  // Handle both hotel and activity types
+                  const recName = typeof rec === 'string' ? rec : rec.name || rec.title || 'Item';
+                  const recType = rec.type || 'hotel';
+                  const isActivity = recType === 'activity';
+                  
+                  // Hotel fields
                   const hotelPrice = rec.price;
                   const hotelStars = rec.stars;
-                  const hotelDescription = rec.description;
-                  const hotelImage = rec.image_url || rec.imageUrl;
                   const similarityScore = rec.similarity_score;
+                  
+                  // Activity fields
+                  const activityDuration = rec.duration;
+                  const activityCategory = rec.category;
+                  const activityRegion = rec.region;
+                  const activityBestTime = rec.best_time;
+                  const activityScore = rec.score;
+                  
+                  // Common fields
+                  const description = rec.description;
+                  const imageUrl = rec.image_url || rec.imageUrl;
                   
                   // Voting data
                   const votes = rec.votes || [];
@@ -714,25 +873,50 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
                   return (
                     <div key={index} className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition-shadow group relative">
                       <div className="flex">
-                        {/* Hotel Image */}
-                        {hotelImage && (
+                        {/* Image */}
+                        {imageUrl ? (
                           <div className="w-24 h-24 flex-shrink-0 overflow-hidden bg-gray-100">
                             <img
-                              src={hotelImage}
-                              alt={hotelName}
+                              src={imageUrl}
+                              alt={recName}
                               className="w-full h-full object-cover"
                               onError={(e) => {
-                                e.target.src = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80';
+                                e.target.src = isActivity 
+                                  ? 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80'
+                                  : 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80';
                               }}
                             />
                           </div>
+                        ) : (
+                          <div className={`w-24 h-24 flex-shrink-0 flex items-center justify-center ${isActivity ? 'bg-gradient-to-br from-green-100 to-emerald-100' : 'bg-gradient-to-br from-blue-100 to-indigo-100'}`}>
+                            {isActivity ? (
+                              <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                              </svg>
+                            ) : (
+                              <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                              </svg>
+                            )}
+                          </div>
                         )}
                         
-                        {/* Hotel Details */}
+                        {/* Details */}
                         <div className="flex-1 p-3 pr-10">
                           <div className="flex items-start justify-between gap-2 mb-1">
-                            <h4 className="font-semibold text-gray-900 text-sm flex-1">{hotelName}</h4>
-                            {hotelPrice && (
+                            <div className="flex-1">
+                              {/* Type Badge */}
+                              <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium mb-1 ${
+                                isActivity 
+                                  ? 'bg-green-100 text-green-700' 
+                                  : 'bg-blue-100 text-blue-700'
+                              }`}>
+                                {isActivity ? '🎯 Activity' : '🏨 Hotel'}
+                              </span>
+                              <h4 className="font-semibold text-gray-900 text-sm">{recName}</h4>
+                            </div>
+                            {hotelPrice && !isActivity && (
                               <div className="text-right flex-shrink-0">
                                 <div className="text-sm font-bold text-blue-600">
                                   ₹{hotelPrice.toLocaleString('en-IN')}
@@ -742,8 +926,8 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
                             )}
                           </div>
                           
-                          {/* Stars */}
-                          {hotelStars > 0 && (
+                          {/* Hotel: Stars */}
+                          {!isActivity && hotelStars > 0 && (
                             <div className="flex items-center gap-1 mb-1">
                               {[...Array(5)].map((_, i) => (
                                 <svg
@@ -759,19 +943,69 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
                             </div>
                           )}
                           
-                          {/* Description */}
-                          {hotelDescription && (
-                            <p className="text-xs text-gray-600 line-clamp-2 mb-1">{hotelDescription}</p>
+                          {/* Activity: Duration, Category, Region */}
+                          {isActivity && (
+                            <div className="flex flex-wrap gap-2 mb-1">
+                              {activityDuration && (
+                                <span className="inline-flex items-center gap-1 text-xs text-gray-600">
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  {activityDuration}
+                                </span>
+                              )}
+                              {activityCategory && (
+                                <span className="inline-flex items-center gap-1 text-xs text-gray-600">
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                                  </svg>
+                                  {activityCategory}
+                                </span>
+                              )}
+                              {activityRegion && activityRegion !== 'Unknown' && (
+                                <span className="inline-flex items-center gap-1 text-xs text-gray-600">
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                  </svg>
+                                  {activityRegion} Goa
+                                </span>
+                              )}
+                              {activityBestTime && activityBestTime !== 'Flexible' && (
+                                <span className="inline-flex items-center gap-1 text-xs text-orange-600">
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707" />
+                                  </svg>
+                                  Best: {activityBestTime}
+                                </span>
+                              )}
+                            </div>
                           )}
                           
-                          {/* Similarity Score (if from myLens) */}
-                          {similarityScore && (
+                          {/* Description */}
+                          {description && (
+                            <p className="text-xs text-gray-600 line-clamp-2 mb-1">{description}</p>
+                          )}
+                          
+                          {/* Hotel: Similarity Score */}
+                          {!isActivity && similarityScore && (
                             <div className="flex items-center gap-1 mt-1">
                               <svg className="w-3 h-3 text-indigo-600" fill="currentColor" viewBox="0 0 20 20">
                                 <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                               </svg>
                               <span className="text-xs text-indigo-600 font-medium">
                                 {((similarityScore * 100) / 1.2).toFixed(1)}% match
+                              </span>
+                            </div>
+                          )}
+                          
+                          {/* Activity: AI Score */}
+                          {isActivity && activityScore && (
+                            <div className="flex items-center gap-1 mt-1">
+                              <svg className="w-3 h-3 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                              </svg>
+                              <span className="text-xs text-green-600 font-medium">
+                                {(activityScore * 100).toFixed(0)}% relevance
                               </span>
                             </div>
                           )}
@@ -845,6 +1079,63 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
           {/* Cart Tab */}
           {activeTab === 'cart' && (
             <div className="space-y-3">
+              {/* Generate Itinerary Section (Admin only) */}
+              {isAdmin && cartItems.length > 0 && (
+                <div className="p-4 bg-gradient-to-br from-amber-50 to-orange-50 rounded-lg border border-amber-200">
+                  <h4 className="font-semibold text-gray-900 text-sm mb-3 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                    </svg>
+                    Generate Itinerary
+                  </h4>
+                  <div className="flex gap-3 mb-3">
+                    <div className="flex-1">
+                      <label className="block text-xs text-gray-600 mb-1">Days</label>
+                      <select
+                        value={numDays}
+                        onChange={(e) => setNumDays(parseInt(e.target.value))}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      >
+                        {[1, 2, 3, 4, 5, 6, 7].map(n => (
+                          <option key={n} value={n}>{n} {n === 1 ? 'Day' : 'Days'}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs text-gray-600 mb-1">People</label>
+                      <select
+                        value={numPeople}
+                        onChange={(e) => setNumPeople(parseInt(e.target.value))}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      >
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
+                          <option key={n} value={n}>{n} {n === 1 ? 'Person' : 'People'}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleGenerateItinerary}
+                    disabled={generatingItinerary}
+                    className="w-full flex items-center justify-center gap-2 p-3 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {generatingItinerary ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span>Generating...</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        <span>Generate AI Itinerary</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+              
               {cartItems.length === 0 ? (
                 <div className="text-center py-8">
                   <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
@@ -857,33 +1148,62 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
                 </div>
               ) : (
                 cartItems.map((item, index) => {
-                  const itemName = item.name || 'Hotel';
+                  const itemName = item.name || 'Item';
+                  const itemType = item.type || 'hotel';
+                  const isActivity = itemType === 'activity';
                   const itemPrice = item.price;
                   const itemImage = item.image_url || item.imageUrl;
                   const itemStars = item.stars;
+                  const itemDuration = item.duration;
+                  const itemCategory = item.category;
+                  const itemRegion = item.region;
 
                   return (
                     <div key={index} className="bg-white rounded-lg border border-gray-200 overflow-hidden group relative">
                       <div className="flex">
                         {/* Item Image */}
-                        {itemImage && (
+                        {itemImage ? (
                           <div className="w-20 h-20 flex-shrink-0 overflow-hidden bg-gray-100">
                             <img
                               src={itemImage}
                               alt={itemName}
                               className="w-full h-full object-cover"
                               onError={(e) => {
-                                e.target.src = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80';
+                                e.target.src = isActivity
+                                  ? 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80'
+                                  : 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80';
                               }}
                             />
+                          </div>
+                        ) : (
+                          <div className={`w-20 h-20 flex-shrink-0 flex items-center justify-center ${isActivity ? 'bg-gradient-to-br from-green-100 to-emerald-100' : 'bg-gradient-to-br from-blue-100 to-indigo-100'}`}>
+                            {isActivity ? (
+                              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                              </svg>
+                            ) : (
+                              <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                              </svg>
+                            )}
                           </div>
                         )}
                         
                         {/* Item Details */}
                         <div className="flex-1 p-3 pr-10">
                           <div className="flex items-start justify-between gap-2 mb-1">
-                            <h4 className="font-semibold text-gray-900 text-sm flex-1">{itemName}</h4>
-                            {itemPrice && (
+                            <div className="flex-1">
+                              {/* Type Badge */}
+                              <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium mb-1 ${
+                                isActivity 
+                                  ? 'bg-green-100 text-green-700' 
+                                  : 'bg-blue-100 text-blue-700'
+                              }`}>
+                                {isActivity ? '🎯 Activity' : '🏨 Hotel'}
+                              </span>
+                              <h4 className="font-semibold text-gray-900 text-sm">{itemName}</h4>
+                            </div>
+                            {itemPrice && !isActivity && (
                               <div className="text-right flex-shrink-0">
                                 <div className="text-sm font-bold text-green-600">
                                   ₹{itemPrice.toLocaleString('en-IN')}
@@ -893,8 +1213,8 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
                             )}
                           </div>
                           
-                          {/* Stars */}
-                          {itemStars > 0 && (
+                          {/* Hotel: Stars */}
+                          {!isActivity && itemStars > 0 && (
                             <div className="flex items-center gap-1">
                               {[...Array(5)].map((_, i) => (
                                 <svg
@@ -907,6 +1227,26 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
                                 </svg>
                               ))}
                               <span className="text-xs text-gray-500 ml-1">{itemStars} Star{itemStars !== 1 ? 's' : ''}</span>
+                            </div>
+                          )}
+                          
+                          {/* Activity: Duration, Category, Region */}
+                          {isActivity && (
+                            <div className="flex flex-wrap gap-2">
+                              {itemDuration && (
+                                <span className="inline-flex items-center gap-1 text-xs text-gray-600">
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  {itemDuration}
+                                </span>
+                              )}
+                              {itemCategory && (
+                                <span className="text-xs text-gray-500">{itemCategory}</span>
+                              )}
+                              {itemRegion && itemRegion !== 'Unknown' && (
+                                <span className="text-xs text-gray-500">{itemRegion} Goa</span>
+                              )}
                             </div>
                           )}
                         </div>
@@ -934,7 +1274,7 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
 
           {/* Itineraries Tab */}
           {activeTab === 'itineraries' && (
-            <div className="space-y-2">
+            <div className="space-y-4">
               {savedItineraries.length === 0 ? (
                 <div className="text-center py-8">
                   <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
@@ -943,13 +1283,112 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
                     </svg>
                   </div>
                   <p className="text-gray-500 text-sm">No saved itineraries</p>
-                  <p className="text-gray-400 text-xs mt-1">Create and save group itineraries here</p>
+                  <p className="text-gray-400 text-xs mt-1">Add items to cart and generate an AI itinerary</p>
                 </div>
               ) : (
-                savedItineraries.map((itinerary, index) => (
-                  <div key={index} className="p-3 bg-gray-50 rounded-lg">
-                    <p className="text-sm font-medium text-gray-800">{itinerary.name}</p>
-                    <p className="text-xs text-gray-500">{itinerary.dates}</p>
+                savedItineraries.map((itinerary, itinIndex) => (
+                  <div key={itinIndex} className="bg-white rounded-lg border border-gray-200 overflow-hidden group">
+                    {/* Itinerary Header */}
+                    <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-200 flex items-center justify-between">
+                      <div>
+                        <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                          <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                          </svg>
+                          {itinerary.num_days || itinerary.days?.length || 0} Day Itinerary
+                        </h4>
+                        <p className="text-xs text-gray-500 mt-1">
+                          For {itinerary.num_people || 2} {(itinerary.num_people || 2) === 1 ? 'person' : 'people'}
+                          {itinerary.created_at && ` • Created ${new Date(itinerary.created_at).toLocaleDateString()}`}
+                        </p>
+                      </div>
+                      {isAdmin && (
+                        <button
+                          onClick={() => handleOpenDeleteItinerary(itinIndex)}
+                          disabled={deletingItinerary === itinIndex}
+                          className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all disabled:opacity-50"
+                          title="Delete itinerary"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                    
+                    {/* Days */}
+                    <div className="p-4 space-y-4">
+                      {(itinerary.days || []).map((day, dayIndex) => (
+                        <div key={dayIndex} className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <span className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center text-sm font-bold">
+                              {day.day || dayIndex + 1}
+                            </span>
+                            <h5 className="font-medium text-gray-800">Day {day.day || dayIndex + 1}</h5>
+                            {day.total_duration_mins && (
+                              <span className="text-xs text-gray-500 ml-auto">
+                                ~{Math.round(day.total_duration_mins / 60)}h total
+                              </span>
+                            )}
+                          </div>
+                          
+                          {/* Activities for this day */}
+                          <div className="ml-4 border-l-2 border-amber-200 pl-4 space-y-3">
+                            {(day.activities || []).map((activity, actIndex) => (
+                              <div key={actIndex} className="relative">
+                                {/* Timeline dot */}
+                                <div className="absolute -left-[21px] top-1 w-3 h-3 rounded-full bg-amber-400 border-2 border-white"></div>
+                                
+                                <div className="bg-gray-50 rounded-lg p-3">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="flex-1">
+                                      <p className="font-medium text-gray-900 text-sm">{activity.name}</p>
+                                      <div className="flex flex-wrap gap-2 mt-1">
+                                        {activity.start_time && activity.end_time && (
+                                          <span className="inline-flex items-center gap-1 text-xs text-blue-600 font-medium">
+                                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            {activity.start_time} - {activity.end_time}
+                                          </span>
+                                        )}
+                                        {activity.duration && (
+                                          <span className="text-xs text-gray-500">{activity.duration}</span>
+                                        )}
+                                        {activity.region && activity.region !== 'Unknown' && (
+                                          <span className="text-xs text-gray-500">{activity.region} Goa</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    {activity.category && (
+                                      <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full">
+                                        {activity.category}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {activity.travel_time_from_prev && activity.travel_time_from_prev !== '0 mins' && (
+                                    <p className="text-xs text-orange-600 mt-1 flex items-center gap-1">
+                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                                      </svg>
+                                      Travel: {activity.travel_time_from_prev}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                            
+                            {(!day.activities || day.activities.length === 0) && (
+                              <p className="text-xs text-gray-400 italic">No activities scheduled</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                      
+                      {(!itinerary.days || itinerary.days.length === 0) && (
+                        <p className="text-sm text-gray-500 text-center py-4">No days in this itinerary</p>
+                      )}
+                    </div>
                   </div>
                 ))
               )}
@@ -1010,6 +1449,22 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
         message="Are you sure you want to remove this member from the group? This action cannot be undone."
         itemName={deleteTargetMember?.name || null}
         isLoading={deleteTargetMember && actionLoading === deleteTargetMember.id}
+      />
+      
+      {/* Delete Itinerary Confirmation Modal */}
+      <ConfirmDeleteModal
+        isOpen={showDeleteItineraryModal}
+        onClose={() => {
+          setShowDeleteItineraryModal(false);
+          setDeleteTargetIndex(null);
+        }}
+        onConfirm={handleDeleteItinerary}
+        title="Delete Itinerary"
+        message="Are you sure you want to delete this itinerary? This action cannot be undone."
+        itemName={deleteTargetIndex !== null && savedItineraries[deleteTargetIndex] 
+          ? `${savedItineraries[deleteTargetIndex].num_days || savedItineraries[deleteTargetIndex].days?.length || 0} Day Itinerary` 
+          : null}
+        isLoading={deletingItinerary !== null}
       />
     </div>
   );

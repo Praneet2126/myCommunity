@@ -27,22 +27,35 @@ const privateChatSchema = new mongoose.Schema({
   last_message_at: {
     type: Date
   },
+  // Recommendations from LLM (activities) or myLens (hotels)
   recommendations: [{
-    hotel_id: String,
-    name: String,
-    price: Number,
-    stars: Number,
+    // Common fields
+    type: { type: String, enum: ['hotel', 'activity'], default: 'activity' },
+    name: { type: String, required: true },
     description: String,
     image_url: String,
-    similarity_score: Number,
-    added_at: {
-      type: Date,
-      default: Date.now
-    },
+    added_at: { type: Date, default: Date.now },
     added_by: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User'
     },
+    
+    // Hotel-specific fields (from myLens)
+    hotel_id: String,
+    price: Number,
+    stars: Number,
+    similarity_score: Number,
+    
+    // Activity-specific fields (from LLM)
+    duration: String,
+    score: Number,
+    category: String,
+    region: String,
+    lat: Number,
+    lon: Number,
+    best_time: String,
+    
+    // Voting system
     votes: [{
       user_id: {
         type: mongoose.Schema.Types.ObjectId,
@@ -54,11 +67,56 @@ const privateChatSchema = new mongoose.Schema({
       }
     }]
   }],
+  
+  // Cart items (added from recommendations)
   cart: [{
-    type: mongoose.Schema.Types.Mixed
+    name: { type: String, required: true },
+    type: { type: String, enum: ['hotel', 'activity'], default: 'activity' },
+    added_by: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    added_at: { type: Date, default: Date.now },
+    
+    // Copy fields from recommendation
+    duration: String,
+    category: String,
+    region: String,
+    lat: Number,
+    lon: Number,
+    best_time: String,
+    price: Number,
+    stars: Number,
+    image_url: String,
+    description: String
   }],
+  
+  // Generated itineraries from LLM
   itineraries: [{
-    type: mongoose.Schema.Types.Mixed
+    num_days: Number,
+    num_people: Number,
+    created_at: { type: Date, default: Date.now },
+    created_by: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    days: [{
+      day: Number,
+      activities: [{
+        name: String,
+        start_time: String,
+        end_time: String,
+        travel_time_from_prev: String,
+        duration: String,
+        category: String,
+        region: String,
+        lat: Number,
+        lon: Number,
+        best_time: String,
+        score: Number
+      }],
+      total_duration_mins: Number
+    }]
   }]
 }, {
   timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' }
