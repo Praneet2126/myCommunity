@@ -524,3 +524,205 @@ curl -X POST "http://localhost:8001/api/v1/sentiment/aggregate" \
    - Uses `cardiffnlp/twitter-roberta-base-sentiment` model
 
 7. The services are initialized on first request, so first request may take longer (especially sentiment analysis which downloads the model).
+
+---
+
+## 7. Activity Recommendations
+
+These endpoints provide AI-powered activity recommendations for Goa based on chat conversations.
+
+### 7.1 Process Chat Message
+**POST** `/api/v1/activities/message`
+
+Analyzes chat messages and returns activity recommendations when threshold (7 messages) is reached.
+
+**Request Body:**
+```json
+{
+  "chat_id": "city_goa_123",
+  "user": "john_doe",
+  "message": "I want to visit beaches and try water sports"
+}
+```
+
+**Response:**
+```json
+{
+  "message_count": 7,
+  "trigger_rec": true,
+  "recommendations": [
+    {
+      "name": "Baga Beach",
+      "duration": "2-3 hours",
+      "score": 0.85,
+      "category": "Beach",
+      "region": "North",
+      "lat": 15.5559,
+      "lon": 73.7516,
+      "best_time": "Morning"
+    }
+  ]
+}
+```
+
+### 7.2 Add Activity to Cart
+**POST** `/api/v1/activities/cart/add`
+
+Adds a recommended activity to the cart for trip planning.
+
+**Request Body:**
+```json
+{
+  "chat_id": "city_goa_123",
+  "user": "john_doe",
+  "place_name": "Baga Beach"
+}
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "cart": {
+    "items": [
+      {
+        "place_name": "Baga Beach",
+        "added_by": "john_doe",
+        "count": 1
+      }
+    ],
+    "num_days": 3,
+    "num_people": 2
+  }
+}
+```
+
+### 7.3 Get Cart
+**GET** `/api/v1/activities/cart/{chat_id}`
+
+Retrieves the current cart for a specific chat.
+
+**Example:** `GET /api/v1/activities/cart/city_goa_123`
+
+**Response:**
+```json
+{
+  "items": [
+    {
+      "place_name": "Baga Beach",
+      "added_by": "john_doe",
+      "count": 1
+    }
+  ],
+  "num_days": 3,
+  "num_people": 2
+}
+```
+
+### 7.4 Update Cart Settings
+**POST** `/api/v1/activities/cart/update`
+
+Updates the number of days and people for the trip.
+
+**Request Body:**
+```json
+{
+  "chat_id": "city_goa_123",
+  "num_days": 5,
+  "num_people": 4
+}
+```
+
+**Response:**
+```json
+{
+  "status": "success"
+}
+```
+
+### 7.5 Generate Itinerary
+**POST** `/api/v1/activities/itinerary/generate?chat_id={chat_id}`
+
+Generates a complete day-by-day itinerary from the activities in the cart. Uses AI (LLM) first, falls back to deterministic scheduling if AI fails.
+
+**Query Parameters:**
+- `chat_id`: The chat ID for which to generate the itinerary
+
+**Response:**
+```json
+{
+  "chat_id": "city_goa_123",
+  "num_people": 4,
+  "days": [
+    {
+      "day": 1,
+      "total_duration_mins": 300,
+      "activities": [
+        {
+          "name": "Baga Beach",
+          "duration": "2-3 hours",
+          "category": "Beach",
+          "region": "North",
+          "start_time": "08:00 AM",
+          "end_time": "10:30 AM",
+          "travel_time_from_prev": "0 mins",
+          "best_time": "Morning",
+          "lat": 15.5559,
+          "lon": 73.7516,
+          "score": 0.0
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Postman Testing Workflow:**
+
+1. Send 7 messages to trigger recommendations:
+```bash
+POST /api/v1/activities/message
+Body: {"chat_id": "test_123", "user": "alice", "message": "I want beaches"}
+```
+
+2. Add activities to cart:
+```bash
+POST /api/v1/activities/cart/add
+Body: {"chat_id": "test_123", "user": "alice", "place_name": "Baga Beach"}
+```
+
+3. Update settings:
+```bash
+POST /api/v1/activities/cart/update
+Body: {"chat_id": "test_123", "num_days": 3, "num_people": 2}
+```
+
+4. Generate itinerary:
+```bash
+POST /api/v1/activities/itinerary/generate?chat_id=test_123
+```
+
+**Features:**
+- Semantic search using sentence transformers
+- Smart triggering every 7 messages
+- Regional clustering (North/South/Central Goa)
+- AI-powered itinerary generation with time slots
+- Considers travel time, best visit times, and activity duration
+
+**Requirements:**
+- Data file: `data/goa_activities.json` (already present)
+- Dependencies: `sentence-transformers`, `transformers`, `torch`
+- First request may take 10-30 seconds for model loading
+
+For more detailed documentation, see: `ACTIVITY_RECOMMENDATION_API.md`
+
+---
+
+## Notes
+
+8. **Activity Recommendations** requires:
+   - Data file: `data/goa_activities.json` 
+   - `sentence-transformers` for semantic search
+   - `transformers` and `torch` for LLM-based itinerary generation
+   - First request may take 10-30 seconds as models are loaded
+   - Uses Qwen 2.5 0.5B Instruct model for itinerary generation (CPU-optimized)
