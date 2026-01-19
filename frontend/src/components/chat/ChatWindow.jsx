@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import CreatePrivateChat from './CreatePrivateChat';
+import AIRecommendationModal from './AIRecommendationModal';
 
 /**
  * ChatWindow component
@@ -29,6 +30,7 @@ function ChatWindow({
   const messagesEndRef = useRef(null);
   const [showPrivateChatsDropdown, setShowPrivateChatsDropdown] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showAIModal, setShowAIModal] = useState(false);
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {
@@ -257,7 +259,7 @@ function ChatWindow({
       </div>
 
       {/* Chat Input */}
-      <ChatInput onSend={onSendMessage} />
+      <ChatInput onSend={onSendMessage} onAIClick={() => setShowAIModal(true)} />
 
       {/* Create Private Chat Modal */}
       {showCreateModal && (
@@ -266,6 +268,13 @@ function ChatWindow({
           onCreate={handleCreateChat}
         />
       )}
+
+      {/* AI Summary Modal */}
+      <AIRecommendationModal
+        isOpen={showAIModal}
+        onClose={() => setShowAIModal(false)}
+        messages={messages}
+      />
     </div>
   );
 }

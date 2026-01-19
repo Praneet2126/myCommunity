@@ -162,19 +162,19 @@ function HomePage() {
             {/* SEARCH BAR WITH DROPDOWN */}
             <div ref={searchRef} className="relative max-w-4xl mx-auto">
               <div className="bg-white rounded-2xl shadow-2xl p-3 flex flex-col md:flex-row items-center gap-3">
-                <div className="flex items-center gap-3 w-full px-4">
-                  <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M21 21l-4.35-4.35m1.85-5.65a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                  <input
-                    type="text"
+              <div className="flex items-center gap-3 w-full px-4">
+                <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M21 21l-4.35-4.35m1.85-5.65a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  type="text"
                     value={searchQuery}
                     onChange={handleSearchChange}
                     onFocus={() => searchQuery.trim() && setShowDropdown(true)}
-                    placeholder="Search cities, places, events or chats"
-                    className="w-full py-4 text-gray-700 focus:outline-none text-lg"
-                  />
+                  placeholder="Search cities, places, events or chats"
+                  className="w-full py-4 text-gray-700 focus:outline-none text-lg"
+                />
                   {isSearching && (
                     <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent"></div>
                   )}
@@ -215,7 +215,7 @@ function HomePage() {
                           <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                           </svg>
-                        </button>
+              </button>
                       ))}
                     </div>
                   ) : (

@@ -237,20 +237,20 @@ function SignupModal({ isOpen, onClose, onSwitchToLogin }) {
               Password
             </label>
             <div className="relative">
-              <input
+            <input
                 type={showPassword ? "text" : "password"}
-                id="signup-password"
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
+              id="signup-password"
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
                 autoComplete="new-password"
                 className={`w-full px-4 py-3 pr-12 border rounded-lg focus:outline-none focus:ring-2 transition-all ${
-                  errors.password
-                    ? 'border-red-500 focus:ring-red-200'
-                    : 'border-gray-300 focus:ring-[#4169e1]/30 focus:border-[#4169e1]'
-                }`}
-                placeholder="Create a password"
-              />
+                errors.password
+                  ? 'border-red-500 focus:ring-red-200'
+                  : 'border-gray-300 focus:ring-[#4169e1]/30 focus:border-[#4169e1]'
+              }`}
+              placeholder="Create a password"
+            />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
@@ -280,20 +280,20 @@ function SignupModal({ isOpen, onClose, onSwitchToLogin }) {
               Confirm Password
             </label>
             <div className="relative">
-              <input
+            <input
                 type={showConfirmPassword ? "text" : "password"}
-                id="confirmPassword"
-                name="confirmPassword"
-                value={formData.confirmPassword}
-                onChange={handleChange}
+              id="confirmPassword"
+              name="confirmPassword"
+              value={formData.confirmPassword}
+              onChange={handleChange}
                 autoComplete="new-password"
                 className={`w-full px-4 py-3 pr-12 border rounded-lg focus:outline-none focus:ring-2 transition-all ${
-                  errors.confirmPassword
-                    ? 'border-red-500 focus:ring-red-200'
-                    : 'border-gray-300 focus:ring-[#4169e1]/30 focus:border-[#4169e1]'
-                }`}
-                placeholder="Confirm your password"
-              />
+                errors.confirmPassword
+                  ? 'border-red-500 focus:ring-red-200'
+                  : 'border-gray-300 focus:ring-[#4169e1]/30 focus:border-[#4169e1]'
+              }`}
+              placeholder="Confirm your password"
+            />
               <button
                 type="button"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}

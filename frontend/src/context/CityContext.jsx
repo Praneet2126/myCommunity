@@ -18,12 +18,12 @@ export const CityProvider = ({ children }) => {
       setLoading(true);
       try {
         const allCities = await getAllCities();
-        setCities(allCities);
+      setCities(allCities);
       } catch (error) {
         console.error('Error loading cities:', error);
         setCities([]);
       } finally {
-        setLoading(false);
+      setLoading(false);
       }
     };
     loadCities();
@@ -36,7 +36,7 @@ export const CityProvider = ({ children }) => {
   const selectCity = async (cityId) => {
     try {
       const city = await getCityById(cityId);
-      setSelectedCity(city);
+    setSelectedCity(city);
     } catch (error) {
       console.error('Error selecting city:', error);
       setSelectedCity(null);
