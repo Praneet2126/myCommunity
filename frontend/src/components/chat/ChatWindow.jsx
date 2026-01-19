@@ -74,7 +74,7 @@ function ChatWindow({
                 <h2 className="text-xl font-bold text-gray-800">{chatName}</h2>
                 <p className="text-sm text-gray-500">
                   {isPrivateChat 
-                    ? `Private Group · ${currentPrivateChat?.participants?.length || 0} members`
+                    ? `Private Group · ${currentPrivateChat?.participantCount || 0} members`
                     : 'Chat with fellow travelers'
                   }
                 </p>
@@ -110,7 +110,7 @@ function ChatWindow({
                 <h2 className="text-lg font-bold text-gray-800 truncate">{chatName}</h2>
                 <p className="text-xs text-gray-500">
                   {isPrivateChat 
-                    ? `Private · ${currentPrivateChat?.participants?.length || 0} members`
+                    ? `Private · ${currentPrivateChat?.participantCount || 0} members`
                     : 'Chat with fellow travelers'
                   }
                 </p>

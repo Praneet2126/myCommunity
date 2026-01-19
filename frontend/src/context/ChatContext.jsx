@@ -528,6 +528,7 @@ export const ChatProvider = ({ children }) => {
 
       if (data.success) {
         // Transform to frontend format and add to state
+        // Count = creator + other participants
         const newChat = {
           id: data.data._id,
           name: data.data.name,
@@ -535,7 +536,8 @@ export const ChatProvider = ({ children }) => {
           cityId: data.data.city_id?._id || data.data.city_id,
           cityName: data.data.city_id?.displayName || data.data.city_id?.name,
           createdBy: data.data.created_by,
-          createdAt: data.data.created_at
+          createdAt: data.data.created_at,
+          participantCount: 1 + participants.length
         };
         
         setPrivateChats(prev => [...prev, newChat]);
@@ -721,7 +723,8 @@ export const ChatProvider = ({ children }) => {
           cityName: chat.city_id?.displayName || chat.city_id?.name,
           createdBy: chat.created_by,
           createdAt: chat.created_at,
-          lastMessageAt: chat.last_message_at
+          lastMessageAt: chat.last_message_at,
+          participantCount: chat.participant_count || 0
         }));
         
         setPrivateChats(chats);

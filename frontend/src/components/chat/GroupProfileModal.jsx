@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 /**
  * GroupProfileModal component
@@ -6,6 +6,40 @@ import { useState } from 'react';
  */
 function GroupProfileModal({ isOpen, onClose, chat, cityName }) {
   const [activeTab, setActiveTab] = useState('members');
+  const [chatDetails, setChatDetails] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  // Fetch full chat details with participants when modal opens
+  useEffect(() => {
+    if (isOpen && chat?.id) {
+      fetchChatDetails();
+    }
+  }, [isOpen, chat?.id]);
+
+  const fetchChatDetails = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
+      
+      const response = await fetch(`${BASE_URL}/api/chats/${chat.id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        setChatDetails(data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching chat details:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (!isOpen || !chat) return null;
 
@@ -20,11 +54,16 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName }) {
     });
   };
 
-  // Mock data for demo (in real app, this would come from chat object)
-  const members = chat.participants || chat.members || [
-    { id: 1, name: 'You', role: 'admin' },
-    { id: 2, name: 'Member 2', role: 'member' },
-  ];
+  // Get members from fetched chat details - participants have user_id populated
+  const participants = chatDetails?.participants || [];
+  const members = participants.map(p => ({
+    id: p.user_id?._id || p._id,
+    name: p.user_id?.full_name || p.user_id?.username || 'Unknown',
+    username: p.user_id?.username,
+    profile_photo_url: p.user_id?.profile_photo_url,
+    role: p.role,
+    joined_at: p.joined_at
+  }));
   
   const recommendations = chat.recommendations || [];
   const cartItems = chat.cart || [];
@@ -61,7 +100,9 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName }) {
             <h2 className="text-xl font-bold text-center">{chat.name || 'Private Group'}</h2>
             
             {/* Group Type */}
-            <p className="text-blue-100 text-sm mt-1">Private Group · {members.length} members</p>
+            <p className="text-blue-100 text-sm mt-1">
+              Private Group · {loading ? '...' : members.length} {members.length === 1 ? 'member' : 'members'}
+            </p>
           </div>
         </div>
 
@@ -142,21 +183,34 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName }) {
           {/* Members Tab */}
           {activeTab === 'members' && (
             <div className="space-y-2">
-              {members.length === 0 ? (
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-500 border-t-transparent"></div>
+                </div>
+              ) : members.length === 0 ? (
                 <p className="text-center text-gray-500 py-8">No members found</p>
               ) : (
                 members.map((member, index) => (
                   <div key={member.id || index} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold">
-                      {(member.name || member.full_name || 'U').charAt(0).toUpperCase()}
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold overflow-hidden">
+                      {member.profile_photo_url && member.profile_photo_url !== 'https://via.placeholder.com/150' ? (
+                        <img src={member.profile_photo_url} alt={member.name} className="w-full h-full object-cover" />
+                      ) : (
+                        (member.name || 'U').charAt(0).toUpperCase()
+                      )}
                     </div>
                     <div className="flex-1">
                       <p className="font-medium text-gray-800 text-sm">
-                        {member.name || member.full_name || 'Unknown'}
+                        {member.name}
                       </p>
-                      {member.role === 'admin' && (
-                        <span className="text-xs text-green-600 font-medium">Admin</span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {member.role === 'admin' && (
+                          <span className="text-xs text-green-600 font-medium">Admin</span>
+                        )}
+                        {member.username && (
+                          <span className="text-xs text-gray-400">@{member.username}</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))
