@@ -5,770 +5,1100 @@
       "description": "India's largest and most luxurious floating casino, anchored on the Mandovi River. It offers a premium gaming experience with international games, live entertainment, and a lavish multi-cuisine buffet.",
       "full_text": "Deltin Royale, Panaji, floating casino, Mandovi river, gambling, poker, blackjack, roulette, luxury, nightlife, entertainment, buffet, energetic, evening activity, indoor, central Goa, expensive, premium experience.",
       "suggested_hours": "4-6 hours",
-      "category": "Casino"
+      "category": "Casino",
+      "lat": 15.5011,
+      "lon": 73.8286,
+      "best_time": "08:00 PM - 02:00 AM"
     },
     {
       "name": "Casino Pride",
       "description": "A popular floating casino known for its vibrant atmosphere and family-friendly entertainment floor. It offers a wide range of Indian and international games along with sunset views of the Panaji skyline.",
       "full_text": "Casino Pride, Panaji, floating casino, gambling, Mandovi, family friendly entertainment, nightlife, central Goa, energetic, evening, buffet, budget luxury.",
       "suggested_hours": "3-5 hours",
-      "category": "Casino"
+      "category": "Casino",
+      "lat": 15.5015,
+      "lon": 73.83,
+      "best_time": "08:00 PM - 02:00 AM"
     },
     {
       "name": "Tito's Lane",
       "description": "The heart of North Goa's nightlife. This iconic street in Baga is lined with famous clubs, bars, and shacks where the party never stops. It's the go-to spot for loud music, dancing, and high-energy crowds.",
       "full_text": "Tito's Lane, Baga, North Goa, nightlife, clubbing, loud music, dancing, party, energetic, crowded, bars, street food, youth vibe, expensive, central nightlife.",
       "suggested_hours": "Night activity",
-      "category": "Nightlife"
+      "category": "Nightlife",
+      "lat": 15.5553,
+      "lon": 73.7517,
+      "best_time": "09:00 PM - 03:00 AM"
     },
     {
       "name": "LPK (Love Passion Karma) Waterfront",
       "description": "One of Goa's most beautiful clubs, featuring terracotta statues and a dance floor right by the Nerul River. Known for its exotic decor and mainstream hits.",
       "full_text": "LPK Waterfront, Nerul, North Goa, clubbing, scenic party, terracotta, river view, dancing, nightlife, energetic, photography, exotic decor.",
       "suggested_hours": "Night activity",
-      "category": "Nightlife"
+      "category": "Nightlife",
+      "lat": 15.5056,
+      "lon": 73.7853,
+      "best_time": "09:00 PM - 03:00 AM"
     },
     {
       "name": "Thalassa",
       "description": "A world-famous Greek taverna located on a cliff in Siolim. Known for its breathtaking sunsets, live fire dances, and upbeat sirtaki music.",
       "full_text": "Thalassa, Siolim, North Goa, Greek food, sunset view, clifftop, fire dance, energetic, party, upscale, photography, scenic, luxury shacks.",
       "suggested_hours": "3-4 hours",
-      "category": "Nightlife"
+      "category": "Nightlife",
+      "lat": 15.6111,
+      "lon": 73.735,
+      "best_time": "09:00 PM - 03:00 AM"
     },
     {
       "name": "Grande Island Scuba Diving",
       "description": "The premier spot for scuba diving in Goa. A day trip includes a boat ride from Vasco, dolphin spotting, and a guided dive into the Arabian Sea to see corals, tropical fish, and shipwrecks.",
       "full_text": "Grande Island, Vasco, scuba diving, underwater, adventure, marine life, corals, boat trip, dolphins, snorkeling, water sports, adrenaline, full day trip, groups.",
       "suggested_hours": "6-8 hours",
-      "category": "Water Sports"
+      "category": "Water Sports",
+      "lat": 15.3533,
+      "lon": 73.7667,
+      "best_time": "10:00 AM - 04:00 PM"
     },
     {
       "name": "Parasailing at Sinquerim Beach",
       "description": "Experience a bird's-eye view of the Arabian Sea and Aguada Fort. Sinquerim is the hub for high-quality parasailing with speedboats and professional safety gear.",
       "full_text": "Parasailing, Sinquerim, North Goa, water sports, adventure, sea view, adrenaline, Aguada fort view, thrill, activity, minimal walking.",
       "suggested_hours": "1 hour",
-      "category": "Water Sports"
+      "category": "Water Sports",
+      "lat": 15.4994,
+      "lon": 73.7683,
+      "best_time": "04:00 PM - 07:00 PM (Sunset)"
     },
     {
       "name": "Sal Backwaters Kayaking",
       "description": "A peaceful escape into the mangroves of South Goa. Navigate the calm waters of the Sal River, spotting kingfishers and otters in a silent, eco-friendly way.",
       "full_text": "Kayaking, South Goa, Sal River, mangroves, peaceful, bird watching, nature, eco-friendly, quiet, morning activity, minimal walking, offbeat.",
       "suggested_hours": "2-3 hours",
-      "category": "Water Sports"
+      "category": "Water Sports",
+      "lat": 15.15,
+      "lon": 73.95,
+      "best_time": "10:00 AM - 04:00 PM"
     },
     {
       "name": "Jet Skiing at Calangute",
       "description": "Feel the thrill of speed as you zip across the waves on a powerful jet ski. Calangute offers the most accessible and popular jet skiing experiences.",
       "full_text": "Jet Ski, Calangute, North Goa, water sports, speed, adventure, adrenaline, beach activity, popular, busy.",
       "suggested_hours": "30-60 minutes",
-      "category": "Water Sports"
+      "category": "Water Sports",
+      "lat": 15.5442,
+      "lon": 73.755,
+      "best_time": "10:00 AM - 04:00 PM"
     },
     {
       "name": "Bungee Jumping (Mayem Lake)",
       "description": "Goa's first fixed-platform bungee jumping site. Jump from a height of 55 meters over the scenic Mayem Lake with international safety standards.",
       "full_text": "Bungee Jumping, North Goa, Mayem Lake, adventure, adrenaline, thrill seekers, extreme sports, scenic, safe, professional, offbeat.",
       "suggested_hours": "1-2 hours",
-      "category": "Adventure"
+      "category": "Adventure",
+      "lat": 15.5667,
+      "lon": 73.95,
+      "best_time": "Flexible"
     },
     {
       "name": "Dolphin Spotting Trip",
       "description": "Take a traditional wooden boat into the deep sea to watch Indo-Pacific Humpback dolphins playing in their natural habitat.",
       "full_text": "Dolphin spotting, boat trip, wildlife, nature, family friendly, ocean, morning activity, peaceful, photography, water activity.",
       "suggested_hours": "1-2 hours",
-      "category": "Activity"
+      "category": "Activity",
+      "lat": 15.5,
+      "lon": 73.75,
+      "best_time": "Flexible"
     },
     {
       "name": "Netravali Wildlife Trek",
       "description": "A rugged trek through the Netravali Sanctuary to reach hidden waterfalls. It's a deep dive into the Western Ghats' biodiversity.",
       "full_text": "Netravali, South Goa, trekking, hiking, waterfalls, nature, wildlife, raw nature, offbeat, difficult terrain, forest walk, biodiversity.",
       "suggested_hours": "4-6 hours",
-      "category": "Adventure"
+      "category": "Adventure",
+      "lat": 15.0833,
+      "lon": 74.2167,
+      "best_time": "07:00 AM - 11:00 AM"
     },
     {
       "name": "Sahakari Spice Farm",
       "description": "An organic spice plantation where you can learn about various spices and tropical fruits. Includes a traditional Goan lunch.",
       "full_text": "Sahakari Spice Farm, Ponda, plantation tour, organic, foodies, traditional lunch, nature, family friendly, minimal walking, cultural experience.",
       "suggested_hours": "3-4 hours",
-      "category": "Activity"
+      "category": "Activity",
+      "lat": 15.4,
+      "lon": 74.0167,
+      "best_time": "10:30 AM - 03:30 PM"
     },
     {
       "name": "Cumbarjua Canal Crocodile Safari",
       "description": "A thrilling boat safari through the thick mangroves of Cumbarjua to spot Mugger Crocodiles basking on the banks.",
       "full_text": "Crocodile Safari, North Goa, wildlife, boat trip, mangroves, adventure, nature, offbeat, bird watching, unique experience.",
       "suggested_hours": "2-3 hours",
-      "category": "Activity"
+      "category": "Activity",
+      "lat": 15.5167,
+      "lon": 73.9333,
+      "best_time": "Flexible"
     },
     {
       "name": "Silent Noise Party (Palolem)",
       "description": "Goa's famous silent disco where you wear wireless headphones to listen to multiple DJs. It respects the quiet surroundings of South Goa.",
       "full_text": "Silent Disco, Palolem, South Goa, party, unique, quiet nightlife, headphones, beach party, alternative, youth vibe, evening.",
       "suggested_hours": "Night activity",
-      "category": "Nightlife"
+      "category": "Nightlife",
+      "lat": null,
+      "lon": null,
+      "best_time": "09:00 PM - 03:00 AM"
     },
     {
       "name": "Hilltop Vagator",
       "description": "The legendary venue for psychedelic trance parties. Known for its fluorescent decor and global DJ sets.",
       "full_text": "Hilltop, Vagator, North Goa, trance music, psychedelic, party, festivals, loud music, youth crowd, nightlife, energetic, alternative.",
       "suggested_hours": "Night activity",
-      "category": "Nightlife"
+      "category": "Nightlife",
+      "lat": null,
+      "lon": null,
+      "best_time": "09:00 PM - 03:00 AM"
     },
     {
       "name": "Kite Surfing at Morjim",
       "description": "Harness the wind and waves at Morjim Beach, the best spot in Goa for kite surfing due to its wide shores and consistent winds.",
       "full_text": "Kite Surfing, Morjim, North Goa, water sports, adventure, wind sports, active, beach sport, offbeat.",
       "suggested_hours": "2-3 hours",
-      "category": "Water Sports"
+      "category": "Water Sports",
+      "lat": null,
+      "lon": null,
+      "best_time": "10:00 AM - 04:00 PM"
     },
     {
       "name": "Hot Air Ballooning (Chandor)",
       "description": "Float over the lush landscapes and heritage houses of South Goa at sunrise. It offers a calm and majestic perspective of the countryside.",
       "full_text": "Hot air balloon, South Goa, Chandor, scenic, sunrise, romantic, nature view, quiet, premium experience, photography, minimal walking.",
       "suggested_hours": "2-3 hours",
-      "category": "Activity"
+      "category": "Activity",
+      "lat": null,
+      "lon": null,
+      "best_time": "Flexible"
     },
     {
       "name": "White Water Rafting (Mhadei River)",
       "description": "Available only during the monsoon, this thrill ride through the Mahdei River features Class II and III rapids.",
       "full_text": "River rafting, Mahdei, East Goa, monsoon sport, adventure, water sports, adrenaline, rapids, nature, group activity.",
       "suggested_hours": "3-4 hours",
-      "category": "Water Sports"
+      "category": "Water Sports",
+      "lat": null,
+      "lon": null,
+      "best_time": "10:00 AM - 04:00 PM"
     },
     {
       "name": "Mandovi River Sunset Cruise",
       "description": "A relaxing cruise starting from Panaji, featuring traditional Goan folk dances and views of the city lights and bridges.",
       "full_text": "River cruise, Panaji, Mandovi, sunset, folk dance, scenic, family friendly, evening activity, central Goa, minimal walking.",
       "suggested_hours": "1-2 hours",
-      "category": "Activity"
+      "category": "Activity",
+      "lat": null,
+      "lon": null,
+      "best_time": "Flexible"
     },
     {
       "name": "Sadolxem Bridge",
       "description": "A narrow, picturesque bridge over the Talpona River. It's an offbeat spot perfect for quiet reflection and photography.",
       "full_text": "Sadolxem Bridge, South Goa, quiet, scenic, river view, photography, offbeat, romantic, minimal walking, peaceful, nature.",
       "suggested_hours": "30-60 minutes",
-      "category": "Offbeat"
+      "category": "Offbeat",
+      "lat": null,
+      "lon": null,
+      "best_time": "Flexible"
     },
     {
       "name": "Church of St. Augustine Ruins",
       "description": "The remains of a 46-meter high church tower that was once part of a massive complex. It is a UNESCO site.",
       "full_text": "St. Augustine Ruins, Old Goa, heritage, UNESCO, history, ruins, architecture, photography, quiet, spiritual, historical walk.",
       "suggested_hours": "45-60 minutes",
-      "category": "Heritage"
+      "category": "Heritage",
+      "lat": null,
+      "lon": null,
+      "best_time": "09:30 AM - 05:00 PM"
     },
     {
       "name": "Basilica of Bom Jesus",
       "description": "A world-renowned church housing the relics of St. Francis Xavier. Its unplastered laterite facade is a landmark of Christian architecture.",
       "full_text": "Basilica of Bom Jesus, Old Goa, UNESCO, St. Francis Xavier, Baroque architecture, Christian heritage, spiritual, historic church, minimal walking, accessible, history.",
       "suggested_hours": "1 hour",
-      "category": "Heritage"
+      "category": "Heritage",
+      "lat": 15.5008,
+      "lon": 73.9116,
+      "best_time": "09:30 AM - 05:00 PM"
     },
     {
       "name": "Fontainhas Walking Tour",
       "description": "Explore the Latin Quarter of Panaji with its colorful Portuguese-style houses and narrow lanes.",
       "full_text": "Fontainhas, Panaji, Latin Quarter, architecture, colorful houses, photography, walking tour, history, culture, romantic, cafes.",
       "suggested_hours": "1-2 hours",
-      "category": "Activity"
+      "category": "Activity",
+      "lat": null,
+      "lon": null,
+      "best_time": "Flexible"
     },
     {
       "name": "Shri Shantadurga Temple",
       "description": "A magnificent temple dedicated to the Goddess of Peace. Known for its Indo-Portuguese fusion architecture.",
       "full_text": "Shri Shantadurga Temple, Ponda, architecture, spiritual, heritage, Goddess Durga, peace, cultural site, history, accessible.",
       "suggested_hours": "1 hour",
-      "category": "Temple"
+      "category": "Temple",
+      "lat": null,
+      "lon": null,
+      "best_time": "Flexible"
     },
     {
       "name": "Cabo de Rama Fort",
       "description": "A clifftop fort with stunning sea views and a white church inside. It is steeped in legend and offers great sunset views.",
       "full_text": "Cabo de Rama, South Goa, fort, sea view, clifftop, ruins, photography, sunset, romantic, quiet heritage, minimal walking.",
       "suggested_hours": "1-2 hours",
-      "category": "Heritage"
+      "category": "Heritage",
+      "lat": null,
+      "lon": null,
+      "best_time": "04:30 PM - 06:30 PM (Sunset)"
     },
     {
       "name": "Butterfly Beach",
       "description": "A hidden cove accessible only by boat or a forest hike. Known for its unique shape and dolphin sightings.",
       "full_text": "Butterfly Beach, South Goa, secluded, hidden gem, romantic, dolphins, boat trip, forest hike, quiet, nature, photography.",
       "suggested_hours": "2-3 hours",
-      "category": "Beach"
+      "category": "Beach",
+      "lat": null,
+      "lon": null,
+      "best_time": "04:00 PM - 07:00 PM (Sunset)"
     },
     {
       "name": "Casino Strike",
       "description": "One of India's largest land-based casinos located at the Grand Hyatt. It offers a variety of games in a luxurious setting.",
       "full_text": "Casino Strike, Bambolim, land based casino, luxury, gambling, indoor, evening activity, nightlife, central Goa, gaming.",
       "suggested_hours": "3-5 hours",
-      "category": "Casino"
+      "category": "Casino",
+      "lat": null,
+      "lon": null,
+      "best_time": "08:00 PM - 02:00 AM"
     },
     {
       "name": "Club Cubana",
       "description": "The 'Nightclub in the Sky', located on top of Arpora Hill. It features a swimming pool and multiple dance floors.",
       "full_text": "Club Cubana, Arpora, North Goa, nightclub, swimming pool, dancing, party, loud music, energetic, nightlife, hills, expensive.",
       "suggested_hours": "Night activity",
-      "category": "Nightlife"
+      "category": "Nightlife",
+      "lat": null,
+      "lon": null,
+      "best_time": "09:00 PM - 03:00 AM"
     },
     {
       "name": "Ashwem Beach",
       "description": "A clean and trendy beach in North Goa, popular for its boutique shacks and shallow waters.",
       "full_text": "Ashwem, North Goa, trendy, clean beach, swimming, shacks, quiet luxury, sunset, surfing, shallow water.",
       "suggested_hours": "3-5 hours",
-      "category": "Beach"
+      "category": "Beach",
+      "lat": null,
+      "lon": null,
+      "best_time": "04:00 PM - 07:00 PM (Sunset)"
     },
     {
       "name": "Arpora Saturday Night Market",
       "description": "A vibrant and massive market with global food, live music, and products from all over the world.",
       "full_text": "Saturday Night Market, Arpora, North Goa, shopping, live music, food stalls, energetic, crowds, nightlife, souvenirs, cultural experience.",
       "suggested_hours": "3-4 hours",
-      "category": "Activity"
+      "category": "Activity",
+      "lat": null,
+      "lon": null,
+      "best_time": "06:00 PM - 11:00 PM"
     },
     {
       "name": "Baga Beach",
       "description": "High-energy beach known for its legendary nightlife, shacks, and water sports.",
       "full_text": "Baga Beach, North Goa, energetic, party vibes, loud music, Tito's Lane, water sports, parasailing, jet ski, crowded, nightlife, street food, minimal walking to shacks.",
       "suggested_hours": "3-5 hours",
-      "category": "Beach"
+      "category": "Beach",
+      "lat": null,
+      "lon": null,
+      "best_time": "04:00 PM - 07:00 PM (Sunset)"
     },
     {
       "name": "Calangute Beach",
       "description": "Known as the 'Queen of Beaches', it is the largest and busiest beach in North Goa.",
       "full_text": "Calangute Beach, North Goa, bustling, family-friendly, busy, shopping, handicrafts, water activities, many restaurants, central location, sunset point.",
       "suggested_hours": "2-3 hours",
-      "category": "Beach"
+      "category": "Beach",
+      "lat": 15.5442,
+      "lon": 73.755,
+      "best_time": "04:00 PM - 07:00 PM (Sunset)"
     },
     {
       "name": "Anjuna Beach",
       "description": "Famous for its rocky outcrops and hippie culture, hosting the weekly flea market.",
       "full_text": "Anjuna Beach, North Goa, hippie vibes, rocky cliffs, trance music, flea market on Wednesdays, beach clubs, Curlies, Shiva Valley, alternative lifestyle.",
       "suggested_hours": "3-4 hours",
-      "category": "Beach"
+      "category": "Beach",
+      "lat": 15.5733,
+      "lon": 73.7411,
+      "best_time": "04:00 PM - 07:00 PM (Sunset)"
     },
     {
       "name": "Vagator Beach",
       "description": "A stunning beach with dramatic red cliffs and the iconic Thalassa restaurant nearby.",
       "full_text": "Vagator Beach, North Goa, red cliffs, striking views, Sunburn festival venue, Hilltop, upscale shacks, hiking up cliffs, sunset viewing, Ozran beach.",
       "suggested_hours": "2-3 hours",
-      "category": "Beach"
+      "category": "Beach",
+      "lat": null,
+      "lon": null,
+      "best_time": "04:00 PM - 07:00 PM (Sunset)"
     },
     {
       "name": "Arambol Beach",
       "description": "A bohemian paradise in the far north, popular with backpackers and yoga enthusiasts.",
       "full_text": "Arambol Beach, North Goa, bohemian, backpacker vibe, drum circles, yoga centers, paragliding, hippie market, surf schools, relaxed atmosphere.",
       "suggested_hours": "4-6 hours",
-      "category": "Beach"
+      "category": "Beach",
+      "lat": null,
+      "lon": null,
+      "best_time": "04:00 PM - 07:00 PM (Sunset)"
     },
     {
       "name": "Morjim Beach",
       "description": "Known as 'Little Russia', it's a peaceful spot famous for Olive Ridley turtle nesting.",
       "full_text": "Morjim Beach, North Goa, peaceful, quiet, Russian community, turtle nesting site, wide sandy shores, river mouth, kite surfing, minimal crowds.",
       "suggested_hours": "2-4 hours",
-      "category": "Beach"
+      "category": "Beach",
+      "lat": null,
+      "lon": null,
+      "best_time": "04:00 PM - 07:00 PM (Sunset)"
     },
     {
       "name": "Palolem Beach",
       "description": "A beautiful crescent-shaped beach in South Goa with colorful huts and calm waters.",
       "full_text": "Palolem Beach, South Goa, scenic, crescent shape, calm waters, kayaking, dolphin trips, silent discos, yoga, family friendly, easy walking, scenic rocks.",
       "suggested_hours": "Half to full day",
-      "category": "Beach"
+      "category": "Beach",
+      "lat": 15.01,
+      "lon": 74.0233,
+      "best_time": "04:00 PM - 07:00 PM (Sunset)"
     },
     {
       "name": "Agonda Beach",
       "description": "A pristine and quiet stretch of white sand, perfect for those seeking solitude and turtle nesting sites.",
       "full_text": "Agonda Beach, South Goa, pristine, solitude, quiet, white sand, turtle nesting, no loud music, meditation, reading, long walks, minimal shacks.",
       "suggested_hours": "3-5 hours",
-      "category": "Beach"
+      "category": "Beach",
+      "lat": null,
+      "lon": null,
+      "best_time": "04:00 PM - 07:00 PM (Sunset)"
     },
     {
       "name": "Colva Beach",
       "description": "A popular South Goa beach with white sand and a lively evening atmosphere.",
       "full_text": "Colva Beach, South Goa, white sand, popular, evening walks, local crowd, seafood, water sports, budget stays, central South Goa.",
       "suggested_hours": "2-3 hours",
-      "category": "Beach"
+      "category": "Beach",
+      "lat": null,
+      "lon": null,
+      "best_time": "04:00 PM - 07:00 PM (Sunset)"
     },
     {
       "name": "Benaulim Beach",
       "description": "A peaceful beach perfect for relaxation, dolphin spotting, and wooden boat building history.",
       "full_text": "Benaulim Beach, South Goa, relaxed, dolphin spotting, parasailing, wooden boat building, seafood, less crowded than Colva, peaceful evenings.",
       "suggested_hours": "2-3 hours",
-      "category": "Beach"
+      "category": "Beach",
+      "lat": null,
+      "lon": null,
+      "best_time": "04:00 PM - 07:00 PM (Sunset)"
     },
     {
       "name": "Varca Beach",
       "description": "An upscale and clean beach with luxury resorts and white sandy shorelines.",
       "full_text": "Varca Beach, South Goa, luxury, white sand, extremely clean, private villas, quiet, high-end shacks, luxury resorts, sunset walks.",
       "suggested_hours": "2-4 hours",
-      "category": "Beach"
+      "category": "Beach",
+      "lat": null,
+      "lon": null,
+      "best_time": "04:00 PM - 07:00 PM (Sunset)"
     },
     {
       "name": "Majorda Beach",
       "description": "Famous for its bakeries and calm sea, ideal for family outings.",
       "full_text": "Majorda Beach, South Goa, bakeries, bread making history, golden sand, calm sea, family friendly, good shacks, seafood, accessible.",
       "suggested_hours": "2-3 hours",
-      "category": "Beach"
+      "category": "Beach",
+      "lat": null,
+      "lon": null,
+      "best_time": "04:00 PM - 07:00 PM (Sunset)"
     },
     {
       "name": "Cavelossim Beach",
       "description": "Where the Sal River meets the sea, offering black lava rocks and luxury stays.",
       "full_text": "Cavelossim Beach, South Goa, river mouth, Sal river, black lava rocks, luxury hotels, dolphin cruises, high-end shopping, quiet luxury.",
       "suggested_hours": "2-4 hours",
-      "category": "Beach"
+      "category": "Beach",
+      "lat": null,
+      "lon": null,
+      "best_time": "04:00 PM - 07:00 PM (Sunset)"
     },
     {
       "name": "Cola Beach",
       "description": "A hidden paradise with a freshwater lagoon right next to the sea, offering glamping options.",
       "full_text": "Cola Beach, South Goa, hidden gem, freshwater lagoon, sea view, glamping, quiet, offbeat, difficult access, stunning scenery, relaxation.",
       "suggested_hours": "Half to full day",
-      "category": "Beach"
+      "category": "Beach",
+      "lat": null,
+      "lon": null,
+      "best_time": "04:00 PM - 07:00 PM (Sunset)"
     },
     {
       "name": "Galgibaga Beach",
       "description": "One of the cleanest beaches in India and a primary nesting site for Olive Ridley turtles.",
       "full_text": "Galgibaga Beach, South Goa, cleanest beach, turtle nesting, no shacks, eco-friendly, pinewood trees, raw nature, silent, remote.",
       "suggested_hours": "2-3 hours",
-      "category": "Beach"
+      "category": "Beach",
+      "lat": null,
+      "lon": null,
+      "best_time": "04:00 PM - 07:00 PM (Sunset)"
     },
     {
       "name": "Fort Aguada",
       "description": "A 17th-century Portuguese fort and lighthouse with spectacular sea views near Sinquerim.",
       "full_text": "Fort Aguada, North Goa, heritage, Portuguese history, lighthouse, sea view, Sinquerim, sunset point, architecture, minimal walking, accessible.",
       "suggested_hours": "1-2 hours",
-      "category": "Heritage"
+      "category": "Heritage",
+      "lat": null,
+      "lon": null,
+      "best_time": "04:30 PM - 06:30 PM (Sunset)"
     },
     {
       "name": "Chapora Fort",
       "description": "Offering panoramic views of Vagator and the river, made famous by Bollywood.",
       "full_text": "Chapora Fort, North Goa, iconic, movie location, Vagator view, steep walk, ruins, photography, sunset, historical, rocky terrain.",
       "suggested_hours": "1-2 hours",
-      "category": "Heritage"
+      "category": "Heritage",
+      "lat": null,
+      "lon": null,
+      "best_time": "04:30 PM - 06:30 PM (Sunset)"
     },
     {
       "name": "Reis Magos Fort",
       "description": "A restored fort that now serves as a cultural center and museum for Goan history.",
       "full_text": "Reis Magos Fort, North Goa, restored, museum, cultural center, Mandovi river view, Portuguese history, Mario Miranda art gallery, quiet heritage.",
       "suggested_hours": "1-2 hours",
-      "category": "Heritage"
+      "category": "Heritage",
+      "lat": null,
+      "lon": null,
+      "best_time": "04:30 PM - 06:30 PM (Sunset)"
     },
     {
       "name": "Se Cathedral",
       "description": "One of the largest churches in Asia, known for its massive Golden Bell.",
       "full_text": "Se Cathedral, Old Goa, massive, Golden Bell, Portuguese-Gothic, UNESCO, spiritual, grand architecture, photography, near Bom Jesus.",
       "suggested_hours": "1 hour",
-      "category": "Heritage"
+      "category": "Heritage",
+      "lat": null,
+      "lon": null,
+      "best_time": "09:30 AM - 05:00 PM"
     },
     {
       "name": "Our Lady of the Immaculate Conception Church",
       "description": "The iconic white church in the heart of Panaji with its distinctive zigzag stairs.",
       "full_text": "Panaji Church, North Goa, iconic, white facade, zigzag stairs, city landmark, film location, spiritual, bell tower, central Panaji.",
       "suggested_hours": "30-60 minutes",
-      "category": "Heritage"
+      "category": "Heritage",
+      "lat": null,
+      "lon": null,
+      "best_time": "09:30 AM - 05:00 PM"
     },
     {
       "name": "Church of St. Cajetan",
       "description": "A beautiful church modeled after St. Peter's Basilica in Rome, set in Old Goa.",
       "full_text": "Church of St. Cajetan, Old Goa, Roman architecture, Corinthian style, quiet, heritage, white facade, spiritual, near ferry wharf.",
       "suggested_hours": "1 hour",
-      "category": "Heritage"
+      "category": "Heritage",
+      "lat": null,
+      "lon": null,
+      "best_time": "10:00 AM - 04:00 PM"
     },
     {
       "name": "Dudhsagar Waterfalls",
       "description": "Spectacular four-tiered waterfall accessible by jeep safari through the jungle.",
       "full_text": "Dudhsagar Waterfalls, East Goa, massive waterfall, milky white, jeep safari, trekking, Mollem, adventure, nature, swimming, forest ride.",
       "suggested_hours": "5-7 hours",
-      "category": "Nature"
+      "category": "Nature",
+      "lat": 15.3144,
+      "lon": 74.3142,
+      "best_time": "Flexible"
     },
     {
       "name": "Dr. Salim Ali Bird Sanctuary",
       "description": "Mangrove forest sanctuary on Chorao Island, best explored by morning boat trips.",
       "full_text": "Salim Ali Bird Sanctuary, North Goa, Chorao Island, mangroves, bird watching, boat trip, quiet, nature, early morning, wildlife, photography.",
       "suggested_hours": "2-3 hours",
-      "category": "Nature"
+      "category": "Nature",
+      "lat": null,
+      "lon": null,
+      "best_time": "06:30 AM - 09:30 AM"
     },
     {
       "name": "Bondla Wildlife Sanctuary",
       "description": "Small, family-friendly sanctuary with a zoo, botanical gardens, and nature trails.",
       "full_text": "Bondla Sanctuary, North Goa, zoo, kids friendly, botanical garden, nature trails, deer park, picnic spot, minimal walking, family outing.",
       "suggested_hours": "2-3 hours",
-      "category": "Nature"
+      "category": "Nature",
+      "lat": null,
+      "lon": null,
+      "best_time": "07:00 AM - 11:00 AM"
     },
     {
       "name": "Cotigao Wildlife Sanctuary",
       "description": "Deep forest in South Goa with treetop watchtowers and dense foliage.",
       "full_text": "Cotigao Sanctuary, South Goa, dense forest, treetop views, quiet, bird watching, hiking, nature, peaceful, offbeat.",
       "suggested_hours": "3-4 hours",
-      "category": "Nature"
+      "category": "Nature",
+      "lat": null,
+      "lon": null,
+      "best_time": "07:00 AM - 11:00 AM"
     },
     {
       "name": "Shri Mangeshi Temple",
       "description": "Dedicated to Lord Shiva, known for its tall Deepastambha and Goan architecture.",
       "full_text": "Mangeshi Temple, Ponda, Lord Shiva, Deepastambha, Goan architecture, spiritual, heritage, large courtyard, minimal walking, accessible.",
       "suggested_hours": "1 hour",
-      "category": "Temple"
+      "category": "Temple",
+      "lat": null,
+      "lon": null,
+      "best_time": "Flexible"
     },
     {
       "name": "Mahadev Temple (Tambdi Surla)",
       "description": "12th-century basalt temple, the oldest in Goa, set in deep forest settings.",
       "full_text": "Tambdi Surla, East Goa, oldest temple, Lord Shiva, basalt stone, intricate carvings, forest setting, spiritual, history, offbeat, quiet.",
       "suggested_hours": "1-2 hours",
-      "category": "Temple"
+      "category": "Temple",
+      "lat": null,
+      "lon": null,
+      "best_time": "Flexible"
     },
     {
       "name": "Savoi Plantation",
       "description": "Traditional spice farm offering organic plantation tours and authentic lunches.",
       "full_text": "Savoi Plantation, Ponda, spice farm, organic, traditional lunch, cashew feni, nature tour, eco-tourism, cultural experience, foodies.",
       "suggested_hours": "3-4 hours",
-      "category": "Activity"
+      "category": "Activity",
+      "lat": null,
+      "lon": null,
+      "best_time": "Flexible"
     },
     {
       "name": "Salaulim Dam",
       "description": "Architectural marvel with a unique duckbill spillway and botanical gardens.",
       "full_text": "Salaulim Dam, South Goa, spillway, botanical garden, engineering marvel, picnic spot, nature, peaceful, sunset view, offbeat.",
       "suggested_hours": "2-3 hours",
-      "category": "Nature"
+      "category": "Nature",
+      "lat": null,
+      "lon": null,
+      "best_time": "Flexible"
     },
     {
       "name": "Netravali Bubbling Lake",
       "description": "Holy temple pond where bubbles rise when you clap, set in a quiet village.",
       "full_text": "Bubbling Lake, South Goa, Netravali, spiritual, unique phenomenon, Gopinath temple, peaceful, nature, rural Goa, clapping lake.",
       "suggested_hours": "1 hour",
-      "category": "Offbeat"
+      "category": "Offbeat",
+      "lat": null,
+      "lon": null,
+      "best_time": "Flexible"
     },
     {
       "name": "Naval Aviation Museum",
       "description": "Displaying historic aircraft and weaponry, documenting Indian Naval history.",
       "full_text": "Naval Museum, Bogmalo, aircraft display, history, Indian Navy, family friendly, indoors, informative, photography, minimal walking.",
       "suggested_hours": "1-2 hours",
-      "category": "Museum"
+      "category": "Museum",
+      "lat": null,
+      "lon": null,
+      "best_time": "Flexible"
     },
     {
       "name": "Houses of Goa Museum",
       "description": "Uniquely shaped museum documenting the evolution of Goan architectural heritage.",
       "full_text": "Houses of Goa, North Goa, architecture museum, Gerard da Cunha, history, culture, unique building, informative, art, offbeat.",
       "suggested_hours": "1-2 hours",
-      "category": "Museum"
+      "category": "Museum",
+      "lat": null,
+      "lon": null,
+      "best_time": "Flexible"
     },
     {
       "name": "Divar Island",
       "description": "Quiet island accessible by ferry, offering old-world charm and river views.",
       "full_text": "Divar Island, Mandovi River, ferry ride, old houses, peaceful, rural Goa, scenic drives, Piedade church, Bonderam festival, offbeat.",
       "suggested_hours": "2-4 hours",
-      "category": "Offbeat"
+      "category": "Offbeat",
+      "lat": null,
+      "lon": null,
+      "best_time": "Flexible"
     },
     {
       "name": "Anjuna Flea Market",
       "description": "Vibrant Wednesday bazaar beachside, offering handicrafts and global goods.",
       "full_text": "Anjuna Market, North Goa, shopping, Wednesday only, hippie, handicrafts, lively, beachside, street food, bargaining, souvenirs.",
       "suggested_hours": "3-4 hours",
-      "category": "Shopping"
+      "category": "Shopping",
+      "lat": null,
+      "lon": null,
+      "best_time": "06:00 PM - 11:00 PM"
     },
     {
       "name": "Arpora Night Market",
       "description": "Saturday night market with global food, live music, and diverse shopping.",
       "full_text": "Arpora Market, North Goa, Saturday night, live music, food stalls, global vibes, shopping, energetic, nightlife, bars, crowds.",
       "suggested_hours": "3-4 hours",
-      "category": "Shopping"
+      "category": "Shopping",
+      "lat": null,
+      "lon": null,
+      "best_time": "06:00 PM - 11:00 PM"
     },
     {
       "name": "Dona Paula Viewpoint",
       "description": "Popular lookout point with romantic legends and bay views over the Mandovi.",
       "full_text": "Dona Paula, North Goa, viewpoint, romantic legend, water sports, movie location, ocean view, statues, central Goa, busy.",
       "suggested_hours": "1 hour",
-      "category": "Viewpoint"
+      "category": "Viewpoint",
+      "lat": null,
+      "lon": null,
+      "best_time": "Flexible"
     },
     {
       "name": "Miramar Beach",
       "description": "Panjim's city beach, ideal for sunset walks and accessible sea views.",
       "full_text": "Miramar Beach, Panaji, city beach, sunset walks, local crowd, safe swimming, parks nearby, accessible, minimal walking.",
       "suggested_hours": "1 hour",
-      "category": "Beach"
+      "category": "Beach",
+      "lat": null,
+      "lon": null,
+      "best_time": "04:00 PM - 07:00 PM (Sunset)"
     },
     {
       "name": "Mandrem Beach",
       "description": "Quiet, scenic beach in the far north with river crossings and peaceful vibes.",
       "full_text": "Mandrem Beach, North Goa, peaceful, scenic, river crossing, yoga, long walks, sunset, clean water, low key luxury.",
       "suggested_hours": "3-4 hours",
-      "category": "Beach"
+      "category": "Beach",
+      "lat": null,
+      "lon": null,
+      "best_time": "04:00 PM - 07:00 PM (Sunset)"
     },
     {
       "name": "Querim (Keri) Beach",
       "description": "Northernmost rugged beach with pine trees and serene river views.",
       "full_text": "Keri Beach, North Goa, rugged, pine trees, serene, remote, river mouth, Tiracol view, silent, raw nature, offbeat.",
       "suggested_hours": "2-3 hours",
-      "category": "Beach"
+      "category": "Beach",
+      "lat": null,
+      "lon": null,
+      "best_time": "04:00 PM - 07:00 PM (Sunset)"
     },
     {
       "name": "Candolim Beach",
       "description": "Upscale beach with excellent shacks and popular water sports facilities.",
       "full_text": "Candolim Beach, North Goa, upscale, fine dining shacks, water sports, busy, close to Aguada, clean sand, family friendly.",
       "suggested_hours": "2-4 hours",
-      "category": "Beach"
+      "category": "Beach",
+      "lat": null,
+      "lon": null,
+      "best_time": "04:00 PM - 07:00 PM (Sunset)"
     },
     {
       "name": "Arvalem Waterfalls",
       "description": "Seasonal waterfall near Sanquelim, best viewed during the monsoons.",
       "full_text": "Arvalem Falls, North Goa, waterfall, monsoon beauty, temple nearby, park, nature, photography, easily accessible, minimal walking.",
       "suggested_hours": "1-2 hours",
-      "category": "Nature"
+      "category": "Nature",
+      "lat": null,
+      "lon": null,
+      "best_time": "Flexible"
     },
     {
       "name": "Harvalem Caves",
       "description": "Ancient rock-cut caves from the 6th century, near Arvalem falls.",
       "full_text": "Harvalem Caves, North Goa, rock-cut, Pandava caves, ancient history, archaeology, quiet, near waterfall, heritage site.",
       "suggested_hours": "30-60 minutes",
-      "category": "Heritage"
+      "category": "Heritage",
+      "lat": null,
+      "lon": null,
+      "best_time": "09:30 AM - 05:00 PM"
     },
     {
       "name": "Grande Island Snorkeling",
       "description": "Island trip for snorkeling, dolphin spotting, and BBQ lunch adventure.",
       "full_text": "Grande Island, snorkeling, boat trip, dolphins, BBQ lunch, adventure, clear water, full day, groups, water fun.",
       "suggested_hours": "Full Day",
-      "category": "Activity"
+      "category": "Activity",
+      "lat": null,
+      "lon": null,
+      "best_time": "Flexible"
     },
     {
       "name": "Church of St. Francis of Assisi",
       "description": "Ornate church in Old Goa with gilded altars and significant Christian art.",
       "full_text": "St. Francis Church, Old Goa, Baroque carvings, gilded altar, museum inside, spiritual, UNESCO heritage, Christian art.",
       "suggested_hours": "1 hour",
-      "category": "Heritage"
+      "category": "Heritage",
+      "lat": null,
+      "lon": null,
+      "best_time": "09:30 AM - 05:00 PM"
     },
     {
       "name": "Sao Jacinto Island",
       "description": "Picturesque island in Mormugao bay connected by a causeway bridge.",
       "full_text": "Sao Jacinto, Vasco, island, bridge, church, scenic views, heritage houses, quiet, offbeat, photography, minimal walking.",
       "suggested_hours": "1-2 hours",
-      "category": "Offbeat"
+      "category": "Offbeat",
+      "lat": null,
+      "lon": null,
+      "best_time": "Flexible"
     },
     {
       "name": "Bogmalo Beach",
       "description": "Sandy cove near the airport with relaxed shacks and diving centers.",
       "full_text": "Bogmalo Beach, Vasco, airport nearby, quiet cove, safe swimming, seafood, diving center, easy access, family friendly.",
       "suggested_hours": "2-3 hours",
-      "category": "Beach"
+      "category": "Beach",
+      "lat": null,
+      "lon": null,
+      "best_time": "04:00 PM - 07:00 PM (Sunset)"
     },
     {
       "name": "Tiracol Fort",
       "description": "Northern fort converted to heritage hotel with remote ocean views.",
       "full_text": "Tiracol Fort, North Goa, heritage hotel, ocean view, ferry ride, quiet, romantic, Portuguese architecture, remote.",
       "suggested_hours": "1-2 hours",
-      "category": "Heritage"
+      "category": "Heritage",
+      "lat": null,
+      "lon": null,
+      "best_time": "04:30 PM - 06:30 PM (Sunset)"
     },
     {
       "name": "Corjuem Fort",
       "description": "Inland fort with river views, less visited and surrounded by greenery.",
       "full_text": "Corjuem Fort, Aldona, inland fort, river view, quiet, historical, less visited, green surroundings, photography.",
       "suggested_hours": "1 hour",
-      "category": "Heritage"
+      "category": "Heritage",
+      "lat": null,
+      "lon": null,
+      "best_time": "04:30 PM - 06:30 PM (Sunset)"
     },
     {
       "name": "Mollem National Park",
       "description": "Rich biodiversity hotspot in East Goa with jungle safari options.",
       "full_text": "Mollem, East Goa, wildlife, tigers (rare), jungle safari, nature, bird watching, dense forest, biodiversity, Western Ghats.",
       "suggested_hours": "4-6 hours",
-      "category": "Nature"
+      "category": "Nature",
+      "lat": null,
+      "lon": null,
+      "best_time": "Flexible"
     },
     {
       "name": "Arambol Sweet Water Lake",
       "description": "Freshwater lake behind Arambol beach, popular for quiet swimming.",
       "full_text": "Sweet Water Lake, Arambol, freshwater, jungle walk, mud bath, quiet, nature, swimming, scenic, hidden gem.",
       "suggested_hours": "2-3 hours",
-      "category": "Nature"
+      "category": "Nature",
+      "lat": null,
+      "lon": null,
+      "best_time": "Flexible"
     },
     {
       "name": "Kuskem Waterfalls",
       "description": "Lush seasonal waterfall in South Goa, perfect for monsoon treks.",
       "full_text": "Kuskem Falls, South Goa, monsoon, seasonal, trekking, nature, remote, scenic, lush green, offbeat.",
       "suggested_hours": "2-3 hours",
-      "category": "Nature"
+      "category": "Nature",
+      "lat": null,
+      "lon": null,
+      "best_time": "Flexible"
     },
     {
       "name": "Pascoal Spice Village",
       "description": "Riverside spice plantation offering tours and traditional food experiences.",
       "full_text": "Pascoal Spice, Khandepar, river view, spice tour, organic farming, traditional food, quiet, family friendly, nature.",
       "suggested_hours": "3-4 hours",
-      "category": "Activity"
+      "category": "Activity",
+      "lat": null,
+      "lon": null,
+      "best_time": "10:30 AM - 03:30 PM"
     },
     {
       "name": "Museum of Christian Art",
       "description": "World-class museum of Indo-Portuguese Christian history and artifacts.",
       "full_text": "Christian Art Museum, Old Goa, religious art, artifacts, history, Indo-Portuguese, quiet, informative, indoors.",
       "suggested_hours": "1-2 hours",
-      "category": "Museum"
+      "category": "Museum",
+      "lat": null,
+      "lon": null,
+      "best_time": "Flexible"
     },
     {
       "name": "Big Foot / Ancestral Goa",
       "description": "Open-air museum in Loutolim depicting Goan rural history and life.",
       "full_text": "Big Foot, Loutolim, culture museum, rural life, handicrafts, giant footprint, family friendly, cultural tours, Goan heritage.",
       "suggested_hours": "1-2 hours",
-      "category": "Museum"
+      "category": "Museum",
+      "lat": null,
+      "lon": null,
+      "best_time": "Flexible"
     },
     {
       "name": "Rivona Caves",
       "description": "Buddhist caves in a quiet South Goa village with laterite rock formations.",
       "full_text": "Rivona Caves, South Goa, Buddhist history, laterite rock, spiritual, quiet, offbeat, historical, nature.",
       "suggested_hours": "1 hour",
-      "category": "Heritage"
+      "category": "Heritage",
+      "lat": null,
+      "lon": null,
+      "best_time": "09:30 AM - 05:00 PM"
     },
     {
       "name": "Pompurba Spring",
       "description": "Natural freshwater spring known locally for medicinal properties.",
       "full_text": "Pompurba Spring, North Goa, natural spring, freshwater, quiet, locals favorite, medicinal water, picnic spot.",
       "suggested_hours": "1 hour",
-      "category": "Offbeat"
+      "category": "Offbeat",
+      "lat": null,
+      "lon": null,
+      "best_time": "Flexible"
     },
     {
       "name": "Mapusa Friday Market",
       "description": "Traditional weekly bazar with local produce, spices, and pottery.",
       "full_text": "Mapusa Market, North Goa, Friday only, local bazar, spices, pottery, traditional, busy, bargaining, cultural experience.",
       "suggested_hours": "2-3 hours",
-      "category": "Shopping"
+      "category": "Shopping",
+      "lat": null,
+      "lon": null,
+      "best_time": "06:00 PM - 11:00 PM"
     },
     {
       "name": "Bambolim Beach",
       "description": "Secluded, quiet beach popular for beach combing and peaceful walks.",
       "full_text": "Bambolim, North Goa, secluded, quiet, shells, calm sea, near university, peaceful, rocky shores.",
       "suggested_hours": "1-2 hours",
-      "category": "Beach"
+      "category": "Beach",
+      "lat": null,
+      "lon": null,
+      "best_time": "04:00 PM - 07:00 PM (Sunset)"
     },
     {
       "name": "Mae De Deus Church",
       "description": "Gothic style church in Saligao, illuminated beautifully at night.",
       "full_text": "Saligao Church, North Goa, neo-Gothic, white spires, architectural beauty, night lighting, spiritual, historical.",
       "suggested_hours": "45-60 minutes",
-      "category": "Heritage"
+      "category": "Heritage",
+      "lat": null,
+      "lon": null,
+      "best_time": "09:30 AM - 05:00 PM"
     },
     {
       "name": "Carambolim Lake",
       "description": "Major wetland attracting diverse migratory birds and nature photography.",
       "full_text": "Carambolim Lake, Old Goa, bird watching, wetlands, migratory birds, nature, quiet, photography, scenic.",
       "suggested_hours": "1-2 hours",
-      "category": "Nature"
+      "category": "Nature",
+      "lat": null,
+      "lon": null,
+      "best_time": "Flexible"
     },
     {
       "name": "Bat Island Snorkeling",
       "description": "Island snorkeling trip near Vasco with coral and marine life views.",
       "full_text": "Bat Island, Vasco, snorkeling, boat trip, corals, marine life, underwater, adventure, day trip.",
       "suggested_hours": "4-6 hours",
-      "category": "Activity"
+      "category": "Activity",
+      "lat": null,
+      "lon": null,
+      "best_time": "Flexible"
     },
     {
       "name": "Butterfly Conservatory",
       "description": "Private conservatory in Ponda dedicated to local butterfly species.",
       "full_text": "Butterfly garden, Ponda, eco-friendly, nature, colorful, educational, family friendly, peaceful, offbeat.",
       "suggested_hours": "1-2 hours",
-      "category": "Nature"
+      "category": "Nature",
+      "lat": null,
+      "lon": null,
+      "best_time": "Flexible"
     },
     {
       "name": "Ponda Shivaji Fort",
       "description": "Hilltop fort with Maratha history and panoramic countryside views.",
       "full_text": "Shivaji Fort, Ponda, historical, Maratha history, hilltop views, quiet, ruins, trek, heritage.",
       "suggested_hours": "1-2 hours",
-      "category": "Heritage"
+      "category": "Heritage",
+      "lat": null,
+      "lon": null,
+      "best_time": "04:30 PM - 06:30 PM (Sunset)"
     },
     {
       "name": "Sinquerim Beach",
       "description": "Water sports hub below Fort Aguada with speedboats and parasailing.",
       "full_text": "Sinquerim, North Goa, water sports, Aguada fort base, parasailing, boat trips, sandy beach, popular.",
       "suggested_hours": "2-3 hours",
-      "category": "Beach"
+      "category": "Beach",
+      "lat": null,
+      "lon": null,
+      "best_time": "04:00 PM - 07:00 PM (Sunset)"
     },
     {
       "name": "Old Goa Walking Tour",
       "description": "Guided heritage walks through UNESCO churches and historical sites.",
       "full_text": "Walking tour, Old Goa, heritage walk, churches, history, informative, UNESCO, photography, cultural.",
       "suggested_hours": "2-3 hours",
-      "category": "Activity"
+      "category": "Activity",
+      "lat": null,
+      "lon": null,
+      "best_time": "Flexible"
     },
     {
       "name": "Panjim Casino Cruise",
       "description": "Floating casino on the Mandovi with gaming and evening entertainment.",
       "full_text": "Casino, Panjim, Mandovi river, gambling, night life, buffet, entertainment, river cruise, luxury.",
       "suggested_hours": "Night activity",
-      "category": "Activity"
+      "category": "Activity",
+      "lat": null,
+      "lon": null,
+      "best_time": "08:00 PM - 02:00 AM"
     },
     {
       "name": "Shri Saptakoteshwar Temple",
       "description": "Historical temple with Maratha influence and unique stone architecture.",
       "full_text": "Saptakoteshwar, Narve, Maratha history, unique architecture, Lord Shiva, quiet, spiritual, heritage.",
       "suggested_hours": "1 hour",
-      "category": "Temple"
+      "category": "Temple",
+      "lat": null,
+      "lon": null,
+      "best_time": "Flexible"
     },
     {
       "name": "Netravali Wildlife Sanctuary",
       "description": "Vast rugged sanctuary with waterfalls and biodiversity in the south.",
       "full_text": "Netravali, South Goa, wildlife, waterfalls, trekking, raw nature, remote, biodiversity, Western Ghats.",
       "suggested_hours": "4-6 hours",
-      "category": "Nature"
+      "category": "Nature",
+      "lat": null,
+      "lon": null,
+      "best_time": "07:00 AM - 11:00 AM"
     },
     {
       "name": "Goa State Museum",
       "description": "Museum in Panjim documenting Goan history, art, and heritage.",
       "full_text": "State Museum, Panjim, history, artifacts, art, indoor, informative, quiet, cultural.",
       "suggested_hours": "1-2 hours",
-      "category": "Museum"
+      "category": "Museum",
+      "lat": null,
+      "lon": null,
+      "best_time": "Flexible"
     },
     {
       "name": "Tropical Spice Plantation",
       "description": "Eco-friendly spice farm offering tours, food, and nature walks.",
       "full_text": "Tropical Spice, Keri, spice tour, elephants, Goan lunch, herbal gardens, family friendly, nature.",
       "suggested_hours": "3-4 hours",
-      "category": "Activity"
+      "category": "Activity",
+      "lat": null,
+      "lon": null,
+      "best_time": "10:30 AM - 03:30 PM"
     },
     {
       "name": "Our Lady of the Mount",
       "description": "Hilltop chapel in Old Goa with panoramic sunset views over churches.",
       "full_text": "Mount Chapel, Old Goa, hilltop view, sunset, panoramic, quiet, offbeat, romantic, spiritual.",
       "suggested_hours": "1 hour",
-      "category": "Heritage"
+      "category": "Heritage",
+      "lat": null,
+      "lon": null,
+      "best_time": "09:30 AM - 05:00 PM"
     },
     {
       "name": "Grande Island Dolphin Trip",
       "description": "Morning boat trips for ocean dolphin spotting and scenic views.",
       "full_text": "Dolphin trip, boat ride, ocean, wildlife, family friendly, morning activity, scenic.",
       "suggested_hours": "2 hours",
-      "category": "Activity"
+      "category": "Activity",
+      "lat": null,
+      "lon": null,
+      "best_time": "Flexible"
     },
     {
       "name": "Benaulim Church",
       "description": "Beautiful local parish church in the heart of Benaulim village.",
       "full_text": "Benaulim Church, spiritual, local heritage, architecture, quiet, community.",
       "suggested_hours": "30 minutes",
-      "category": "Heritage"
+      "category": "Heritage",
+      "lat": null,
+      "lon": null,
+      "best_time": "09:30 AM - 05:00 PM"
     },
     {
       "name": "Agonda Turtle Nesting Site",
       "description": "Eco-conservation site on Agonda beach for Olive Ridley turtles.",
       "full_text": "Turtle nesting, Agonda, eco-tourism, conservation, wildlife, nature, quiet beach.",
       "suggested_hours": "1 hour",
-      "category": "Nature"
+      "category": "Nature",
+      "lat": null,
+      "lon": null,
+      "best_time": "Flexible"
     },
     {
       "name": "Majorda Beach Shacks",
       "description": "Shacks serving fresh seafood and Goan cuisine on golden sands.",
       "full_text": "Beach shacks, Majorda, seafood, calm, dinner on beach, romantic, family friendly.",
       "suggested_hours": "2-3 hours",
-      "category": "Activity"
+      "category": "Activity",
+      "lat": null,
+      "lon": null,
+      "best_time": "04:00 PM - 07:00 PM (Sunset)"
     },
     {
       "name": "Candolim Beach Parasailing",
       "description": "Parasailing with views of the Aguada coastline and sea.",
       "full_text": "Parasailing, Candolim, adventure, water sports, sea view, adrenaline.",
       "suggested_hours": "1 hour",
-      "category": "Activity"
+      "category": "Activity",
+      "lat": null,
+      "lon": null,
+      "best_time": "04:00 PM - 07:00 PM (Sunset)"
     },
     {
       "name": "Varca Beach Sunsets",
       "description": "Quiet and scenic sunset views on the white sands of Varca.",
       "full_text": "Sunset, Varca, white sand, romantic, peaceful, photography, nature.",
       "suggested_hours": "1 hour",
-      "category": "Activity"
+      "category": "Activity",
+      "lat": null,
+      "lon": null,
+      "best_time": "04:00 PM - 07:00 PM (Sunset)"
     },
     {
       "name": "Ponda Spice Tour",
       "description": "Detailed tours of organic spice plantations in the Ponda area.",
       "full_text": "Spice tour, Ponda, organic, plantation, food, nature, educational.",
       "suggested_hours": "3-4 hours",
-      "category": "Activity"
+      "category": "Activity",
+      "lat": null,
+      "lon": null,
+      "best_time": "10:30 AM - 03:30 PM"
     },
     {
       "name": "Shri Mahalasa Temple",
       "description": "Unique temple with spiritual significance and Indo-Portuguese style.",
       "full_text": "Mahalasa, Mardol, Goddess, Mohini, Lord Vishnu, spiritual, architecture, heritage, quiet.",
       "suggested_hours": "1 hour",
-      "category": "Temple"
+      "category": "Temple",
+      "lat": null,
+      "lon": null,
+      "best_time": "Flexible"
     }
   ]
 }
