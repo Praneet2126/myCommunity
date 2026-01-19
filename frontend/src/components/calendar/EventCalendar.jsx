@@ -192,7 +192,7 @@ function EventCalendar({ cityId = null }) {
       </div>
 
       {/* Events List */}
-      <div className="space-y-2 overflow-y-auto h-[30vh] custom-scrollbar">
+      <div className="space-y-2 overflow-y-auto h-[15vh] custom-scrollbar">
         {loading ? (
           <div className="flex items-center justify-center py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-2 border-teal-600 border-t-transparent"></div>

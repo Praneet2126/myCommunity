@@ -7,7 +7,8 @@ import CityHero from '../components/city/CityHero';
 import ChatList from '../components/chat/ChatList';
 import ChatWindow from '../components/chat/ChatWindow';
 import EventCalendar from '../components/calendar/EventCalendar';
-import { getCityById, joinCity, checkMembership } from '../services/cityService';
+import ItineraryDisplay from '../components/itinerary/ItineraryDisplay';
+import { getCityById, joinCity } from '../services/cityService';
 
 function CityPage() {
   const { cityName } = useParams();
@@ -183,10 +184,24 @@ function CityPage() {
             </div>
           </div>
 
-          {/* Calendar */}
+          {/* Calendar and Itinerary */}
           <div className="lg:col-span-1">
-            <div className="sticky top-20">
-              <EventCalendar cityId={selectedCity.id} />
+            <div className="
+              h-[calc(100vh-260px)]
+              lg:h-[600px]
+              flex flex-col
+              gap-4
+            ">
+              <div className="flex-shrink-0">
+                <EventCalendar cityId={selectedCity.id} />
+              </div>
+              <div className="flex-1 min-h-0">
+                <ItineraryDisplay
+                  chatType={activeChatId === 'public' ? 'community' : 'private'}
+                  cityName={selectedCity.displayName}
+                  chatName={chatDisplayName}
+                />
+              </div>
             </div>
           </div>
 
