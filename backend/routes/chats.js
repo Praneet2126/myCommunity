@@ -7,6 +7,7 @@ const User = require('../models/User');
 const { authenticate } = require('../middleware/auth');
 const { privateChatValidation, messageValidation, paginationValidation } = require('../middleware/validator');
 const contentModerator = require('../../moderation');
+const { uploadChatImage } = require('../config/cloudinary');
 
 // Get user's private chats
 router.get('/', authenticate, async (req, res, next) => {
@@ -147,7 +148,8 @@ router.get('/:chatId', authenticate, async (req, res, next) => {
     }
 
     const chat = await PrivateChat.findById(chatId)
-      .populate('created_by', 'username full_name profile_photo_url');
+      .populate('created_by', 'username full_name profile_photo_url')
+      .populate('recommendations.votes.user_id', 'username full_name profile_photo_url');
 
     if (!chat) {
       return res.status(404).json({
@@ -390,6 +392,480 @@ router.post('/:chatId/messages', authenticate, messageValidation, async (req, re
       success: true,
       message: 'Message sent successfully',
       data: populatedMessage
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Upload image to private chat
+router.post('/:chatId/upload-image', authenticate, uploadChatImage.single('image'), async (req, res, next) => {
+  try {
+    const { chatId } = req.params;
+
+    // Check if user is a participant
+    const participant = await PrivateChatParticipant.findOne({
+      chat_id: chatId,
+      user_id: req.user._id
+    });
+
+    if (!participant) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not a member of this chat'
+      });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No image file provided'
+      });
+    }
+
+    // Return the Cloudinary URL
+    res.status(200).json({
+      success: true,
+      message: 'Image uploaded successfully',
+      data: {
+        url: req.file.path,
+        public_id: req.file.filename
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Add recommendation to private chat
+router.post('/:chatId/recommendations', authenticate, async (req, res, next) => {
+  try {
+    const { chatId } = req.params;
+    const { recommendation } = req.body;
+
+    if (!recommendation) {
+      return res.status(400).json({
+        success: false,
+        message: 'Recommendation data is required'
+      });
+    }
+
+    // Check if user is a participant
+    const participant = await PrivateChatParticipant.findOne({
+      chat_id: chatId,
+      user_id: req.user._id
+    });
+
+    if (!participant) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not a member of this chat'
+      });
+    }
+
+    // Add recommendation with user info
+    const recommendationWithUser = {
+      ...recommendation,
+      added_by: req.user._id,
+      added_at: new Date()
+    };
+
+    const chat = await PrivateChat.findByIdAndUpdate(
+      chatId,
+      { $push: { recommendations: recommendationWithUser } },
+      { new: true }
+    ).populate('created_by', 'username full_name profile_photo_url')
+     .populate('city_id', 'name displayName');
+
+    if (!chat) {
+      return res.status(404).json({
+        success: false,
+        message: 'Chat not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Recommendation added successfully',
+      data: chat
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Remove recommendation from private chat
+router.delete('/:chatId/recommendations/:recommendationIndex', authenticate, async (req, res, next) => {
+  try {
+    const { chatId, recommendationIndex } = req.params;
+    const index = parseInt(recommendationIndex, 10);
+
+    if (isNaN(index) || index < 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid recommendation index'
+      });
+    }
+
+    // Check if user is a participant
+    const participant = await PrivateChatParticipant.findOne({
+      chat_id: chatId,
+      user_id: req.user._id
+    });
+
+    if (!participant) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not a member of this chat'
+      });
+    }
+
+    // Get the chat to check if recommendation exists
+    const chat = await PrivateChat.findById(chatId);
+
+    if (!chat) {
+      return res.status(404).json({
+        success: false,
+        message: 'Chat not found'
+      });
+    }
+
+    if (!chat.recommendations || index >= chat.recommendations.length) {
+      return res.status(404).json({
+        success: false,
+        message: 'Recommendation not found'
+      });
+    }
+
+    // Remove the recommendation at the specified index
+    chat.recommendations.splice(index, 1);
+    await chat.save();
+
+    const updatedChat = await PrivateChat.findById(chatId)
+      .populate('created_by', 'username full_name profile_photo_url')
+      .populate('city_id', 'name displayName');
+
+    res.status(200).json({
+      success: true,
+      message: 'Recommendation removed successfully',
+      data: updatedChat
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Vote for a recommendation
+router.post('/:chatId/recommendations/:recommendationIndex/vote', authenticate, async (req, res, next) => {
+  try {
+    const { chatId, recommendationIndex } = req.params;
+    const index = parseInt(recommendationIndex, 10);
+
+    if (isNaN(index) || index < 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid recommendation index'
+      });
+    }
+
+    // Check if user is a participant
+    const participant = await PrivateChatParticipant.findOne({
+      chat_id: chatId,
+      user_id: req.user._id
+    });
+
+    if (!participant) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not a member of this chat'
+      });
+    }
+
+    // Get the chat
+    const chat = await PrivateChat.findById(chatId);
+
+    if (!chat) {
+      return res.status(404).json({
+        success: false,
+        message: 'Chat not found'
+      });
+    }
+
+    if (!chat.recommendations || index >= chat.recommendations.length) {
+      return res.status(404).json({
+        success: false,
+        message: 'Recommendation not found'
+      });
+    }
+
+    const recommendation = chat.recommendations[index];
+
+    // Check if user already voted
+    const existingVote = recommendation.votes?.find(
+      vote => vote.user_id.toString() === req.user._id.toString()
+    );
+
+    if (existingVote) {
+      return res.status(400).json({
+        success: false,
+        message: 'You have already voted for this recommendation'
+      });
+    }
+
+    // Add vote
+    if (!recommendation.votes) {
+      recommendation.votes = [];
+    }
+    recommendation.votes.push({
+      user_id: req.user._id,
+      voted_at: new Date()
+    });
+
+    await chat.save();
+
+    const updatedChat = await PrivateChat.findById(chatId)
+      .populate('created_by', 'username full_name profile_photo_url')
+      .populate('city_id', 'name displayName')
+      .populate('recommendations.votes.user_id', 'username full_name profile_photo_url');
+
+    res.status(200).json({
+      success: true,
+      message: 'Vote added successfully',
+      data: updatedChat
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Remove vote from a recommendation
+router.delete('/:chatId/recommendations/:recommendationIndex/vote', authenticate, async (req, res, next) => {
+  try {
+    const { chatId, recommendationIndex } = req.params;
+    const index = parseInt(recommendationIndex, 10);
+
+    if (isNaN(index) || index < 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid recommendation index'
+      });
+    }
+
+    // Check if user is a participant
+    const participant = await PrivateChatParticipant.findOne({
+      chat_id: chatId,
+      user_id: req.user._id
+    });
+
+    if (!participant) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not a member of this chat'
+      });
+    }
+
+    // Get the chat
+    const chat = await PrivateChat.findById(chatId);
+
+    if (!chat) {
+      return res.status(404).json({
+        success: false,
+        message: 'Chat not found'
+      });
+    }
+
+    if (!chat.recommendations || index >= chat.recommendations.length) {
+      return res.status(404).json({
+        success: false,
+        message: 'Recommendation not found'
+      });
+    }
+
+    const recommendation = chat.recommendations[index];
+
+    // Remove user's vote
+    if (recommendation.votes) {
+      recommendation.votes = recommendation.votes.filter(
+        vote => vote.user_id.toString() !== req.user._id.toString()
+      );
+    }
+
+    await chat.save();
+
+    const updatedChat = await PrivateChat.findById(chatId)
+      .populate('created_by', 'username full_name profile_photo_url')
+      .populate('city_id', 'name displayName')
+      .populate('recommendations.votes.user_id', 'username full_name profile_photo_url');
+
+    res.status(200).json({
+      success: true,
+      message: 'Vote removed successfully',
+      data: updatedChat
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Admin: Add recommendation to cart
+router.post('/:chatId/recommendations/:recommendationIndex/add-to-cart', authenticate, async (req, res, next) => {
+  try {
+    const { chatId, recommendationIndex } = req.params;
+    const index = parseInt(recommendationIndex, 10);
+
+    if (isNaN(index) || index < 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid recommendation index'
+      });
+    }
+
+    // Check if user is a participant and admin
+    const participant = await PrivateChatParticipant.findOne({
+      chat_id: chatId,
+      user_id: req.user._id
+    });
+
+    if (!participant) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not a member of this chat'
+      });
+    }
+
+    if (participant.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only admins can add recommendations to cart'
+      });
+    }
+
+    // Get the chat
+    const chat = await PrivateChat.findById(chatId);
+
+    if (!chat) {
+      return res.status(404).json({
+        success: false,
+        message: 'Chat not found'
+      });
+    }
+
+    if (!chat.recommendations || index >= chat.recommendations.length) {
+      return res.status(404).json({
+        success: false,
+        message: 'Recommendation not found'
+      });
+    }
+
+    const recommendation = chat.recommendations[index];
+
+    // Check if already in cart
+    const alreadyInCart = chat.cart?.some(
+      item => item.hotel_id === recommendation.hotel_id || 
+              (item.name === recommendation.name && item.price === recommendation.price)
+    );
+
+    if (alreadyInCart) {
+      return res.status(400).json({
+        success: false,
+        message: 'This recommendation is already in the cart'
+      });
+    }
+
+    // Add to cart
+    if (!chat.cart) {
+      chat.cart = [];
+    }
+
+    const cartItem = {
+      ...recommendation.toObject(),
+      added_to_cart_at: new Date(),
+      added_to_cart_by: req.user._id
+    };
+    // Remove votes from cart item (not needed in cart)
+    delete cartItem.votes;
+
+    chat.cart.push(cartItem);
+    await chat.save();
+
+    const updatedChat = await PrivateChat.findById(chatId)
+      .populate('created_by', 'username full_name profile_photo_url')
+      .populate('city_id', 'name displayName')
+      .populate('recommendations.votes.user_id', 'username full_name profile_photo_url');
+
+    res.status(200).json({
+      success: true,
+      message: 'Recommendation added to cart successfully',
+      data: updatedChat
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Admin: Remove item from cart
+router.delete('/:chatId/cart/:cartIndex', authenticate, async (req, res, next) => {
+  try {
+    const { chatId, cartIndex } = req.params;
+    const index = parseInt(cartIndex, 10);
+
+    if (isNaN(index) || index < 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid cart index'
+      });
+    }
+
+    // Check if user is a participant and admin
+    const participant = await PrivateChatParticipant.findOne({
+      chat_id: chatId,
+      user_id: req.user._id
+    });
+
+    if (!participant) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not a member of this chat'
+      });
+    }
+
+    if (participant.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only admins can remove items from cart'
+      });
+    }
+
+    // Get the chat
+    const chat = await PrivateChat.findById(chatId);
+
+    if (!chat) {
+      return res.status(404).json({
+        success: false,
+        message: 'Chat not found'
+      });
+    }
+
+    if (!chat.cart || index >= chat.cart.length) {
+      return res.status(404).json({
+        success: false,
+        message: 'Cart item not found'
+      });
+    }
+
+    // Remove the item from cart
+    chat.cart.splice(index, 1);
+    await chat.save();
+
+    const updatedChat = await PrivateChat.findById(chatId)
+      .populate('created_by', 'username full_name profile_photo_url')
+      .populate('city_id', 'name displayName')
+      .populate('recommendations.votes.user_id', 'username full_name profile_photo_url');
+
+    res.status(200).json({
+      success: true,
+      message: 'Item removed from cart successfully',
+      data: updatedChat
     });
   } catch (error) {
     next(error);

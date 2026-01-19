@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import socketService from '../services/socketService';
 import { useAuth } from './AuthContext';
+import { uploadCityChatImage, uploadPrivateChatImage } from '../services/uploadService';
 
 const ChatContext = createContext();
 
@@ -17,6 +18,7 @@ export const ChatProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [socketConnected, setSocketConnected] = useState(false);
   const [roomJoined, setRoomJoined] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   
   // Use refs to prevent re-render loops
   const socketInitialized = useRef(false);
@@ -492,6 +494,90 @@ export const ChatProvider = ({ children }) => {
   };
 
   /**
+   * Send an image message
+   * @param {File} imageFile - The image file to upload and send
+   */
+  const sendImageMessage = async (imageFile) => {
+    if (!imageFile || !user) {
+      console.error('Cannot send image: missing file or user not logged in');
+      return;
+    }
+
+    setIsUploadingImage(true);
+
+    try {
+      let uploadResult;
+      
+      // Upload the image to the appropriate endpoint
+      if (activeChatId === 'public') {
+        if (!activeCityId) {
+          console.error('Cannot upload image: no active city');
+          return;
+        }
+        uploadResult = await uploadCityChatImage(activeCityId, imageFile);
+      } else {
+        uploadResult = await uploadPrivateChatImage(activeChatId, imageFile);
+      }
+
+      if (!uploadResult.success) {
+        throw new Error('Failed to upload image');
+      }
+
+      const imageUrl = uploadResult.data.url;
+
+      // Create optimistic message with temporary ID
+      const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const optimisticMessage = {
+        _id: tempId,
+        content: '[Image]',
+        sender_id: {
+          _id: user._id,
+          username: user.username,
+          full_name: user.full_name,
+          profile_photo_url: user.profile_photo_url
+        },
+        message_type: 'image',
+        media_url: imageUrl,
+        createdAt: new Date().toISOString(),
+        is_edited: false,
+        is_deleted: false,
+        _isPending: true
+      };
+
+      // Track this optimistic message for deduplication
+      const pendingKey = `${user._id}-[Image]`;
+      pendingMessagesRef.current.set(pendingKey, tempId);
+
+      // Immediately add to UI (optimistic update)
+      setMessages(prev => [...prev, optimisticMessage]);
+
+      // Send via WebSocket
+      if (activeChatId === 'public') {
+        if (!socketConnected) {
+          console.error('Cannot send image message: socket not connected');
+          setMessages(prev => prev.filter(msg => msg._id !== tempId));
+          pendingMessagesRef.current.delete(pendingKey);
+          return;
+        }
+        socketService.sendCityMessage(activeCityId, '[Image]', 'image', imageUrl);
+      } else {
+        if (!socketConnected) {
+          console.error('Cannot send private image message: socket not connected');
+          setMessages(prev => prev.filter(msg => msg._id !== tempId));
+          pendingMessagesRef.current.delete(pendingKey);
+          return;
+        }
+        socketService.sendPrivateMessage(activeChatId, '[Image]', 'image', imageUrl);
+      }
+    } catch (error) {
+      console.error('Error sending image message:', error);
+      alert('Failed to upload image. Please try again.');
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  /**
    * Create a new private chat
    * @param {string} chatName - Chat name
    * @param {string} description - Chat description
@@ -750,7 +836,9 @@ export const ChatProvider = ({ children }) => {
     privateChats,
     loading,
     socketConnected,
+    isUploadingImage,
     sendMessage,
+    sendImageMessage,
     createPrivateChat,
     setCity,
     setChat,

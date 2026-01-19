@@ -7,6 +7,7 @@ const Message = require('../models/Message');
 const { authenticate } = require('../middleware/auth');
 const { messageValidation, paginationValidation } = require('../middleware/validator');
 const contentModerator = require('../../moderation');
+const { uploadChatImage } = require('../config/cloudinary');
 
 // Get all active cities
 router.get('/', async (req, res, next) => {
@@ -356,6 +357,45 @@ router.delete('/:cityId/chat/messages/:messageId', authenticate, async (req, res
     res.status(200).json({
       success: true,
       message: 'Message deleted successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Upload image to city chat
+router.post('/:cityId/chat/upload-image', authenticate, uploadChatImage.single('image'), async (req, res, next) => {
+  try {
+    const { cityId } = req.params;
+
+    // Check membership
+    const membership = await CityMembership.findOne({
+      user_id: req.user._id,
+      city_id: cityId
+    });
+
+    if (!membership) {
+      return res.status(403).json({
+        success: false,
+        message: 'You must be a member of this city to upload images'
+      });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No image file provided'
+      });
+    }
+
+    // Return the Cloudinary URL
+    res.status(200).json({
+      success: true,
+      message: 'Image uploaded successfully',
+      data: {
+        url: req.file.path,
+        public_id: req.file.filename
+      }
     });
   } catch (error) {
     next(error);
