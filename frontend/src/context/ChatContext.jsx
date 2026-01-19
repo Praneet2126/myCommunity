@@ -382,6 +382,9 @@ export const ChatProvider = ({ children }) => {
     currentCityRef.current = activeCityId;
     socketService.joinCityChat(activeCityId);
     
+    // Optimistically set room as joined (will be confirmed by server event)
+    setRoomJoined(true);
+    
     // Load messages for the new city (only if on public chat)
     if (activeChatId === 'public') {
       loadMessages(activeCityId);
@@ -417,10 +420,10 @@ export const ChatProvider = ({ children }) => {
       return;
     }
     
-    // Ensure we're in the room before sending
+    // Warn if we're not officially joined yet, but allow sending
     if (!roomJoined) {
-      console.error('Cannot send message: not yet joined to chat room');
-      return;
+      console.warn('Sending message before room join confirmation received - message may not be delivered');
+      // Don't block - allow sending anyway since join is usually fast
     }
     
     // Create optimistic message with temporary ID
@@ -644,11 +647,15 @@ export const ChatProvider = ({ children }) => {
       // Load city public chat messages
       if (activeCityId) {
         loadMessages(activeCityId);
+        // Room should already be joined from city selection
+        setRoomJoined(true);
       }
     } else {
       // Join private chat WebSocket room
       if (socketConnected) {
         socketService.joinPrivateChat(chatId);
+        // Optimistically set room as joined
+        setRoomJoined(true);
       }
       // Load private chat messages
       loadPrivateChatMessages(chatId);

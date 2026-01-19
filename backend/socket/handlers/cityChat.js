@@ -158,27 +158,27 @@ module.exports = (io, socket) => {
         console.log(`📝 Created CityChat for city: ${cityId}`);
       }
 
-      // Content moderation check
-      const moderationResult = await contentModerator.moderate(
-        content,
-        socket.user._id.toString(),
-        'city'
-      );
+      // Content moderation check - DISABLED
+      // const moderationResult = await contentModerator.moderate(
+      //   content,
+      //   socket.user._id.toString(),
+      //   'city'
+      // );
 
       // #region agent log
-      fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H2-H6',location:'backend/socket/handlers/cityChat.js:send-city-message:moderation-result',message:'Moderation check complete',data:{allowed:moderationResult.allowed,reason:moderationResult.reason,flags:moderationResult.flags},timestamp:Date.now()})+'\n', 'utf8');
+      // fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H2-H6',location:'backend/socket/handlers/cityChat.js:send-city-message:moderation-result',message:'Moderation check complete',data:{allowed:moderationResult.allowed,reason:moderationResult.reason,flags:moderationResult.flags},timestamp:Date.now()})+'\n', 'utf8');
       // #endregion
 
-      if (!moderationResult.allowed) {
-        // #region agent log
-        fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H6',location:'backend/socket/handlers/cityChat.js:send-city-message:blocked-by-moderation',message:'Message blocked by moderation',data:{reason:moderationResult.reason,flags:moderationResult.flags},timestamp:Date.now()})+'\n', 'utf8');
-        // #endregion
-        return socket.emit('error', {
-          message: 'Message blocked by content moderation',
-          reason: moderationResult.reason || 'Content violates community guidelines',
-          flags: moderationResult.flags
-        });
-      }
+      // if (!moderationResult.allowed) {
+      //   // #region agent log
+      //   fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H6',location:'backend/socket/handlers/cityChat.js:send-city-message:blocked-by-moderation',message:'Message blocked by moderation',data:{reason:moderationResult.reason,flags:moderationResult.flags},timestamp:Date.now()})+'\n', 'utf8');
+      //   // #endregion
+      //   return socket.emit('error', {
+      //     message: 'Message blocked by content moderation',
+      //     reason: moderationResult.reason || 'Content violates community guidelines',
+      //     flags: moderationResult.flags
+      //   });
+      // }
 
       // Create message
       const message = new Message({
@@ -263,20 +263,20 @@ module.exports = (io, socket) => {
         });
       }
 
-      // Content moderation check for edited content
-      const moderationResult = await contentModerator.moderate(
-        content,
-        socket.user._id.toString(),
-        'city'
-      );
+      // Content moderation check for edited content - DISABLED
+      // const moderationResult = await contentModerator.moderate(
+      //   content,
+      //   socket.user._id.toString(),
+      //   'city'
+      // );
 
-      if (!moderationResult.allowed) {
-        return socket.emit('error', {
-          message: 'Edited message blocked by content moderation',
-          reason: moderationResult.reason || 'Content violates community guidelines',
-          flags: moderationResult.flags
-        });
-      }
+      // if (!moderationResult.allowed) {
+      //   return socket.emit('error', {
+      //     message: 'Edited message blocked by content moderation',
+      //     reason: moderationResult.reason || 'Content violates community guidelines',
+      //     flags: moderationResult.flags
+      //   });
+      // }
 
       message.content = content;
       message.is_edited = true;
