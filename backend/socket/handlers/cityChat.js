@@ -47,7 +47,11 @@ module.exports = (io, socket) => {
       socket.join(roomName);
 
       // #region agent log
-      fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H5',location:'backend/socket/handlers/cityChat.js:join-city-chat:joined',message:'User joined city chat room',data:{userId:socket.user._id.toString(),username:socket.user.username,cityId,roomName},timestamp:Date.now()})+'\n', 'utf8');
+      try {
+        fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H5',location:'backend/socket/handlers/cityChat.js:join-city-chat:joined',message:'User joined city chat room',data:{userId:socket.user._id.toString(),username:socket.user.username,cityId,roomName},timestamp:Date.now()})+'\n', 'utf8');
+      } catch (err) {
+        // Debug logging failed - ignore silently
+      }
       // #endregion
 
       console.log(`👥 ${socket.user.username} joined city chat: ${city.name}`);
@@ -114,12 +118,20 @@ module.exports = (io, socket) => {
       const { cityId, content, message_type = 'text', media_url, reply_to } = data;
 
       // #region agent log
-      fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H2',location:'backend/socket/handlers/cityChat.js:send-city-message:received',message:'Backend received send-city-message',data:{userId:socket.user._id.toString(),username:socket.user.username,cityId,contentLength:content?.length,hasContent:!!content},timestamp:Date.now()})+'\n', 'utf8');
+      try {
+        fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H2',location:'backend/socket/handlers/cityChat.js:send-city-message:received',message:'Backend received send-city-message',data:{userId:socket.user._id.toString(),username:socket.user.username,cityId,contentLength:content?.length,hasContent:!!content},timestamp:Date.now()})+'\n', 'utf8');
+      } catch (err) {
+        // Debug logging failed - ignore silently
+      }
       // #endregion
 
       if (!cityId || !content) {
         // #region agent log
-        fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H2',location:'backend/socket/handlers/cityChat.js:send-city-message:validation-failed',message:'Validation failed - missing cityId or content',data:{hasCityId:!!cityId,hasContent:!!content},timestamp:Date.now()})+'\n', 'utf8');
+        try {
+          fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H2',location:'backend/socket/handlers/cityChat.js:send-city-message:validation-failed',message:'Validation failed - missing cityId or content',data:{hasCityId:!!cityId,hasContent:!!content},timestamp:Date.now()})+'\n', 'utf8');
+        } catch (err) {
+          // Debug logging failed - ignore silently
+        }
         // #endregion
         return socket.emit('error', { 
           message: 'City ID and message content are required' 
@@ -128,7 +140,11 @@ module.exports = (io, socket) => {
 
       if (content.length > 5000) {
         // #region agent log
-        fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H2',location:'backend/socket/handlers/cityChat.js:send-city-message:length-exceeded',message:'Content length exceeded',data:{length:content.length},timestamp:Date.now()})+'\n', 'utf8');
+        try {
+          fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H2',location:'backend/socket/handlers/cityChat.js:send-city-message:length-exceeded',message:'Content length exceeded',data:{length:content.length},timestamp:Date.now()})+'\n', 'utf8');
+        } catch (err) {
+          // Debug logging failed - ignore silently
+        }
         // #endregion
         return socket.emit('error', { 
           message: 'Message cannot exceed 5000 characters' 
@@ -143,7 +159,11 @@ module.exports = (io, socket) => {
 
       if (!membership) {
         // #region agent log
-        fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H5',location:'backend/socket/handlers/cityChat.js:send-city-message:not-member',message:'User not member of city',data:{userId:socket.user._id.toString(),cityId},timestamp:Date.now()})+'\n', 'utf8');
+        try {
+          fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H5',location:'backend/socket/handlers/cityChat.js:send-city-message:not-member',message:'User not member of city',data:{userId:socket.user._id.toString(),cityId},timestamp:Date.now()})+'\n', 'utf8');
+        } catch (err) {
+          // Debug logging failed - ignore silently
+        }
         // #endregion
         return socket.emit('error', { 
           message: 'You must be a member of this city to send messages' 
@@ -194,7 +214,11 @@ module.exports = (io, socket) => {
       await message.save();
 
       // #region agent log
-      fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H2',location:'backend/socket/handlers/cityChat.js:send-city-message:saved',message:'Message saved to DB',data:{messageId:message._id.toString(),chatId:cityChat._id.toString()},timestamp:Date.now()})+'\n', 'utf8');
+      try {
+        fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H2',location:'backend/socket/handlers/cityChat.js:send-city-message:saved',message:'Message saved to DB',data:{messageId:message._id.toString(),chatId:cityChat._id.toString()},timestamp:Date.now()})+'\n', 'utf8');
+      } catch (err) {
+        // Debug logging failed - ignore silently
+      }
       // #endregion
 
       // Update last message timestamp
@@ -213,7 +237,11 @@ module.exports = (io, socket) => {
         .populate('reply_to', 'content sender_id');
 
       // #region agent log
-      fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H3',location:'backend/socket/handlers/cityChat.js:send-city-message:before-broadcast',message:'About to broadcast message',data:{messageId:message._id.toString(),roomName:`city-${cityId}`,content:content.substring(0,50)},timestamp:Date.now()})+'\n', 'utf8');
+      try {
+        fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H3',location:'backend/socket/handlers/cityChat.js:send-city-message:before-broadcast',message:'About to broadcast message',data:{messageId:message._id.toString(),roomName:`city-${cityId}`,content:content.substring(0,50)},timestamp:Date.now()})+'\n', 'utf8');
+      } catch (err) {
+        // Debug logging failed - ignore silently
+      }
       // #endregion
 
       // Broadcast to all users in the city chat room (including sender)
@@ -223,7 +251,11 @@ module.exports = (io, socket) => {
       });
 
       // #region agent log
-      fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H3',location:'backend/socket/handlers/cityChat.js:send-city-message:broadcasted',message:'Message broadcasted to room',data:{messageId:message._id.toString(),roomName:`city-${cityId}`},timestamp:Date.now()})+'\n', 'utf8');
+      try {
+        fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H3',location:'backend/socket/handlers/cityChat.js:send-city-message:broadcasted',message:'Message broadcasted to room',data:{messageId:message._id.toString(),roomName:`city-${cityId}`},timestamp:Date.now()})+'\n', 'utf8');
+      } catch (err) {
+        // Debug logging failed - ignore silently
+      }
       // #endregion
 
       console.log(`💬 ${socket.user.username} sent message to city ${cityId}`);
@@ -231,7 +263,11 @@ module.exports = (io, socket) => {
     } catch (error) {
       console.error('Error sending city message:', error);
       // #region agent log
-      fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H2',location:'backend/socket/handlers/cityChat.js:send-city-message:error',message:'Error in send-city-message handler',data:{error:error.message,stack:error.stack?.substring(0,200)},timestamp:Date.now()})+'\n', 'utf8');
+      try {
+        fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H2',location:'backend/socket/handlers/cityChat.js:send-city-message:error',message:'Error in send-city-message handler',data:{error:error.message,stack:error.stack?.substring(0,200)},timestamp:Date.now()})+'\n', 'utf8');
+      } catch (err) {
+        // Debug logging failed - ignore silently
+      }
       // #endregion
       socket.emit('error', { 
         message: 'Failed to send message',

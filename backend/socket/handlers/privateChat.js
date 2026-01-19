@@ -38,7 +38,11 @@ module.exports = (io, socket) => {
       socket.join(roomName);
 
       // #region agent log
-      fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H5',location:'backend/socket/handlers/privateChat.js:join-private-chat:joined',message:'User joined private chat room',data:{userId:socket.user._id.toString(),username:socket.user.username,chatId,roomName},timestamp:Date.now()})+'\n', 'utf8');
+      try {
+        fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H5',location:'backend/socket/handlers/privateChat.js:join-private-chat:joined',message:'User joined private chat room',data:{userId:socket.user._id.toString(),username:socket.user.username,chatId,roomName},timestamp:Date.now()})+'\n', 'utf8');
+      } catch (err) {
+        // Debug logging failed - ignore silently
+      }
       // #endregion
 
       console.log(`🔒 ${socket.user.username} joined private chat: ${chat.name || chatId}`);
@@ -105,12 +109,20 @@ module.exports = (io, socket) => {
       const { chatId, content, message_type = 'text', media_url, reply_to } = data;
 
       // #region agent log
-      fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H2',location:'backend/socket/handlers/privateChat.js:send-private-message:received',message:'Backend received send-private-message',data:{userId:socket.user._id.toString(),username:socket.user.username,chatId,contentLength:content?.length,hasContent:!!content},timestamp:Date.now()})+'\n', 'utf8');
+      try {
+        fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H2',location:'backend/socket/handlers/privateChat.js:send-private-message:received',message:'Backend received send-private-message',data:{userId:socket.user._id.toString(),username:socket.user.username,chatId,contentLength:content?.length,hasContent:!!content},timestamp:Date.now()})+'\n', 'utf8');
+      } catch (err) {
+        // Debug logging failed - ignore silently
+      }
       // #endregion
 
       if (!chatId || !content) {
         // #region agent log
-        fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H2',location:'backend/socket/handlers/privateChat.js:send-private-message:validation-failed',message:'Validation failed - missing chatId or content',data:{hasChatId:!!chatId,hasContent:!!content},timestamp:Date.now()})+'\n', 'utf8');
+        try {
+          fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H2',location:'backend/socket/handlers/privateChat.js:send-private-message:validation-failed',message:'Validation failed - missing chatId or content',data:{hasChatId:!!chatId,hasContent:!!content},timestamp:Date.now()})+'\n', 'utf8');
+        } catch (err) {
+          // Debug logging failed - ignore silently
+        }
         // #endregion
         return socket.emit('error', { 
           message: 'Chat ID and message content are required' 
@@ -119,7 +131,11 @@ module.exports = (io, socket) => {
 
       if (content.length > 5000) {
         // #region agent log
-        fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H2',location:'backend/socket/handlers/privateChat.js:send-private-message:length-exceeded',message:'Content length exceeded',data:{length:content.length},timestamp:Date.now()})+'\n', 'utf8');
+        try {
+          fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H2',location:'backend/socket/handlers/privateChat.js:send-private-message:length-exceeded',message:'Content length exceeded',data:{length:content.length},timestamp:Date.now()})+'\n', 'utf8');
+        } catch (err) {
+          // Debug logging failed - ignore silently
+        }
         // #endregion
         return socket.emit('error', { 
           message: 'Message cannot exceed 5000 characters' 
@@ -134,7 +150,11 @@ module.exports = (io, socket) => {
 
       if (!participant) {
         // #region agent log
-        fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H5',location:'backend/socket/handlers/privateChat.js:send-private-message:not-participant',message:'User not participant of chat',data:{userId:socket.user._id.toString(),chatId},timestamp:Date.now()})+'\n', 'utf8');
+        try {
+          fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H5',location:'backend/socket/handlers/privateChat.js:send-private-message:not-participant',message:'User not participant of chat',data:{userId:socket.user._id.toString(),chatId},timestamp:Date.now()})+'\n', 'utf8');
+        } catch (err) {
+          // Debug logging failed - ignore silently
+        }
         // #endregion
         return socket.emit('error', { 
           message: 'You are not a member of this chat' 
@@ -177,7 +197,11 @@ module.exports = (io, socket) => {
       await message.save();
 
       // #region agent log
-      fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H2',location:'backend/socket/handlers/privateChat.js:send-private-message:saved',message:'Message saved to DB',data:{messageId:message._id.toString(),chatId},timestamp:Date.now()})+'\n', 'utf8');
+      try {
+        fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H2',location:'backend/socket/handlers/privateChat.js:send-private-message:saved',message:'Message saved to DB',data:{messageId:message._id.toString(),chatId},timestamp:Date.now()})+'\n', 'utf8');
+      } catch (err) {
+        // Debug logging failed - ignore silently
+      }
       // #endregion
 
       // Update last message timestamp
@@ -191,7 +215,11 @@ module.exports = (io, socket) => {
         .populate('reply_to', 'content sender_id');
 
       // #region agent log
-      fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H3',location:'backend/socket/handlers/privateChat.js:send-private-message:before-broadcast',message:'About to broadcast private message',data:{messageId:message._id.toString(),roomName:`private-${chatId}`,content:content.substring(0,50)},timestamp:Date.now()})+'\n', 'utf8');
+      try {
+        fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H3',location:'backend/socket/handlers/privateChat.js:send-private-message:before-broadcast',message:'About to broadcast private message',data:{messageId:message._id.toString(),roomName:`private-${chatId}`,content:content.substring(0,50)},timestamp:Date.now()})+'\n', 'utf8');
+      } catch (err) {
+        // Debug logging failed - ignore silently
+      }
       // #endregion
 
       // Broadcast to all users in the private chat room (including sender)
@@ -201,7 +229,11 @@ module.exports = (io, socket) => {
       });
 
       // #region agent log
-      fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H3',location:'backend/socket/handlers/privateChat.js:send-private-message:broadcasted',message:'Message broadcasted to room',data:{messageId:message._id.toString(),roomName:`private-${chatId}`},timestamp:Date.now()})+'\n', 'utf8');
+      try {
+        fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H3',location:'backend/socket/handlers/privateChat.js:send-private-message:broadcasted',message:'Message broadcasted to room',data:{messageId:message._id.toString(),roomName:`private-${chatId}`},timestamp:Date.now()})+'\n', 'utf8');
+      } catch (err) {
+        // Debug logging failed - ignore silently
+      }
       // #endregion
 
       console.log(`💬 ${socket.user.username} sent message to private chat ${chatId}`);
@@ -209,7 +241,11 @@ module.exports = (io, socket) => {
     } catch (error) {
       console.error('Error sending private message:', error);
       // #region agent log
-      fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H2',location:'backend/socket/handlers/privateChat.js:send-private-message:error',message:'Error in send-private-message handler',data:{error:error.message,stack:error.stack?.substring(0,200)},timestamp:Date.now()})+'\n', 'utf8');
+      try {
+        fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H2',location:'backend/socket/handlers/privateChat.js:send-private-message:error',message:'Error in send-private-message handler',data:{error:error.message,stack:error.stack?.substring(0,200)},timestamp:Date.now()})+'\n', 'utf8');
+      } catch (err) {
+        // Debug logging failed - ignore silently
+      }
       // #endregion
       socket.emit('error', { 
         message: 'Failed to send message',
