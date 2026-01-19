@@ -11,3 +11,7 @@ requests==2.31.0
 torch>=2.0.0
 clip @ git+https://github.com/openai/CLIP.git
 torchvision>=0.15.0
+# Chat Summarizer Dependencies
+huggingface_hub>=0.20.0
+# Sentiment Analysis Dependencies
+transformers>=4.30.0

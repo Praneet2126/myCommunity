@@ -27,17 +27,42 @@ def get_image_search_service():
     from services.image_search_service import ImageSearchService
     return ImageSearchService()
 
+def get_chat_summarizer_service():
+    """Lazy import for chat summarizer service"""
+    from services.chat_summarizer_service import ChatSummarizerService
+    return ChatSummarizerService()
+
+def get_moderation_service():
+    """Lazy import for moderation service"""
+    from services.moderation_service import ModerationService
+    return ModerationService()
+
+def get_sentiment_analysis_service():
+    """Lazy import for sentiment analysis service"""
+    from services.sentiment_analysis_service import SentimentAnalysisService
+    return SentimentAnalysisService()
+
 # Initialize services
 hotel_recommendation_service = None
 image_search_service = None
+chat_summarizer_service = None
+moderation_service = None
+sentiment_analysis_service = None
 
 def init_services():
     """Initialize services on first use"""
     global hotel_recommendation_service, image_search_service
+    global chat_summarizer_service, moderation_service, sentiment_analysis_service
     if hotel_recommendation_service is None:
         hotel_recommendation_service = get_hotel_recommendation_service()
     if image_search_service is None:
         image_search_service = get_image_search_service()
+    if chat_summarizer_service is None:
+        chat_summarizer_service = get_chat_summarizer_service()
+    if moderation_service is None:
+        moderation_service = get_moderation_service()
+    if sentiment_analysis_service is None:
+        sentiment_analysis_service = get_sentiment_analysis_service()
 
 app = FastAPI(
     title="AI Microservice",
@@ -119,6 +144,35 @@ class ContentModerationResponse(BaseModel):
     flagged_categories: List[str]
     suggested_action: Optional[str] = None
     reason: Optional[str] = None
+
+
+class SentimentAnalysisRequest(BaseModel):
+    message_text: str
+
+
+class SentimentAnalysisResponse(BaseModel):
+    message_sentiment: dict
+    tags: dict
+    tag_sentiments: List[dict]
+    has_tags: bool
+
+
+class SentimentBatchRequest(BaseModel):
+    messages: List[str]
+
+
+class SentimentAggregationRequest(BaseModel):
+    messages: List[dict]  # List of {"sentiment": str, "tags": dict}
+
+
+class SentimentAggregationResponse(BaseModel):
+    places: List[dict]
+    hotels: List[dict]
+    themes: List[dict]
+
+
+class ChatSummarizationMessagesRequest(BaseModel):
+    messages: List[str]  # List of message strings to summarize
 
 
 # Health check endpoint
@@ -216,52 +270,95 @@ async def recommend_hotels_from_chat(request: HotelRecommendationRequest):
         raise HTTPException(status_code=500, detail=f"Error getting recommendations: {str(e)}")
 
 
-# 2. Chat Summarization
+# 3. Chat Summarization
 @app.post("/api/v1/chat/summarize", response_model=ChatSummarizationResponse)
 async def summarize_chat(request: ChatSummarizationRequest):
     """
     Summarize chat messages for a given chat.
     Can summarize all messages or specific message IDs.
+    
+    Note: This endpoint expects messages to be fetched from the backend.
+    For direct message summarization, use /api/v1/chat/summarize-messages
     """
     try:
-        # TODO: Implement AI service integration for chat summarization
-        # This will call your AI service to summarize the chat
-        
-        # Placeholder response
-        return ChatSummarizationResponse(
-            summary="This is a placeholder summary of the chat conversation about hotel planning in Barcelona.",
-            key_points=[
-                "Group planning summer trip to Barcelona",
-                "Discussing hotel options and budgets",
-                "Comparing different hotel features and locations"
-            ],
-            message_count=300,
-            date_range="2024-01-15 to 2024-01-19"
+        # This endpoint is kept for backward compatibility
+        # In a real implementation, you would fetch messages from the backend
+        # For now, return an error suggesting to use the messages endpoint
+        raise HTTPException(
+            status_code=400,
+            detail="Please use /api/v1/chat/summarize-messages endpoint with message texts"
         )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error summarizing chat: {str(e)}")
 
 
-# 3. Content Moderation
+@app.post("/api/v1/chat/summarize-messages", response_model=ChatSummarizationResponse)
+async def summarize_chat_messages(request: ChatSummarizationMessagesRequest):
+    """
+    Summarize a list of chat messages directly.
+    
+    Request body:
+    {
+        "messages": [
+            "Message 1 text",
+            "Message 2 text",
+            ...
+        ]
+    }
+    
+    Returns a summary with key points if thresholds are met (≥15 messages, ≥200 words).
+    """
+    try:
+        init_services()
+        
+        if not request.messages or len(request.messages) == 0:
+            raise HTTPException(status_code=400, detail="Messages list cannot be empty")
+        
+        result = chat_summarizer_service.summarize_messages(request.messages)
+        
+        return ChatSummarizationResponse(
+            summary=result.get("summary", ""),
+            key_points=result.get("key_points", []),
+            message_count=result.get("message_count", 0),
+            date_range=result.get("date_range")
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error summarizing messages: {str(e)}")
+
+
+# 4. Content Moderation
 @app.post("/api/v1/moderation/check", response_model=ContentModerationResponse)
 async def moderate_content(request: ContentModerationRequest):
     """
     Check if content is safe, spam, or contains abusive language.
+    Uses rule-based checks and AI-based toxicity detection.
+    
+    Request body:
+    {
+        "content": "Message text to moderate",
+        "user_id": "optional_user_id",
+        "message_id": "optional_message_id"
+    }
     """
     try:
-        # TODO: Implement AI service integration for content moderation
-        # This will call your AI service to check content
+        init_services()
         
-        # Placeholder response
-        return ContentModerationResponse(
-            is_safe=True,
-            is_spam=False,
-            is_abusive=False,
-            confidence_score=0.98,
-            flagged_categories=[],
-            suggested_action=None,
-            reason=None
+        if not request.content or not request.content.strip():
+            raise HTTPException(status_code=400, detail="Content cannot be empty")
+        
+        result = moderation_service.moderate_content(
+            content=request.content,
+            user_id=request.user_id,
+            message_id=request.message_id
         )
+        
+        return ContentModerationResponse(**result)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error moderating content: {str(e)}")
 
@@ -271,16 +368,126 @@ async def moderate_content(request: ContentModerationRequest):
 async def moderate_content_batch(requests: List[ContentModerationRequest]):
     """
     Check multiple content items in batch.
+    
+    Request body: Array of ContentModerationRequest objects
     """
     try:
-        # TODO: Implement batch processing
+        init_services()
+        
         results = []
         for request in requests:
-            result = await moderate_content(request)
-            results.append(result)
+            if not request.content or not request.content.strip():
+                results.append(ContentModerationResponse(
+                    is_safe=False,
+                    is_spam=False,
+                    is_abusive=False,
+                    confidence_score=0.0,
+                    flagged_categories=["invalid_content"],
+                    suggested_action="block",
+                    reason="Empty content"
+                ))
+                continue
+            
+            result = moderation_service.moderate_content(
+                content=request.content,
+                user_id=request.user_id,
+                message_id=request.message_id
+            )
+            results.append(ContentModerationResponse(**result))
+        
         return results
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error in batch moderation: {str(e)}")
+
+
+# 5. Sentiment Analysis
+@app.post("/api/v1/sentiment/analyze", response_model=SentimentAnalysisResponse)
+async def analyze_sentiment(request: SentimentAnalysisRequest):
+    """
+    Analyze sentiment and extract tags from a single message.
+    
+    Request body:
+    {
+        "message_text": "Message text to analyze"
+    }
+    
+    Returns sentiment analysis with tags and tag-sentiment pairs.
+    """
+    try:
+        init_services()
+        
+        if not request.message_text or not request.message_text.strip():
+            raise HTTPException(status_code=400, detail="Message text cannot be empty")
+        
+        result = sentiment_analysis_service.analyze_message(request.message_text)
+        
+        return SentimentAnalysisResponse(**result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error analyzing sentiment: {str(e)}")
+
+
+@app.post("/api/v1/sentiment/analyze-batch", response_model=List[SentimentAnalysisResponse])
+async def analyze_sentiment_batch(request: SentimentBatchRequest):
+    """
+    Analyze sentiment for multiple messages in batch.
+    
+    Request body:
+    {
+        "messages": ["Message 1", "Message 2", ...]
+    }
+    """
+    try:
+        init_services()
+        
+        if not request.messages or len(request.messages) == 0:
+            raise HTTPException(status_code=400, detail="Messages list cannot be empty")
+        
+        results = sentiment_analysis_service.analyze_messages_batch(request.messages)
+        
+        return [SentimentAnalysisResponse(**result) for result in results]
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error analyzing sentiment batch: {str(e)}")
+
+
+@app.post("/api/v1/sentiment/aggregate", response_model=SentimentAggregationResponse)
+async def aggregate_sentiment(request: SentimentAggregationRequest):
+    """
+    Aggregate sentiment by tags from message records.
+    
+    Request body:
+    {
+        "messages": [
+            {
+                "sentiment": "positive",
+                "tags": {
+                    "places": ["goa"],
+                    "hotels": [],
+                    "themes": ["beach"]
+                }
+            },
+            ...
+        ]
+    }
+    
+    Returns aggregated sentiment by places, hotels, and themes.
+    """
+    try:
+        init_services()
+        
+        if not request.messages or len(request.messages) == 0:
+            raise HTTPException(status_code=400, detail="Messages list cannot be empty")
+        
+        result = sentiment_analysis_service.aggregate_sentiment(request.messages)
+        
+        return SentimentAggregationResponse(**result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error aggregating sentiment: {str(e)}")
 
 
 if __name__ == "__main__":

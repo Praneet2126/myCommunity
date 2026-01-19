@@ -26,8 +26,8 @@ except Exception:
     pass
 
 # Threshold constants
-MIN_MESSAGE_COUNT = 15
-MIN_WORD_COUNT = 200
+MIN_MESSAGE_COUNT = 5
+MIN_WORD_COUNT = 15
 MAX_BULLET_POINTS = 5
 
 # Hugging Face API configuration

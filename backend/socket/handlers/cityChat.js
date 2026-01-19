@@ -2,7 +2,7 @@ const CityMembership = require('../../models/CityMembership');
 const CityChat = require('../../models/CityChat');
 const Message = require('../../models/Message');
 const City = require('../../models/City');
-const contentModerator = require('../../moderation');
+const contentModerator = require('../../../moderation');
 
 module.exports = (io, socket) => {
   

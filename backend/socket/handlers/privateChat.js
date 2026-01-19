@@ -1,7 +1,7 @@
 const PrivateChat = require('../../models/PrivateChat');
 const PrivateChatParticipant = require('../../models/PrivateChatParticipant');
 const Message = require('../../models/Message');
-const contentModerator = require('../../moderation');
+const contentModerator = require('../../../moderation');
 
 module.exports = (io, socket) => {
   
