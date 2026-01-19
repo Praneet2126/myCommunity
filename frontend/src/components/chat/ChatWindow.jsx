@@ -17,7 +17,8 @@ function ChatWindow({
   activeChatId = 'public',
   onSelectChat,
   onCreateChat,
-  cityName
+  cityName,
+  onMembersChanged
 }) {
   const messagesEndRef = useRef(null);
   const [showPrivateChatsDropdown, setShowPrivateChatsDropdown] = useState(false);
@@ -332,6 +333,7 @@ function ChatWindow({
         onClose={() => setShowGroupProfile(false)}
         chat={currentPrivateChat}
         cityName={cityName}
+        onMembersChanged={onMembersChanged}
       />
     </div>
   );

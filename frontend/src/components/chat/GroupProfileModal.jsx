@@ -1,18 +1,44 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 /**
  * GroupProfileModal component
  * WhatsApp-style group profile dialog for private chats
  */
-function GroupProfileModal({ isOpen, onClose, chat, cityName }) {
+function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }) {
   const [activeTab, setActiveTab] = useState('members');
   const [chatDetails, setChatDetails] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [showAddMember, setShowAddMember] = useState(false);
+  const [emailInput, setEmailInput] = useState('');
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState('');
+  const [foundUser, setFoundUser] = useState(null);
+  const [actionLoading, setActionLoading] = useState(null);
+
+  // Get current user from localStorage
+  const getCurrentUserId = () => {
+    try {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        return user._id || user.id;
+      }
+    } catch (e) {
+      console.error('Error parsing user:', e);
+    }
+    return null;
+  };
+
+  const currentUserId = getCurrentUserId();
 
   // Fetch full chat details with participants when modal opens
   useEffect(() => {
     if (isOpen && chat?.id) {
       fetchChatDetails();
+      setShowAddMember(false);
+      setEmailInput('');
+      setFoundUser(null);
+      setSearchError('');
     }
   }, [isOpen, chat?.id]);
 
@@ -41,6 +67,122 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName }) {
     }
   };
 
+  // Search user by email
+  const searchUserByEmail = useCallback(async () => {
+    if (!emailInput.trim() || emailInput.length < 3) {
+      setSearchError('Enter at least 3 characters');
+      return;
+    }
+
+    setSearchLoading(true);
+    setSearchError('');
+    setFoundUser(null);
+
+    try {
+      const token = localStorage.getItem('token');
+      const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
+      
+      const response = await fetch(`${BASE_URL}/api/users/search-by-email?email=${encodeURIComponent(emailInput)}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.data) {
+        // Check if user is already a member
+        const participants = chatDetails?.participants || [];
+        const isAlreadyMember = participants.some(p => p.user_id?._id === data.data._id);
+        
+        if (isAlreadyMember) {
+          setSearchError('This user is already a member');
+        } else {
+          setFoundUser(data.data);
+        }
+      } else {
+        setSearchError('User not found');
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+      setSearchError('Failed to search');
+    } finally {
+      setSearchLoading(false);
+    }
+  }, [emailInput, chatDetails]);
+
+  // Add member to group
+  const handleAddMember = async () => {
+    if (!foundUser) return;
+
+    try {
+      setActionLoading('add');
+      const token = localStorage.getItem('token');
+      const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
+      
+      const response = await fetch(`${BASE_URL}/api/chats/${chat.id}/members`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ user_ids: [foundUser._id] })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setFoundUser(null);
+        setEmailInput('');
+        setShowAddMember(false);
+        await fetchChatDetails();
+        onMembersChanged && onMembersChanged();
+      } else {
+        setSearchError(data.message || 'Failed to add member');
+      }
+    } catch (error) {
+      console.error('Add member error:', error);
+      setSearchError('Failed to add member');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Remove member from group
+  const handleRemoveMember = async (memberId) => {
+    if (!confirm('Are you sure you want to remove this member?')) return;
+
+    try {
+      setActionLoading(memberId);
+      const token = localStorage.getItem('token');
+      const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
+      
+      const response = await fetch(`${BASE_URL}/api/chats/${chat.id}/members/${memberId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        await fetchChatDetails();
+        onMembersChanged && onMembersChanged();
+      } else {
+        alert(data.message || 'Failed to remove member');
+      }
+    } catch (error) {
+      console.error('Remove member error:', error);
+      alert('Failed to remove member');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   if (!isOpen || !chat) return null;
 
   // Format date
@@ -64,6 +206,11 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName }) {
     role: p.role,
     joined_at: p.joined_at
   }));
+
+  // Check if current user is admin
+  const currentUserParticipant = participants.find(p => p.user_id?._id === currentUserId);
+  const isAdmin = currentUserParticipant?.role === 'admin';
+  const creatorId = chatDetails?.created_by?._id || chatDetails?.created_by;
   
   const recommendations = chat.recommendations || [];
   const cartItems = chat.cart || [];
@@ -182,7 +329,101 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName }) {
         <div className="flex-1 overflow-y-auto p-4">
           {/* Members Tab */}
           {activeTab === 'members' && (
-            <div className="space-y-2">
+            <div className="space-y-3">
+              {/* Add Member Button (Admin only) */}
+              {isAdmin && !showAddMember && (
+                <button
+                  onClick={() => setShowAddMember(true)}
+                  className="w-full flex items-center justify-center gap-2 p-3 border-2 border-dashed border-blue-300 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  <span className="font-medium text-sm">Add Member</span>
+                </button>
+              )}
+
+              {/* Add Member Form */}
+              {isAdmin && showAddMember && (
+                <div className="p-3 bg-blue-50 rounded-lg space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="font-medium text-gray-800 text-sm">Add New Member</p>
+                    <button
+                      onClick={() => {
+                        setShowAddMember(false);
+                        setEmailInput('');
+                        setFoundUser(null);
+                        setSearchError('');
+                      }}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <input
+                      type="email"
+                      value={emailInput}
+                      onChange={(e) => {
+                        setEmailInput(e.target.value);
+                        setSearchError('');
+                        setFoundUser(null);
+                      }}
+                      onKeyDown={(e) => e.key === 'Enter' && searchUserByEmail()}
+                      placeholder="Enter email address"
+                      className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button
+                      onClick={searchUserByEmail}
+                      disabled={searchLoading || !emailInput.trim()}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {searchLoading ? (
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      ) : (
+                        'Search'
+                      )}
+                    </button>
+                  </div>
+
+                  {searchError && (
+                    <p className="text-red-500 text-xs">{searchError}</p>
+                  )}
+
+                  {/* Found User */}
+                  {foundUser && (
+                    <div className="flex items-center gap-3 p-2 bg-white rounded-lg border border-green-200">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white font-semibold overflow-hidden">
+                        {foundUser.profile_photo_url && foundUser.profile_photo_url !== 'https://via.placeholder.com/150' ? (
+                          <img src={foundUser.profile_photo_url} alt={foundUser.full_name} className="w-full h-full object-cover" />
+                        ) : (
+                          (foundUser.full_name || foundUser.username || 'U').charAt(0).toUpperCase()
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-800 text-sm">{foundUser.full_name || foundUser.username}</p>
+                        <p className="text-xs text-gray-500">{foundUser.email}</p>
+                      </div>
+                      <button
+                        onClick={handleAddMember}
+                        disabled={actionLoading === 'add'}
+                        className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700 disabled:opacity-50"
+                      >
+                        {actionLoading === 'add' ? (
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        ) : (
+                          'Add'
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Members List */}
               {loading ? (
                 <div className="flex items-center justify-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-500 border-t-transparent"></div>
@@ -190,30 +431,54 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName }) {
               ) : members.length === 0 ? (
                 <p className="text-center text-gray-500 py-8">No members found</p>
               ) : (
-                members.map((member, index) => (
-                  <div key={member.id || index} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold overflow-hidden">
-                      {member.profile_photo_url && member.profile_photo_url !== 'https://via.placeholder.com/150' ? (
-                        <img src={member.profile_photo_url} alt={member.name} className="w-full h-full object-cover" />
-                      ) : (
-                        (member.name || 'U').charAt(0).toUpperCase()
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-800 text-sm">
-                        {member.name}
-                      </p>
-                      <div className="flex items-center gap-2">
-                        {member.role === 'admin' && (
-                          <span className="text-xs text-green-600 font-medium">Admin</span>
-                        )}
-                        {member.username && (
-                          <span className="text-xs text-gray-400">@{member.username}</span>
+                members.map((member, index) => {
+                  const isSelf = member.id === currentUserId;
+                  const isCreator = member.id === creatorId;
+                  const canRemove = isAdmin && !isCreator && !isSelf;
+                  
+                  return (
+                    <div key={member.id || index} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 group">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold overflow-hidden">
+                        {member.profile_photo_url && member.profile_photo_url !== 'https://via.placeholder.com/150' ? (
+                          <img src={member.profile_photo_url} alt={member.name} className="w-full h-full object-cover" />
+                        ) : (
+                          (member.name || 'U').charAt(0).toUpperCase()
                         )}
                       </div>
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-800 text-sm">
+                          {member.name}
+                          {isSelf && <span className="text-gray-400 ml-1">(You)</span>}
+                        </p>
+                        <div className="flex items-center gap-2">
+                          {member.role === 'admin' && (
+                            <span className="text-xs text-green-600 font-medium">Admin</span>
+                          )}
+                          {member.username && (
+                            <span className="text-xs text-gray-400">@{member.username}</span>
+                          )}
+                        </div>
+                      </div>
+                      {/* Remove Button */}
+                      {canRemove && (
+                        <button
+                          onClick={() => handleRemoveMember(member.id)}
+                          disabled={actionLoading === member.id}
+                          className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                          title="Remove member"
+                        >
+                          {actionLoading === member.id ? (
+                            <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+                          ) : (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7a4 4 0 11-8 0 4 4 0 018 0zM9 14a6 6 0 00-6 6v1h12v-1a6 6 0 00-6-6zM21 12h-6" />
+                            </svg>
+                          )}
+                        </button>
+                      )}
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           )}
