@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import ConfirmDeleteModal from './ConfirmDeleteModal';
 
 /**
  * GroupProfileModal component
@@ -14,6 +15,16 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
   const [searchError, setSearchError] = useState('');
   const [foundUser, setFoundUser] = useState(null);
   const [actionLoading, setActionLoading] = useState(null);
+  const [removingRecommendation, setRemovingRecommendation] = useState(null);
+  const [votingRecommendation, setVotingRecommendation] = useState(null);
+  const [addingToCart, setAddingToCart] = useState(null);
+  const [removingFromCart, setRemovingFromCart] = useState(null);
+  const [showDeleteRecommendationModal, setShowDeleteRecommendationModal] = useState(false);
+  const [showDeleteCartModal, setShowDeleteCartModal] = useState(false);
+  const [showDeleteMemberModal, setShowDeleteMemberModal] = useState(false);
+  const [deleteTargetIndex, setDeleteTargetIndex] = useState(null);
+  const [deleteTargetType, setDeleteTargetType] = useState(null); // 'recommendation' or 'cart'
+  const [deleteTargetMember, setDeleteTargetMember] = useState(null);
 
   // Get current user from localStorage
   const getCurrentUserId = () => {
@@ -31,7 +42,7 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
 
   const currentUserId = getCurrentUserId();
 
-  // Fetch full chat details with participants when modal opens
+  // Fetch full chat details with participants when modal opens or when recommendations tab is active
   useEffect(() => {
     if (isOpen && chat?.id) {
       fetchChatDetails();
@@ -40,7 +51,7 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
       setFoundUser(null);
       setSearchError('');
     }
-  }, [isOpen, chat?.id]);
+  }, [isOpen, chat?.id, activeTab]);
 
   const fetchChatDetails = async () => {
     try {
@@ -150,17 +161,130 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
     }
   };
 
+  // Open delete member modal
+  const handleOpenDeleteMember = (memberId, memberName) => {
+    setDeleteTargetMember({ id: memberId, name: memberName });
+    setShowDeleteMemberModal(true);
+  };
+
   // Remove member from group
-  const handleRemoveMember = async (memberId) => {
-    if (!confirm('Are you sure you want to remove this member?')) return;
+  const handleRemoveMember = async () => {
+    if (!deleteTargetMember) return;
 
     try {
-      setActionLoading(memberId);
+      setActionLoading(deleteTargetMember.id);
       const token = localStorage.getItem('token');
       const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
       
-      const response = await fetch(`${BASE_URL}/api/chats/${chat.id}/members/${memberId}`, {
+      const response = await fetch(`${BASE_URL}/api/chats/${chat.id}/members/${deleteTargetMember.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        await fetchChatDetails();
+        onMembersChanged && onMembersChanged();
+        setShowDeleteMemberModal(false);
+        setDeleteTargetMember(null);
+      } else {
+        alert(data.message || 'Failed to remove member');
+      }
+    } catch (error) {
+      console.error('Remove member error:', error);
+      alert('Failed to remove member');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Open delete recommendation modal
+  const handleOpenDeleteRecommendation = (index, hotelName) => {
+    setDeleteTargetIndex(index);
+    setDeleteTargetType('recommendation');
+    setShowDeleteRecommendationModal(true);
+  };
+
+  // Remove recommendation from chat
+  const handleRemoveRecommendation = async () => {
+    if (deleteTargetIndex === null) return;
+
+    try {
+      setRemovingRecommendation(deleteTargetIndex);
+      const token = localStorage.getItem('token');
+      const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
+      
+      const response = await fetch(`${BASE_URL}/api/chats/${chat.id}/recommendations/${deleteTargetIndex}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        await fetchChatDetails();
+        onMembersChanged && onMembersChanged();
+        setShowDeleteRecommendationModal(false);
+        setDeleteTargetIndex(null);
+        setDeleteTargetType(null);
+      } else {
+        alert(data.message || 'Failed to remove recommendation');
+      }
+    } catch (error) {
+      console.error('Remove recommendation error:', error);
+      alert('Failed to remove recommendation');
+    } finally {
+      setRemovingRecommendation(null);
+    }
+  };
+
+  // Vote for a recommendation
+  const handleVote = async (recommendationIndex) => {
+    try {
+      setVotingRecommendation(recommendationIndex);
+      const token = localStorage.getItem('token');
+      const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
+      
+      const response = await fetch(`${BASE_URL}/api/chats/${chat.id}/recommendations/${recommendationIndex}/vote`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        await fetchChatDetails();
+        onMembersChanged && onMembersChanged();
+      } else {
+        alert(data.message || 'Failed to vote');
+      }
+    } catch (error) {
+      console.error('Vote error:', error);
+      alert('Failed to vote');
+    } finally {
+      setVotingRecommendation(null);
+    }
+  };
+
+  // Remove vote from a recommendation
+  const handleUnvote = async (recommendationIndex) => {
+    try {
+      setVotingRecommendation(recommendationIndex);
+      const token = localStorage.getItem('token');
+      const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
+      
+      const response = await fetch(`${BASE_URL}/api/chats/${chat.id}/recommendations/${recommendationIndex}/vote`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -173,13 +297,90 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
         await fetchChatDetails();
         onMembersChanged && onMembersChanged();
       } else {
-        alert(data.message || 'Failed to remove member');
+        alert(data.message || 'Failed to remove vote');
       }
     } catch (error) {
-      console.error('Remove member error:', error);
-      alert('Failed to remove member');
+      console.error('Unvote error:', error);
+      alert('Failed to remove vote');
     } finally {
-      setActionLoading(null);
+      setVotingRecommendation(null);
+    }
+  };
+
+  // Admin: Add recommendation to cart
+  const handleAddToCart = async (recommendationIndex) => {
+    if (!confirm('Add this recommendation to the cart?')) return;
+
+    try {
+      setAddingToCart(recommendationIndex);
+      const token = localStorage.getItem('token');
+      const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
+      
+      const response = await fetch(`${BASE_URL}/api/chats/${chat.id}/recommendations/${recommendationIndex}/add-to-cart`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        await fetchChatDetails();
+        onMembersChanged && onMembersChanged();
+        alert('Recommendation added to cart successfully!');
+      } else {
+        alert(data.message || 'Failed to add to cart');
+      }
+    } catch (error) {
+      console.error('Add to cart error:', error);
+      alert('Failed to add to cart');
+    } finally {
+      setAddingToCart(null);
+    }
+  };
+
+  // Open delete cart item modal
+  const handleOpenDeleteCart = (index, itemName) => {
+    setDeleteTargetIndex(index);
+    setDeleteTargetType('cart');
+    setShowDeleteCartModal(true);
+  };
+
+  // Admin: Remove item from cart
+  const handleRemoveFromCart = async () => {
+    if (deleteTargetIndex === null) return;
+
+    try {
+      setRemovingFromCart(deleteTargetIndex);
+      const token = localStorage.getItem('token');
+      const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
+      
+      const response = await fetch(`${BASE_URL}/api/chats/${chat.id}/cart/${deleteTargetIndex}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        await fetchChatDetails();
+        onMembersChanged && onMembersChanged();
+        setShowDeleteCartModal(false);
+        setDeleteTargetIndex(null);
+        setDeleteTargetType(null);
+      } else {
+        alert(data.message || 'Failed to remove from cart');
+      }
+    } catch (error) {
+      console.error('Remove from cart error:', error);
+      alert('Failed to remove from cart');
+    } finally {
+      setRemovingFromCart(null);
     }
   };
 
@@ -212,9 +413,10 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
   const isAdmin = currentUserParticipant?.role === 'admin';
   const creatorId = chatDetails?.created_by?._id || chatDetails?.created_by;
   
-  const recommendations = chat.recommendations || [];
-  const cartItems = chat.cart || [];
-  const savedItineraries = chat.itineraries || [];
+  // Get recommendations from chat details if available, otherwise from chat prop
+  const recommendations = chatDetails?.recommendations || chat?.recommendations || [];
+  const cartItems = chatDetails?.cart || chat?.cart || [];
+  const savedItineraries = chatDetails?.itineraries || chat?.itineraries || [];
 
   const tabs = [
     { id: 'members', label: 'Members', count: members.length },
@@ -225,7 +427,7 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[85vh] overflow-hidden flex flex-col">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header with Group Avatar */}
         <div className="bg-gradient-to-br from-[#1976D2] to-[#1565C0] text-white p-6 relative">
           <button
@@ -462,18 +664,14 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
                       {/* Remove Button */}
                       {canRemove && (
                         <button
-                          onClick={() => handleRemoveMember(member.id)}
+                          onClick={() => handleOpenDeleteMember(member.id, member.name)}
                           disabled={actionLoading === member.id}
                           className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
                           title="Remove member"
                         >
-                          {actionLoading === member.id ? (
-                            <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>
-                          ) : (
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7a4 4 0 11-8 0 4 4 0 018 0zM9 14a6 6 0 00-6 6v1h12v-1a6 6 0 00-6-6zM21 12h-6" />
-                            </svg>
-                          )}
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7a4 4 0 11-8 0 4 4 0 018 0zM9 14a6 6 0 00-6 6v1h12v-1a6 6 0 00-6-6zM21 12h-6" />
+                          </svg>
                         </button>
                       )}
                     </div>
@@ -485,7 +683,7 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
 
           {/* Recommendations Tab */}
           {activeTab === 'recommendations' && (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {recommendations.length === 0 ? (
                 <div className="text-center py-8">
                   <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
@@ -494,21 +692,159 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
                     </svg>
                   </div>
                   <p className="text-gray-500 text-sm">No recommendations yet</p>
-                  <p className="text-gray-400 text-xs mt-1">Use AI Summary to get recommendations</p>
+                  <p className="text-gray-400 text-xs mt-1">Use myLens or AI Summary to get recommendations</p>
                 </div>
               ) : (
-                recommendations.map((rec, index) => (
-                  <div key={index} className="p-3 bg-gray-50 rounded-lg">
-                    <p className="text-sm text-gray-800">{rec.title || rec}</p>
-                  </div>
-                ))
+                recommendations.map((rec, index) => {
+                  // Handle both old format (string) and new format (object)
+                  const hotelName = typeof rec === 'string' ? rec : rec.name || rec.title || 'Hotel';
+                  const hotelPrice = rec.price;
+                  const hotelStars = rec.stars;
+                  const hotelDescription = rec.description;
+                  const hotelImage = rec.image_url || rec.imageUrl;
+                  const similarityScore = rec.similarity_score;
+                  
+                  // Voting data
+                  const votes = rec.votes || [];
+                  const voteCount = votes.length;
+                  const hasUserVoted = votes.some(
+                    vote => (vote.user_id?._id || vote.user_id)?.toString() === currentUserId?.toString()
+                  );
+
+                  return (
+                    <div key={index} className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition-shadow group relative">
+                      <div className="flex">
+                        {/* Hotel Image */}
+                        {hotelImage && (
+                          <div className="w-24 h-24 flex-shrink-0 overflow-hidden bg-gray-100">
+                            <img
+                              src={hotelImage}
+                              alt={hotelName}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.src = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80';
+                              }}
+                            />
+                          </div>
+                        )}
+                        
+                        {/* Hotel Details */}
+                        <div className="flex-1 p-3 pr-10">
+                          <div className="flex items-start justify-between gap-2 mb-1">
+                            <h4 className="font-semibold text-gray-900 text-sm flex-1">{hotelName}</h4>
+                            {hotelPrice && (
+                              <div className="text-right flex-shrink-0">
+                                <div className="text-sm font-bold text-blue-600">
+                                  ₹{hotelPrice.toLocaleString('en-IN')}
+                                </div>
+                                <div className="text-xs text-gray-500">per night</div>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* Stars */}
+                          {hotelStars > 0 && (
+                            <div className="flex items-center gap-1 mb-1">
+                              {[...Array(5)].map((_, i) => (
+                                <svg
+                                  key={i}
+                                  className={`w-3 h-3 ${i < hotelStars ? 'text-yellow-400 fill-current' : 'text-gray-200'}`}
+                                  fill="currentColor"
+                                  viewBox="0 0 20 20"
+                                >
+                                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                </svg>
+                              ))}
+                              <span className="text-xs text-gray-500 ml-1">{hotelStars} Star{hotelStars !== 1 ? 's' : ''}</span>
+                            </div>
+                          )}
+                          
+                          {/* Description */}
+                          {hotelDescription && (
+                            <p className="text-xs text-gray-600 line-clamp-2 mb-1">{hotelDescription}</p>
+                          )}
+                          
+                          {/* Similarity Score (if from myLens) */}
+                          {similarityScore && (
+                            <div className="flex items-center gap-1 mt-1">
+                              <svg className="w-3 h-3 text-indigo-600" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                              </svg>
+                              <span className="text-xs text-indigo-600 font-medium">
+                                {((similarityScore * 100) / 1.2).toFixed(1)}% match
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Voting Section */}
+                          <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+                            {/* Vote Button */}
+                            <button
+                              onClick={() => hasUserVoted ? handleUnvote(index) : handleVote(index)}
+                              disabled={votingRecommendation === index}
+                              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                                hasUserVoted
+                                  ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                              } disabled:opacity-50 disabled:cursor-not-allowed`}
+                            >
+                              {votingRecommendation === index ? (
+                                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                              ) : (
+                                <svg className={`w-4 h-4 ${hasUserVoted ? 'fill-current' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+                                </svg>
+                              )}
+                              <span>{voteCount} {voteCount === 1 ? 'vote' : 'votes'}</span>
+                            </button>
+
+                            {/* Admin: Add to Cart Button */}
+                            {isAdmin && (
+                              <button
+                                onClick={() => handleAddToCart(index)}
+                                disabled={addingToCart === index}
+                                className="flex items-center gap-2 px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {addingToCart === index ? (
+                                  <>
+                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                    <span>Adding...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                                    </svg>
+                                    <span>Add to Cart</span>
+                                  </>
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Remove Button */}
+                        <button
+                          onClick={() => handleOpenDeleteRecommendation(index, hotelName)}
+                          disabled={removingRecommendation === index}
+                          className="absolute top-2 right-2 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Remove recommendation"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
               )}
             </div>
           )}
 
           {/* Cart Tab */}
           {activeTab === 'cart' && (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {cartItems.length === 0 ? (
                 <div className="text-center py-8">
                   <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
@@ -517,18 +853,81 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
                     </svg>
                   </div>
                   <p className="text-gray-500 text-sm">Cart is empty</p>
-                  <p className="text-gray-400 text-xs mt-1">Add hotels or activities to your group cart</p>
+                  <p className="text-gray-400 text-xs mt-1">Admins can add recommendations to cart</p>
                 </div>
               ) : (
-                cartItems.map((item, index) => (
-                  <div key={index} className="p-3 bg-gray-50 rounded-lg flex items-center gap-3">
-                    <div className="w-10 h-10 rounded bg-gray-200" />
-                    <div>
-                      <p className="text-sm font-medium text-gray-800">{item.name}</p>
-                      <p className="text-xs text-gray-500">{item.price}</p>
+                cartItems.map((item, index) => {
+                  const itemName = item.name || 'Hotel';
+                  const itemPrice = item.price;
+                  const itemImage = item.image_url || item.imageUrl;
+                  const itemStars = item.stars;
+
+                  return (
+                    <div key={index} className="bg-white rounded-lg border border-gray-200 overflow-hidden group relative">
+                      <div className="flex">
+                        {/* Item Image */}
+                        {itemImage && (
+                          <div className="w-20 h-20 flex-shrink-0 overflow-hidden bg-gray-100">
+                            <img
+                              src={itemImage}
+                              alt={itemName}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.src = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80';
+                              }}
+                            />
+                          </div>
+                        )}
+                        
+                        {/* Item Details */}
+                        <div className="flex-1 p-3 pr-10">
+                          <div className="flex items-start justify-between gap-2 mb-1">
+                            <h4 className="font-semibold text-gray-900 text-sm flex-1">{itemName}</h4>
+                            {itemPrice && (
+                              <div className="text-right flex-shrink-0">
+                                <div className="text-sm font-bold text-green-600">
+                                  ₹{itemPrice.toLocaleString('en-IN')}
+                                </div>
+                                <div className="text-xs text-gray-500">per night</div>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* Stars */}
+                          {itemStars > 0 && (
+                            <div className="flex items-center gap-1">
+                              {[...Array(5)].map((_, i) => (
+                                <svg
+                                  key={i}
+                                  className={`w-3 h-3 ${i < itemStars ? 'text-yellow-400 fill-current' : 'text-gray-200'}`}
+                                  fill="currentColor"
+                                  viewBox="0 0 20 20"
+                                >
+                                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                </svg>
+                              ))}
+                              <span className="text-xs text-gray-500 ml-1">{itemStars} Star{itemStars !== 1 ? 's' : ''}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Admin: Remove from Cart Button */}
+                        {isAdmin && (
+                          <button
+                            onClick={() => handleOpenDeleteCart(index, itemName)}
+                            disabled={removingFromCart === index}
+                            className="absolute top-2 right-2 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Remove from cart"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           )}
@@ -568,6 +967,50 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
           </button>
         </div>
       </div>
+
+      {/* Delete Recommendation Confirmation Modal */}
+      <ConfirmDeleteModal
+        isOpen={showDeleteRecommendationModal}
+        onClose={() => {
+          setShowDeleteRecommendationModal(false);
+          setDeleteTargetIndex(null);
+          setDeleteTargetType(null);
+        }}
+        onConfirm={handleRemoveRecommendation}
+        title="Delete Recommendation"
+        message="Are you sure you want to remove this recommendation? This action cannot be undone."
+        itemName={deleteTargetIndex !== null && recommendations[deleteTargetIndex] ? recommendations[deleteTargetIndex].name : null}
+        isLoading={removingRecommendation !== null}
+      />
+
+      {/* Delete Cart Item Confirmation Modal */}
+      <ConfirmDeleteModal
+        isOpen={showDeleteCartModal}
+        onClose={() => {
+          setShowDeleteCartModal(false);
+          setDeleteTargetIndex(null);
+          setDeleteTargetType(null);
+        }}
+        onConfirm={handleRemoveFromCart}
+        title="Remove from Cart"
+        message="Are you sure you want to remove this item from the cart? This action cannot be undone."
+        itemName={deleteTargetIndex !== null && cartItems[deleteTargetIndex] ? cartItems[deleteTargetIndex].name : null}
+        isLoading={removingFromCart !== null}
+      />
+
+      {/* Delete Member Confirmation Modal */}
+      <ConfirmDeleteModal
+        isOpen={showDeleteMemberModal}
+        onClose={() => {
+          setShowDeleteMemberModal(false);
+          setDeleteTargetMember(null);
+        }}
+        onConfirm={handleRemoveMember}
+        title="Remove Member"
+        message="Are you sure you want to remove this member from the group? This action cannot be undone."
+        itemName={deleteTargetMember?.name || null}
+        isLoading={deleteTargetMember && actionLoading === deleteTargetMember.id}
+      />
     </div>
   );
 }

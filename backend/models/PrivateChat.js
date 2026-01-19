@@ -26,7 +26,40 @@ const privateChatSchema = new mongoose.Schema({
   },
   last_message_at: {
     type: Date
-  }
+  },
+  recommendations: [{
+    hotel_id: String,
+    name: String,
+    price: Number,
+    stars: Number,
+    description: String,
+    image_url: String,
+    similarity_score: Number,
+    added_at: {
+      type: Date,
+      default: Date.now
+    },
+    added_by: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    votes: [{
+      user_id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      },
+      voted_at: {
+        type: Date,
+        default: Date.now
+      }
+    }]
+  }],
+  cart: [{
+    type: mongoose.Schema.Types.Mixed
+  }],
+  itineraries: [{
+    type: mongoose.Schema.Types.Mixed
+  }]
 }, {
   timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' }
 });

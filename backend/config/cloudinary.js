@@ -65,4 +65,32 @@ const uploadEventImage = multer({
   }
 });
 
-module.exports = { cloudinary, upload, uploadEventImage };
+// Configure Cloudinary storage for chat images
+const chatImageStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'myCommunity/chat-images',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+    transformation: [
+      { width: 1200, height: 1200, crop: 'limit' },
+      { quality: 'auto' }
+    ]
+  }
+});
+
+// Create multer upload middleware for chat images
+const uploadChatImage = multer({
+  storage: chatImageStorage,
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB limit for chat images
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'), false);
+    }
+  }
+});
+
+module.exports = { cloudinary, upload, uploadEventImage, uploadChatImage };

@@ -119,3 +119,69 @@ export const changePassword = async (passwordData) => {
 
   return data;
 };
+
+/**
+ * Upload image to city chat
+ * @param {string} cityId - City ID
+ * @param {File} file - Image file to upload
+ * @returns {Promise<{success: boolean, data: {url: string}}>}
+ */
+export const uploadCityChatImage = async (cityId, file) => {
+  const token = localStorage.getItem('token');
+  
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
+  const formData = new FormData();
+  formData.append('image', file);
+
+  const response = await fetch(`${API_URL}/cities/${cityId}/chat/upload-image`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    },
+    body: formData
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to upload image');
+  }
+
+  return data;
+};
+
+/**
+ * Upload image to private chat
+ * @param {string} chatId - Private chat ID
+ * @param {File} file - Image file to upload
+ * @returns {Promise<{success: boolean, data: {url: string}}>}
+ */
+export const uploadPrivateChatImage = async (chatId, file) => {
+  const token = localStorage.getItem('token');
+  
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
+  const formData = new FormData();
+  formData.append('image', file);
+
+  const response = await fetch(`${API_URL}/chats/${chatId}/upload-image`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    },
+    body: formData
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to upload image');
+  }
+
+  return data;
+};

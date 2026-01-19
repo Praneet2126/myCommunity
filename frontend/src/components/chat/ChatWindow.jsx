@@ -4,6 +4,7 @@ import ChatInput from './ChatInput';
 import CreatePrivateChat from './CreatePrivateChat';
 import AIRecommendationModal from './AIRecommendationModal';
 import GroupProfileModal from './GroupProfileModal';
+import MyLensModal from './MyLensModal';
 
 /**
  * ChatWindow component
@@ -11,7 +12,9 @@ import GroupProfileModal from './GroupProfileModal';
  */
 function ChatWindow({ 
   messages, 
-  onSendMessage, 
+  onSendMessage,
+  onSendImageMessage,
+  isUploadingImage,
   chatName,
   privateChats = [],
   activeChatId = 'public',
@@ -24,6 +27,7 @@ function ChatWindow({
   const [showPrivateChatsDropdown, setShowPrivateChatsDropdown] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAIModal, setShowAIModal] = useState(false);
+  const [showMyLensModal, setShowMyLensModal] = useState(false);
   const [showGroupProfile, setShowGroupProfile] = useState(false);
 
   // Get current private chat object
@@ -55,6 +59,51 @@ function ChatWindow({
     }
     setShowCreateModal(false);
     setShowPrivateChatsDropdown(false);
+  };
+
+  // Handle adding hotel to recommendations
+  const handleAddToRecommendations = async (hotel, chatId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
+      
+      // Create recommendation object
+      const recommendation = {
+        hotel_id: hotel.hotel_id,
+        name: hotel.name,
+        price: hotel.price,
+        stars: hotel.stars,
+        description: hotel.description,
+        image_url: hotel.image_url || hotel.best_match_image_path,
+        similarity_score: hotel.similarity_score,
+        added_at: new Date().toISOString()
+      };
+
+      // Add recommendation to chat
+      const response = await fetch(`${BASE_URL}/api/chats/${chatId}/recommendations`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ recommendation })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Show success message (optional - could add a toast notification)
+        console.log('Recommendation added successfully');
+        // The GroupProfileModal will refresh when opened or when activeTab changes
+        return;
+      } else {
+        throw new Error(data.message || 'Failed to add recommendation');
+      }
+    } catch (error) {
+      console.error('Error adding recommendation:', error);
+      throw error;
+    }
   };
 
   return (
@@ -310,7 +359,13 @@ function ChatWindow({
       </div>
 
       {/* Chat Input */}
-      <ChatInput onSend={onSendMessage} onAIClick={() => setShowAIModal(true)} />
+      <ChatInput 
+        onSend={onSendMessage} 
+        onAIClick={() => setShowAIModal(true)}
+        onMyLensClick={() => setShowMyLensModal(true)}
+        onImageUpload={onSendImageMessage}
+        isUploadingImage={isUploadingImage}
+      />
 
       {/* Create Private Chat Modal */}
       {showCreateModal && (
@@ -327,13 +382,28 @@ function ChatWindow({
         messages={messages}
       />
 
+      {/* MyLens Modal */}
+      <MyLensModal
+        isOpen={showMyLensModal}
+        onClose={() => setShowMyLensModal(false)}
+        onAddToRecommendations={handleAddToRecommendations}
+        chatId={isPrivateChat ? activeChatId : null}
+      />
+
       {/* Group Profile Modal */}
       <GroupProfileModal
         isOpen={showGroupProfile}
         onClose={() => setShowGroupProfile(false)}
         chat={currentPrivateChat}
         cityName={cityName}
-        onMembersChanged={onMembersChanged}
+        onMembersChanged={() => {
+          onMembersChanged && onMembersChanged();
+          // Refresh chat data when recommendations are added
+          if (onSelectChat && activeChatId !== 'public') {
+            // Trigger a refresh by re-selecting the chat
+            onSelectChat(activeChatId);
+          }
+        }}
       />
     </div>
   );

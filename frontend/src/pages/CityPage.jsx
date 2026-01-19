@@ -21,6 +21,8 @@ function CityPage() {
     messages,
     privateChats,
     sendMessage,
+    sendImageMessage,
+    isUploadingImage,
     setCity,
     setChat,
     createPrivateChat,
@@ -166,6 +168,8 @@ function CityPage() {
                 <ChatWindow
                   messages={messages}
                   onSendMessage={sendMessage}
+                  onSendImageMessage={sendImageMessage}
+                  isUploadingImage={isUploadingImage}
                   chatName={chatDisplayName}
                   privateChats={privateChats}
                   activeChatId={activeChatId}
