@@ -48,6 +48,14 @@ const eventSchema = new mongoose.Schema({
     type: String,
     default: '100+'
   },
+  attendees_count: {
+    type: Number,
+    default: 0
+  },
+  joined_users: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
   created_by: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

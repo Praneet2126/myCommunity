@@ -1,8 +1,120 @@
+import { useState, useEffect } from 'react';
+
 /**
  * EventDetailModal Component
  * Shows detailed information about an event
  */
-function EventDetailModal({ event, onClose, onUserJoined }) {
+function EventDetailModal({ event, onClose }) {
+  const [hasJoined, setHasJoined] = useState(false);
+  const [attendeesCount, setAttendeesCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3000').replace(/\/api\/?$/, '');
+
+  // Fetch event join status and attendees count from backend
+  useEffect(() => {
+    if (event) {
+      // Set initial count from event data
+      setAttendeesCount(event.attendees_count || 0);
+      
+      // Fetch current join status if user is logged in
+      const token = localStorage.getItem('token');
+      if (token) {
+        fetchJoinStatus();
+      }
+    }
+  }, [event]);
+
+  const fetchJoinStatus = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const eventId = event._id || event.id;
+      
+      const response = await fetch(`${API_URL}/api/events/${eventId}/join-status`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setHasJoined(data.data.has_joined);
+          setAttendeesCount(data.data.attendees_count);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching join status:', error);
+    }
+  };
+
+  const handleJoinEvent = async () => {
+    if (hasJoined || isLoading) return;
+    
+    const token = localStorage.getItem('token');
+    if (!token) {
+      alert('Please log in to join events');
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      const eventId = event._id || event.id;
+      const response = await fetch(`${API_URL}/api/events/${eventId}/join`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setHasJoined(true);
+        setAttendeesCount(data.data.attendees_count);
+      } else {
+        console.error('Failed to join event:', data.message);
+      }
+    } catch (error) {
+      console.error('Error joining event:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleLeaveEvent = async () => {
+    if (!hasJoined || isLoading) return;
+    
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    
+    setIsLoading(true);
+    try {
+      const eventId = event._id || event.id;
+      const response = await fetch(`${API_URL}/api/events/${eventId}/join`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setHasJoined(false);
+        setAttendeesCount(data.data.attendees_count);
+      } else {
+        console.error('Failed to leave event:', data.message);
+      }
+    } catch (error) {
+      console.error('Error leaving event:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   if (!event) return null;
 
   return (
@@ -15,7 +127,7 @@ function EventDetailModal({ event, onClose, onUserJoined }) {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Event Image Header */}
-        <div className="relative h-64 overflow-hidden">
+        <div className="relative h-64 overflow-hidden rounded-t-2xl">
           <img
             src={event.image || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800&q=80'}
             alt={event.name}
@@ -91,7 +203,7 @@ function EventDetailModal({ event, onClose, onUserJoined }) {
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 font-medium">Attendees</p>
-                  <p className="font-bold text-gray-800">{event.attendees || '100+'}</p>
+                  <p className="font-bold text-gray-800">{attendeesCount}</p>
                 </div>
               </div>
             </div>
@@ -124,19 +236,53 @@ function EventDetailModal({ event, onClose, onUserJoined }) {
             </p>
           </div>
 
-          {/* Action Buttons */}
+          {/* Action Button */}
           <div className="flex gap-3">
-            <button
-              onClick={() => {
-                if (onUserJoined) onUserJoined(event);
-              }}
-              className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-            >
-              Join Event
-            </button>
-            <button className="px-6 py-4 border-2 border-gray-300 text-gray-700 rounded-xl font-bold hover:border-blue-600 hover:text-blue-600 transition-all">
-              Share
-            </button>
+            {hasJoined ? (
+              <>
+                <div className="flex-1 bg-green-500 text-white px-6 py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Joined
+                </div>
+                <button
+                  onClick={handleLeaveEvent}
+                  disabled={isLoading}
+                  className="px-6 py-4 border-2 border-red-300 text-red-600 rounded-xl font-bold hover:bg-red-50 hover:border-red-400 transition-all flex items-center gap-2 disabled:opacity-50"
+                >
+                  {isLoading ? (
+                    <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                  )}
+                  Leave
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={handleJoinEvent}
+                disabled={isLoading}
+                className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:transform-none"
+              >
+                {isLoading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Joining...
+                  </span>
+                ) : (
+                  'Join Event'
+                )}
+              </button>
+            )}
           </div>
         </div>
       </div>

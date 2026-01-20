@@ -13,7 +13,23 @@ function MyLensModal({ isOpen, onClose, onAddToRecommendations, chatId }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [addingHotel, setAddingHotel] = useState(null);
+  const [addedHotels, setAddedHotels] = useState(new Set());
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const fileInputRef = useRef(null);
+
+  // Check if there's unsaved data
+  const hasUnsavedData = () => {
+    return imagePreview || hotels.length > 0;
+  };
+
+  // Handle X button click
+  const handleCloseClick = () => {
+    if (hasUnsavedData()) {
+      setShowCloseConfirm(true);
+    } else {
+      handleClose();
+    }
+  };
 
   // Reset state when modal closes
   const handleClose = () => {
@@ -22,6 +38,8 @@ function MyLensModal({ isOpen, onClose, onAddToRecommendations, chatId }) {
     setHotels([]);
     setError(null);
     setAddingHotel(null);
+    setAddedHotels(new Set());
+    setShowCloseConfirm(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -100,7 +118,8 @@ function MyLensModal({ isOpen, onClose, onAddToRecommendations, chatId }) {
     setAddingHotel(hotel.hotel_id);
     try {
       await onAddToRecommendations(hotel, chatId);
-      // Success - hotel added
+      // Success - mark hotel as added
+      setAddedHotels(prev => new Set([...prev, hotel.hotel_id]));
     } catch (err) {
       console.error('Error adding hotel to recommendations:', err);
       setError(err.message || 'Failed to add hotel to recommendations');
@@ -127,6 +146,42 @@ function MyLensModal({ isOpen, onClose, onAddToRecommendations, chatId }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      {/* Close Confirmation Popup */}
+      {showCloseConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-xl shadow-2xl p-6 max-w-sm mx-4 animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Unsaved Changes</h3>
+                <p className="text-sm text-gray-600">You may lose your search results and data.</p>
+              </div>
+            </div>
+            <p className="text-gray-600 text-sm mb-5">
+              Are you sure you want to close? Your uploaded image and hotel search results will be lost.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowCloseConfirm(false)}
+                className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleClose}
+                className="flex-1 px-4 py-2.5 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 transition-colors"
+              >
+                Yes, Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white p-6">
@@ -136,7 +191,7 @@ function MyLensModal({ isOpen, onClose, onAddToRecommendations, chatId }) {
               <p className="text-indigo-100 text-sm mt-1">AI-powered hotel image search</p>
             </div>
             <button
-              onClick={handleClose}
+              onClick={handleCloseClick}
               className="text-white/80 hover:text-white hover:bg-white/20 rounded-full p-2 transition"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -332,25 +387,34 @@ function MyLensModal({ isOpen, onClose, onAddToRecommendations, chatId }) {
 
                         {/* Add to Recommendations Button */}
                         {chatId ? (
-                          <button
-                            onClick={() => handleAddToRecommendations(hotel)}
-                            disabled={addingHotel === hotel.hotel_id}
-                            className="w-full bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                          >
-                            {addingHotel === hotel.hotel_id ? (
-                              <>
-                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                                <span>Adding...</span>
-                              </>
-                            ) : (
-                              <>
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                </svg>
-                                <span>Add to Recommendations</span>
-                              </>
-                            )}
-                          </button>
+                          addedHotels.has(hotel.hotel_id) ? (
+                            <div className="w-full bg-green-100 text-green-700 px-4 py-2 rounded-lg font-semibold flex items-center justify-center gap-2">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                              <span>Added to Recommendations</span>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => handleAddToRecommendations(hotel)}
+                              disabled={addingHotel === hotel.hotel_id}
+                              className="w-full bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            >
+                              {addingHotel === hotel.hotel_id ? (
+                                <>
+                                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                                  <span>Adding...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                  </svg>
+                                  <span>Add to Recommendations</span>
+                                </>
+                              )}
+                            </button>
+                          )
                         ) : (
                           <div className="w-full bg-gray-100 text-gray-600 px-4 py-2 rounded-lg text-sm text-center">
                             Join a private chat to add recommendations

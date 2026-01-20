@@ -270,6 +270,106 @@ router.put('/:eventId', authenticate, eventImageUpload, eventValidation, async (
   }
 });
 
+// Join event (authenticated)
+router.post('/:eventId/join', authenticate, async (req, res, next) => {
+  try {
+    const event = await Event.findById(req.params.eventId);
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: 'Event not found'
+      });
+    }
+
+    // Check if user already joined
+    if (event.joined_users.includes(req.user._id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'You have already joined this event'
+      });
+    }
+
+    // Add user to joined_users and increment count
+    event.joined_users.push(req.user._id);
+    event.attendees_count = event.joined_users.length;
+    await event.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Successfully joined the event',
+      data: {
+        attendees_count: event.attendees_count,
+        has_joined: true
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Leave event (authenticated)
+router.delete('/:eventId/join', authenticate, async (req, res, next) => {
+  try {
+    const event = await Event.findById(req.params.eventId);
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: 'Event not found'
+      });
+    }
+
+    // Check if user has joined
+    const userIndex = event.joined_users.indexOf(req.user._id);
+    if (userIndex === -1) {
+      return res.status(400).json({
+        success: false,
+        message: 'You have not joined this event'
+      });
+    }
+
+    // Remove user from joined_users and decrement count
+    event.joined_users.splice(userIndex, 1);
+    event.attendees_count = event.joined_users.length;
+    await event.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Successfully left the event',
+      data: {
+        attendees_count: event.attendees_count,
+        has_joined: false
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get join status for an event (authenticated)
+router.get('/:eventId/join-status', authenticate, async (req, res, next) => {
+  try {
+    const event = await Event.findById(req.params.eventId);
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: 'Event not found'
+      });
+    }
+
+    const hasJoined = event.joined_users.includes(req.user._id);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        attendees_count: event.attendees_count,
+        has_joined: hasJoined
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Delete event (authenticated, creator only)
 router.delete('/:eventId', authenticate, async (req, res, next) => {
   try {
