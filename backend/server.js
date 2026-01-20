@@ -12,8 +12,10 @@ const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 3000;
 
-// Security middleware
-app.use(helmet());
+// Security middleware with Cross-Origin-Resource-Policy configured for images
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
 
 // CORS configuration
 app.use(cors({
@@ -53,6 +55,7 @@ app.use('/api/users', require('./routes/users'));
 app.use('/api/cities', require('./routes/cities'));
 app.use('/api/chats', require('./routes/chats'));
 app.use('/api/events', require('./routes/events'));
+app.use('/api/hotels', require('./routes/hotels'));
 
 // Seed cities endpoint (for development)
 app.post('/api/cities/seed', async (req, res, next) => {
