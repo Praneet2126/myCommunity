@@ -156,4 +156,68 @@ router.post('/upload-photo', authenticate, upload.single('photo'), async (req, r
   }
 });
 
+// Save itinerary to user profile
+router.post('/save-itinerary', authenticate, async (req, res, next) => {
+  try {
+    const { title, days, activities, estimatedCost, tags, saved_from_chat_id } = req.body;
+
+    if (!title || !days || !activities || !Array.isArray(activities)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Title, days, and activities are required'
+      });
+    }
+
+    const user = await User.findById(req.user._id);
+    
+    // Check if itinerary with same title already exists
+    const existingItinerary = user.saved_itineraries.find(
+      it => it.title === title && it.saved_from_chat_id === saved_from_chat_id
+    );
+
+    if (existingItinerary) {
+      return res.status(400).json({
+        success: false,
+        message: 'This itinerary is already saved'
+      });
+    }
+
+    // Add itinerary to saved_itineraries array
+    user.saved_itineraries.push({
+      title,
+      days,
+      activities,
+      estimatedCost: estimatedCost || 'Custom',
+      tags: tags || [],
+      saved_from_chat_id: saved_from_chat_id || null,
+      saved_at: new Date()
+    });
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Itinerary saved successfully',
+      data: user.saved_itineraries[user.saved_itineraries.length - 1]
+    });
+  } catch (error) {
+    console.error('Error saving itinerary:', error);
+    next(error);
+  }
+});
+
+// Get user's saved itineraries
+router.get('/saved-itineraries', authenticate, async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id).select('saved_itineraries');
+    
+    res.status(200).json({
+      success: true,
+      data: user.saved_itineraries || []
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = router;

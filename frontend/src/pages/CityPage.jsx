@@ -205,6 +205,7 @@ function CityPage() {
                   chatType={activeChatId === 'public' ? 'community' : 'private'}
                   cityName={selectedCity.displayName}
                   chatName={chatDisplayName}
+                  activeChatId={activeChatId}
                 />
               </div>
             </div>

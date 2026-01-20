@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useChat } from '../context/ChatContext';
 import { uploadProfilePhoto, updateProfile, changePassword } from '../services/uploadService';
+import ItineraryDetailModal from '../components/itinerary/ItineraryDetailModal';
 
 /**
  * Profile Page Component
@@ -226,6 +227,11 @@ function ProfilePage() {
   const [privateChats, setPrivateChats] = useState([]);
   const [loadingGroups, setLoadingGroups] = useState(false);
 
+  // State for saved itineraries
+  const [savedItineraries, setSavedItineraries] = useState([]);
+  const [loadingItineraries, setLoadingItineraries] = useState(false);
+  const [viewingItinerary, setViewingItinerary] = useState(null);
+
   // Fetch user's private chats/groups
   const fetchPrivateGroups = useCallback(async () => {
     if (!token) return;
@@ -272,6 +278,63 @@ function ProfilePage() {
       fetchPrivateGroups();
     }
   }, [activeTab, token, fetchPrivateGroups]);
+
+  // Fetch saved itineraries when tab changes to 'itineraries'
+  const fetchSavedItineraries = useCallback(async () => {
+    if (!token) return;
+    
+    setLoadingItineraries(true);
+    try {
+      const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
+      
+      const response = await fetch(`${BASE_URL}/api/users/saved-itineraries`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Transform saved itineraries to match the format expected by ItineraryDetailModal
+        const transformed = (data.data || []).map((itinerary, index) => {
+          // Ensure activities array is properly formatted
+          const activities = (itinerary.activities || []).map(act => ({
+            day: act.day || 1,
+            time: act.time || 'TBD',
+            activity: act.activity || 'Activity',
+            location: act.location || 'Location TBD',
+            duration: act.duration || 'N/A'
+          }));
+
+          return {
+            id: itinerary._id || `saved-${index}`,
+            title: itinerary.title || 'Untitled Itinerary',
+            days: itinerary.days || 1,
+            activities: activities,
+            estimatedCost: itinerary.estimatedCost || 'Custom',
+            tags: Array.isArray(itinerary.tags) && itinerary.tags.length > 0 ? itinerary.tags : ['Saved'],
+            saved_from_chat_id: itinerary.saved_from_chat_id,
+            saved_at: itinerary.saved_at
+          };
+        });
+        
+        setSavedItineraries(transformed);
+      }
+    } catch (error) {
+      console.error('Error fetching saved itineraries:', error);
+    } finally {
+      setLoadingItineraries(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (activeTab === 'itineraries' && token) {
+      fetchSavedItineraries();
+    }
+  }, [activeTab, token, fetchSavedItineraries]);
 
   // Handle opening a private chat
   const handleOpenChat = (group) => {
@@ -462,6 +525,16 @@ function ProfilePage() {
               }`}
             >
               My Groups
+            </button>
+            <button
+              onClick={() => setActiveTab('itineraries')}
+              className={`py-4 px-2 border-b-2 font-semibold text-sm transition-colors ${
+                activeTab === 'itineraries'
+                  ? 'border-[#4169e1] text-[#4169e1]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Saved Itineraries
             </button>
             <button
               onClick={() => setActiveTab('settings')}
@@ -699,6 +772,128 @@ function ProfilePage() {
                 </div>
                 <h3 className="text-xl font-bold text-gray-700 mb-2">No Private Groups Yet</h3>
                 <p className="text-gray-500">Create a private chat group from any city page to connect with other travelers</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Saved Itineraries Tab */}
+        {activeTab === 'itineraries' && (
+          <div>
+            {loadingItineraries ? (
+              <div className="flex items-center justify-center py-20">
+                <div className="text-center">
+                  <div className="w-12 h-12 border-4 border-[#4169e1] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                  <p className="text-gray-500">Loading your saved itineraries...</p>
+                </div>
+              </div>
+            ) : savedItineraries.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {savedItineraries.map((itinerary) => {
+                  // Get unique days and count activities
+                  const uniqueDays = [...new Set(itinerary.activities.map(act => act.day))].sort();
+                  const totalActivities = itinerary.activities.length;
+                  
+                  return (
+                    <div
+                      key={itinerary.id}
+                      onClick={() => setViewingItinerary(itinerary)}
+                      className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100 hover:shadow-lg transition-all cursor-pointer group"
+                    >
+                      {/* Header with gradient */}
+                      <div className="bg-gradient-to-r from-[#FF6B35] to-[#E55A2B] px-6 py-4">
+                        <h3 className="text-xl font-bold text-white mb-2 line-clamp-2">
+                          {itinerary.title}
+                        </h3>
+                        <div className="flex items-center gap-4 flex-wrap">
+                          <div className="flex items-center gap-2">
+                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <span className="text-white text-sm font-semibold">{itinerary.days} Days</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                            </svg>
+                            <span className="text-white text-sm font-semibold">{totalActivities} Activities</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Body */}
+                      <div className="p-6">
+                        {/* Tags */}
+                        {itinerary.tags && itinerary.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mb-4">
+                            {itinerary.tags.slice(0, 3).map((tag, idx) => (
+                              <span
+                                key={idx}
+                                className="text-xs px-2 py-1 bg-orange-100 text-orange-700 rounded-full font-medium"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Cost */}
+                        <div className="flex items-center gap-2 mb-4">
+                          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span className="text-sm text-gray-600 font-medium">{itinerary.estimatedCost}</span>
+                        </div>
+
+                        {/* Days Preview */}
+                        <div className="space-y-2 mb-4">
+                          {uniqueDays.slice(0, 3).map((day) => {
+                            const dayActivities = itinerary.activities.filter(act => act.day === day);
+                            return (
+                              <div key={day} className="flex items-center gap-2 text-sm text-gray-600">
+                                <div className="w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center text-orange-700 font-bold text-xs">
+                                  {day}
+                                </div>
+                                <span>{dayActivities.length} {dayActivities.length === 1 ? 'activity' : 'activities'}</span>
+                              </div>
+                            );
+                          })}
+                          {uniqueDays.length > 3 && (
+                            <div className="text-sm text-gray-500 italic">
+                              +{uniqueDays.length - 3} more {uniqueDays.length - 3 === 1 ? 'day' : 'days'}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Saved date */}
+                        {itinerary.saved_at && (
+                          <div className="text-xs text-gray-400 pt-4 border-t border-gray-100">
+                            Saved {new Date(itinerary.saved_at).toLocaleDateString('en-US', { 
+                              year: 'numeric', 
+                              month: 'short',
+                              day: 'numeric'
+                            })}
+                          </div>
+                        )}
+
+                        {/* View button */}
+                        <button className="w-full mt-4 bg-gradient-to-r from-[#FF6B35] to-[#E55A2B] text-white py-2 rounded-lg font-semibold hover:from-[#E55A2B] hover:to-[#D1491F] transition-all opacity-0 group-hover:opacity-100">
+                          View Details
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-20">
+                <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-bold text-gray-700 mb-2">No Saved Itineraries Yet</h3>
+                <p className="text-gray-500">Save itineraries from your chat groups to view them here</p>
               </div>
             )}
           </div>
@@ -971,6 +1166,15 @@ function ProfilePage() {
             onClick={() => setIsPhotoViewOpen(false)}
           />
       </div>
+      )}
+
+      {/* Itinerary Detail Modal */}
+      {viewingItinerary && (
+        <ItineraryDetailModal
+          itinerary={viewingItinerary}
+          onClose={() => setViewingItinerary(null)}
+          activeChatId={viewingItinerary.saved_from_chat_id || null}
+        />
       )}
     </div>
   );

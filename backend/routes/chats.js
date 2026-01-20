@@ -786,6 +786,10 @@ router.post('/:chatId/recommendations/:recommendationIndex/add-to-cart', authent
     delete cartItem.votes;
 
     chat.cart.push(cartItem);
+    
+    // Remove from recommendations
+    chat.recommendations.splice(index, 1);
+    
     await chat.save();
 
     const updatedChat = await PrivateChat.findById(chatId)
@@ -868,6 +872,689 @@ router.delete('/:chatId/cart/:cartIndex', authenticate, async (req, res, next) =
       data: updatedChat
     });
   } catch (error) {
+    next(error);
+  }
+});
+
+// Activity Recommendations (proxied to AI service)
+const axios = require('axios');
+const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8001';
+
+// Process message and get activity recommendations
+router.post('/:chatId/activities/process-message', authenticate, async (req, res, next) => {
+  try {
+    const { chatId } = req.params;
+    const { message } = req.body;
+    const userId = req.user._id.toString();
+    const username = req.user.username || req.user.full_name || 'User';
+
+    if (!message) {
+      return res.status(400).json({
+        success: false,
+        message: 'Message is required'
+      });
+    }
+
+    // Call AI service
+    const response = await axios.post(`${AI_SERVICE_URL}/api/v1/activities/message`, {
+      chat_id: chatId,
+      user: username,
+      message: message
+    });
+
+    // If recommendations were generated, store them in the database
+    if (response.data.trigger_rec && response.data.recommendations && response.data.recommendations.length > 0) {
+      try {
+        const PrivateChat = require('../models/PrivateChat');
+        await PrivateChat.findByIdAndUpdate(chatId, {
+          $set: {
+            activity_recommendations: response.data.recommendations.map(rec => ({
+              name: rec.name,
+              duration: rec.duration,
+              score: rec.score,
+              category: rec.category,
+              region: rec.region,
+              lat: rec.lat,
+              lon: rec.lon,
+              best_time: rec.best_time,
+              generated_at: new Date(),
+              based_on_messages: response.data.message_count
+            }))
+          }
+        });
+      } catch (dbError) {
+        console.error('Error storing activity recommendations:', dbError);
+        // Don't fail the request if storage fails
+      }
+    }
+
+    res.json({
+      success: true,
+      data: response.data
+    });
+  } catch (error) {
+    console.error('Error processing activity message:', error);
+    if (error.response) {
+      return res.status(error.response.status).json({
+        success: false,
+        message: error.response.data?.detail || 'Error processing message'
+      });
+    }
+    next(error);
+  }
+});
+
+// Add activity to cart
+router.post('/:chatId/activities/cart/add', authenticate, async (req, res, next) => {
+  try {
+    const { chatId } = req.params;
+    const { place_name } = req.body;
+    const userId = req.user._id.toString();
+    const username = req.user.username || req.user.full_name || 'User';
+
+    if (!place_name) {
+      return res.status(400).json({
+        success: false,
+        message: 'Place name is required'
+      });
+    }
+
+    // Check if user is admin
+    const participant = await PrivateChatParticipant.findOne({
+      chat_id: chatId,
+      user_id: req.user._id
+    });
+
+    if (!participant || participant.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only admins can add activities to cart'
+      });
+    }
+
+    // Get the chat to remove from recommendations
+    const chat = await PrivateChat.findById(chatId);
+    if (chat && chat.activity_recommendations) {
+      // Remove the activity from recommendations
+      chat.activity_recommendations = chat.activity_recommendations.filter(
+        rec => rec.name !== place_name
+      );
+      await chat.save();
+    }
+
+    // Call AI service
+    const response = await axios.post(`${AI_SERVICE_URL}/api/v1/activities/cart/add`, {
+      chat_id: chatId,
+      user: username,
+      place_name: place_name
+    });
+
+    res.json({
+      success: true,
+      data: response.data
+    });
+  } catch (error) {
+    console.error('Error adding activity to cart:', error);
+    if (error.response) {
+      return res.status(error.response.status).json({
+        success: false,
+        message: error.response.data?.detail || 'Error adding to cart'
+      });
+    }
+    next(error);
+  }
+});
+
+// Get activity cart
+router.get('/:chatId/activities/cart', authenticate, async (req, res, next) => {
+  try {
+    const { chatId } = req.params;
+
+    // Call AI service
+    const response = await axios.get(`${AI_SERVICE_URL}/api/v1/activities/cart/${chatId}`);
+
+    res.json({
+      success: true,
+      data: response.data
+    });
+  } catch (error) {
+    console.error('Error getting activity cart:', error);
+    if (error.response) {
+      return res.status(error.response.status).json({
+        success: false,
+        message: error.response.data?.detail || 'Error getting cart'
+      });
+    }
+    next(error);
+  }
+});
+
+// Remove activity from cart (Admin only)
+router.post('/:chatId/activities/cart/remove', authenticate, async (req, res, next) => {
+  try {
+    const { chatId } = req.params;
+    const { place_name } = req.body;
+    const userId = req.user._id.toString();
+
+    if (!place_name) {
+      return res.status(400).json({
+        success: false,
+        message: 'Place name is required'
+      });
+    }
+
+    // Check if user is admin (creator) of the chat
+    const chat = await PrivateChat.findById(chatId);
+    if (!chat) {
+      return res.status(404).json({
+        success: false,
+        message: 'Chat not found'
+      });
+    }
+
+    if (chat.created_by.toString() !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only admins can remove items from cart'
+      });
+    }
+
+    const username = req.user.username || req.user.full_name || 'User';
+
+    // Call AI service to remove from cart
+    const response = await axios.post(`${AI_SERVICE_URL}/api/v1/activities/cart/remove`, {
+      chat_id: chatId,
+      user: username,
+      place_name: place_name
+    });
+
+    res.json({
+      success: true,
+      data: response.data
+    });
+  } catch (error) {
+    console.error('Error removing activity from cart:', error);
+    if (error.response) {
+      return res.status(error.response.status).json({
+        success: false,
+        message: error.response.data?.detail || 'Error removing from cart'
+      });
+    }
+    next(error);
+  }
+});
+
+// Update cart settings
+router.post('/:chatId/activities/cart/update', authenticate, async (req, res, next) => {
+  try {
+    const { chatId } = req.params;
+    const { num_days, num_people } = req.body;
+
+    if (num_days === undefined || num_people === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: 'num_days and num_people are required'
+      });
+    }
+
+    // Call AI service
+    const response = await axios.post(`${AI_SERVICE_URL}/api/v1/activities/cart/update`, {
+      chat_id: chatId,
+      num_days: parseInt(num_days),
+      num_people: parseInt(num_people)
+    });
+
+    res.json({
+      success: true,
+      data: response.data
+    });
+  } catch (error) {
+    console.error('Error updating cart settings:', error);
+    if (error.response) {
+      return res.status(error.response.status).json({
+        success: false,
+        message: error.response.data?.detail || 'Error updating cart'
+      });
+    }
+    next(error);
+  }
+});
+
+// Get activity recommendations for a chat
+router.get('/:chatId/activities/recommendations', authenticate, async (req, res, next) => {
+  try {
+    const { chatId } = req.params;
+    const { forceRegenerate } = req.query; // Optional query param to force regeneration
+    
+    // Get recent 7 messages from database (always use fresh data)
+    const recentMessages = await Message.find({
+      chat_id: chatId,
+      chat_type: 'private'
+    })
+    .sort({ created_at: -1 })
+    .limit(7)
+    .select('content sender_id created_at')
+    .populate('sender_id', 'username full_name')
+    .lean();
+    
+    if (recentMessages.length === 0) {
+      return res.json({
+        success: true,
+        data: {
+          recommendations: [],
+          from_storage: false
+        }
+      });
+    }
+    
+    // Get stored recommendations to check if we need to regenerate
+    const chat = await PrivateChat.findById(chatId).select('activity_recommendations');
+    const lastMessageTime = recentMessages[0]?.created_at;
+    const storedRecommendations = chat?.activity_recommendations || [];
+    const lastGeneratedTime = storedRecommendations[0]?.generated_at;
+    
+    // Regenerate if:
+    // 1. forceRegenerate is true
+    // 2. No stored recommendations exist
+    // 3. New messages have been added since last generation
+    const shouldRegenerate = forceRegenerate === 'true' || 
+                            !storedRecommendations.length || 
+                            !lastGeneratedTime ||
+                            (lastMessageTime && new Date(lastMessageTime) > new Date(lastGeneratedTime));
+    
+    if (!shouldRegenerate && storedRecommendations.length > 0) {
+      // Populate votes for stored recommendations
+      const chatWithVotes = await PrivateChat.findById(chatId)
+        .populate('activity_recommendations.votes.user_id', 'username full_name profile_photo_url')
+        .select('activity_recommendations');
+      
+      return res.json({
+        success: true,
+        data: {
+          recommendations: chatWithVotes?.activity_recommendations || storedRecommendations,
+          from_storage: true
+        }
+      });
+    }
+    
+    // Combine recent messages into a query (reverse to get chronological order)
+    const combinedQuery = recentMessages
+      .reverse()
+      .map(msg => msg.content)
+      .join(' ');
+    
+    // Get cart items to exclude from recommendations
+    const cartResponse = await axios.get(`${AI_SERVICE_URL}/api/v1/activities/cart/${chatId}`).catch(() => ({ data: { items: [] } }));
+    const excludeNames = (cartResponse.data?.items || []).map(item => item.place_name);
+    
+    // Call AI service search endpoint directly (bypassing message counting)
+    // This uses semantic search directly on the query, ensuring fresh results
+    const searchResponse = await axios.post(`${AI_SERVICE_URL}/api/v1/activities/search`, {
+      query: combinedQuery,
+      top_k: 5,
+      exclude_names: excludeNames
+    });
+    
+    // The search endpoint returns an array directly
+    const recommendations = Array.isArray(searchResponse.data) ? searchResponse.data : [];
+    
+    // Store recommendations if we have any
+    if (recommendations.length > 0) {
+      try {
+        await PrivateChat.findByIdAndUpdate(chatId, {
+          $set: {
+            activity_recommendations: recommendations.map(rec => ({
+              name: rec.name,
+              duration: rec.duration,
+              score: rec.score,
+              category: rec.category,
+              region: rec.region,
+              lat: rec.lat,
+              lon: rec.lon,
+              best_time: rec.best_time,
+              generated_at: new Date(),
+              based_on_messages: recentMessages.length,
+              votes: [] // Initialize empty votes array
+            }))
+          }
+        });
+      } catch (dbError) {
+        console.error('Error storing activity recommendations:', dbError);
+      }
+    }
+    
+    // Fetch with populated votes
+    const chatWithVotes = await PrivateChat.findById(chatId)
+      .populate('activity_recommendations.votes.user_id', 'username full_name profile_photo_url')
+      .select('activity_recommendations');
+    
+    res.json({
+      success: true,
+      data: {
+        recommendations: chatWithVotes?.activity_recommendations || recommendations,
+        from_storage: false,
+        regenerated: shouldRegenerate
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching activity recommendations:', error);
+    if (error.response) {
+      return res.status(error.response.status).json({
+        success: false,
+        message: error.response.data?.detail || 'Error fetching recommendations'
+      });
+    }
+    next(error);
+  }
+});
+
+// Vote for an activity recommendation
+router.post('/:chatId/activities/recommendations/:activityIndex/vote', authenticate, async (req, res, next) => {
+  try {
+    const { chatId, activityIndex } = req.params;
+    const index = parseInt(activityIndex, 10);
+
+    if (isNaN(index) || index < 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid activity recommendation index'
+      });
+    }
+
+    // Check if user is a participant
+    const participant = await PrivateChatParticipant.findOne({
+      chat_id: chatId,
+      user_id: req.user._id
+    });
+
+    if (!participant) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not a member of this chat'
+      });
+    }
+
+    // Get the chat
+    const chat = await PrivateChat.findById(chatId);
+
+    if (!chat) {
+      return res.status(404).json({
+        success: false,
+        message: 'Chat not found'
+      });
+    }
+
+    if (!chat.activity_recommendations || index >= chat.activity_recommendations.length) {
+      return res.status(404).json({
+        success: false,
+        message: 'Activity recommendation not found'
+      });
+    }
+
+    const activity = chat.activity_recommendations[index];
+
+    // Check if user already voted
+    const existingVote = activity.votes?.find(
+      vote => vote.user_id?.toString() === req.user._id.toString()
+    );
+
+    if (existingVote) {
+      return res.status(400).json({
+        success: false,
+        message: 'You have already voted for this activity'
+      });
+    }
+
+    // Add vote
+    if (!activity.votes) {
+      activity.votes = [];
+    }
+    activity.votes.push({
+      user_id: req.user._id,
+      voted_at: new Date()
+    });
+
+    await chat.save();
+
+    const updatedChat = await PrivateChat.findById(chatId)
+      .populate('activity_recommendations.votes.user_id', 'username full_name profile_photo_url')
+      .select('activity_recommendations');
+
+    res.status(200).json({
+      success: true,
+      message: 'Vote added successfully',
+      data: {
+        activity_recommendations: updatedChat.activity_recommendations
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Remove vote from an activity recommendation
+router.delete('/:chatId/activities/recommendations/:activityIndex/vote', authenticate, async (req, res, next) => {
+  try {
+    const { chatId, activityIndex } = req.params;
+    const index = parseInt(activityIndex, 10);
+
+    if (isNaN(index) || index < 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid activity recommendation index'
+      });
+    }
+
+    // Check if user is a participant
+    const participant = await PrivateChatParticipant.findOne({
+      chat_id: chatId,
+      user_id: req.user._id
+    });
+
+    if (!participant) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not a member of this chat'
+      });
+    }
+
+    // Get the chat
+    const chat = await PrivateChat.findById(chatId);
+
+    if (!chat) {
+      return res.status(404).json({
+        success: false,
+        message: 'Chat not found'
+      });
+    }
+
+    if (!chat.activity_recommendations || index >= chat.activity_recommendations.length) {
+      return res.status(404).json({
+        success: false,
+        message: 'Activity recommendation not found'
+      });
+    }
+
+    const activity = chat.activity_recommendations[index];
+
+    // Remove vote
+    if (activity.votes) {
+      activity.votes = activity.votes.filter(
+        vote => vote.user_id?.toString() !== req.user._id.toString()
+      );
+    }
+
+    await chat.save();
+
+    const updatedChat = await PrivateChat.findById(chatId)
+      .populate('activity_recommendations.votes.user_id', 'username full_name profile_photo_url')
+      .select('activity_recommendations');
+
+    res.status(200).json({
+      success: true,
+      message: 'Vote removed successfully',
+      data: {
+        activity_recommendations: updatedChat.activity_recommendations
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Generate itinerary from cart
+router.post('/:chatId/activities/itinerary/generate', authenticate, async (req, res, next) => {
+  try {
+    const { chatId } = req.params;
+
+    // Call AI service with chat_id as query parameter
+    const response = await axios.post(
+      `${AI_SERVICE_URL}/api/v1/activities/itinerary/generate`,
+      null,
+      {
+        params: { chat_id: chatId }
+      }
+    );
+
+    // Store itinerary in database
+    if (response.data && response.data.chat_id) {
+      try {
+        await PrivateChat.findByIdAndUpdate(chatId, {
+          $push: {
+            activity_itineraries: {
+              chat_id: response.data.chat_id,
+              days: response.data.days || [],
+              num_people: response.data.num_people || 2,
+              generated_at: new Date()
+            }
+          }
+        });
+      } catch (dbError) {
+        console.error('Error storing itinerary:', dbError);
+        // Don't fail the request if storage fails
+      }
+    }
+
+    res.json({
+      success: true,
+      data: response.data
+    });
+  } catch (error) {
+    console.error('Error generating itinerary:', error);
+    if (error.response) {
+      return res.status(error.response.status).json({
+        success: false,
+        message: error.response.data?.detail || 'Error generating itinerary'
+      });
+    }
+    next(error);
+  }
+});
+
+// Get itinerary for a chat
+router.get('/:chatId/activities/itinerary', authenticate, async (req, res, next) => {
+  try {
+    const { chatId } = req.params;
+    
+    const chat = await PrivateChat.findById(chatId).select('activity_itineraries');
+    
+    if (!chat || !chat.activity_itineraries || chat.activity_itineraries.length === 0) {
+      return res.json({
+        success: true,
+        data: null
+      });
+    }
+    
+    // Return the most recent itinerary
+    const latestItinerary = chat.activity_itineraries[chat.activity_itineraries.length - 1];
+    
+    res.json({
+      success: true,
+      data: latestItinerary
+    });
+  } catch (error) {
+    console.error('Error fetching itinerary:', error);
+    next(error);
+  }
+});
+
+// Get AI hotel recommendations based on chat messages
+router.get('/:chatId/hotels/recommendations', authenticate, async (req, res, next) => {
+  try {
+    const { chatId } = req.params;
+    
+    // Fetch recent messages from the chat (last 20 messages)
+    const recentMessages = await Message.find({
+      chat_id: chatId,
+      chat_type: 'private',
+      is_deleted: false
+    })
+    .sort({ created_at: -1 })
+    .limit(20)
+    .select('sender_id content')
+    .lean();
+    
+    if (recentMessages.length === 0) {
+      return res.json({
+        success: true,
+        data: {
+          recommendations: [],
+          extracted_preferences: {},
+          message: 'Chat more to get hotel recommendations'
+        }
+      });
+    }
+    
+    // Format messages for AI service
+    const formattedMessages = recentMessages
+      .reverse() // Reverse to get chronological order
+      .map(msg => ({
+        user_id: msg.sender_id?.toString() || 'unknown',
+        text: msg.content || ''
+      }))
+      .filter(msg => msg.text.trim().length > 0); // Filter out empty messages
+    
+    if (formattedMessages.length === 0) {
+      return res.json({
+        success: true,
+        data: {
+          recommendations: [],
+          extracted_preferences: {},
+          message: 'No valid messages found'
+        }
+      });
+    }
+    
+    // Call AI service for hotel recommendations
+    try {
+      const aiResponse = await axios.post(
+        `${AI_SERVICE_URL}/api/v1/hotels/recommend`,
+        {
+          messages: formattedMessages,
+          limit: 5
+        }
+      );
+      
+      res.json({
+        success: true,
+        data: {
+          recommendations: aiResponse.data.recommendations || [],
+          extracted_preferences: aiResponse.data.extracted_preferences || {},
+          from_ai: true
+        }
+      });
+    } catch (aiError) {
+      console.error('Error calling AI service for hotel recommendations:', aiError);
+      if (aiError.response) {
+        return res.status(aiError.response.status).json({
+          success: false,
+          message: aiError.response.data?.detail || 'Error getting AI recommendations'
+        });
+      }
+      throw aiError;
+    }
+  } catch (error) {
+    console.error('Error fetching hotel recommendations:', error);
     next(error);
   }
 });

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, File, UploadFile, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
@@ -125,8 +125,8 @@ class HotelRecommendationRequest(BaseModel):
 class HotelRecommendationResponse(BaseModel):
     extracted_preferences: dict
     recommendations: List[dict]
-    is_ready: bool
-    readiness_score: float
+    is_ready: Optional[bool] = True
+    readiness_score: Optional[float] = 1.0
 
 
 class ChatSummarizationRequest(BaseModel):
@@ -470,6 +470,70 @@ async def process_activity_message(request: ProcessMessageRequest):
         raise HTTPException(status_code=500, detail=f"Error processing message: {str(e)}")
 
 
+class SearchRequest(BaseModel):
+    query: str
+    top_k: int = 5
+    exclude_names: List[str] = []
+
+
+@app.post("/api/v1/activities/search", response_model=List[ActivityPlace])
+async def search_activities(request: SearchRequest):
+    """
+    Direct search for activities based on a query string.
+    This endpoint bypasses message counting and directly searches activities using semantic search.
+    
+    Request body:
+    {
+        "query": "beaches and water sports",
+        "top_k": 5,
+        "exclude_names": ["Baga Beach"]
+    }
+    """
+    try:
+        init_activity_recommendation_service()
+        
+        # Access the search engine directly from the service
+        recommendations = activity_recommendation_service.search_engine.search(
+            query=request.query,
+            top_k=request.top_k,
+            exclude_names=request.exclude_names
+        )
+        
+        return [ActivityPlace(**rec) for rec in recommendations]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error searching activities: {str(e)}")
+
+
+@app.post("/api/v1/activities/cart/remove")
+async def remove_activity_from_cart(request: AddToCartRequest):
+    """
+    Remove an activity from the cart for a specific chat.
+    
+    Request body:
+    {
+        "chat_id": "city_goa_123",
+        "user": "john_doe",
+        "place_name": "Baga Beach"
+    }
+    """
+    try:
+        init_activity_recommendation_service()
+        
+        result = activity_recommendation_service.remove_from_cart(
+            chat_id=request.chat_id,
+            place_name=request.place_name
+        )
+        
+        if result.get("status") == "error":
+            raise HTTPException(status_code=400, detail=result.get("error", "Failed to remove from cart"))
+        
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error removing from cart: {str(e)}")
+
+
 @app.post("/api/v1/activities/cart/add")
 async def add_activity_to_cart(request: AddToCartRequest):
     """
@@ -543,7 +607,7 @@ async def update_activity_cart_settings(request: UpdateCartSettingsRequest):
 
 
 @app.post("/api/v1/activities/itinerary/generate", response_model=Itinerary)
-async def generate_activity_itinerary(chat_id: str):
+async def generate_activity_itinerary(chat_id: str = Query(..., description="The chat ID for which to generate the itinerary")):
     """
     Generate an itinerary from cart activities using AI or deterministic scheduling.
     

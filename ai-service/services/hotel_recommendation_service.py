@@ -1,23 +1,24 @@
 """
 Hotel Recommendation Service
-Integrates hotel recommendation AI from hotel_recommendations module
+Integrates hotel recommendation AI from hotel_rec 2 module (final working version)
 """
 import sys
 import os
 from pathlib import Path
 
-# Add hotel_recommendations to path
-hotel_rec_path = Path(__file__).parent.parent.parent / "hotel_recommendations"
+# Add hotel_rec 2 to path
+hotel_rec_path = Path(__file__).parent.parent.parent / "hotel_rec 2"
 if str(hotel_rec_path) not in sys.path:
     sys.path.insert(0, str(hotel_rec_path))
 
 from typing import List, Dict, Any
 import json
 
-# Import from hotel_recommendations
+# Import from hotel_rec 2
 try:
-    from hotel_recommendations.models import ChatMessage, UserPreferences, DetailedRecommendation, Hotel
-    from hotel_recommendations.services import HotelService, ChatAnalyzer, RecommendationService
+    # Try direct import first
+    from models import ChatMessage, UserPreferences, DetailedRecommendation, Hotel
+    from services import HotelService, ChatAnalyzer, RecommendationService
 except ImportError:
     # Fallback if relative imports don't work
     import importlib.util
@@ -39,13 +40,19 @@ except ImportError:
 
 
 class HotelRecommendationService:
-    """Service for hotel recommendations based on chat analysis"""
+    """Service for hotel recommendations based on chat analysis using hotel_rec 2"""
     
     def __init__(self):
-        # Initialize services with proper paths
-        self.hotel_service = HotelService()
-        self.chat_analyzer = ChatAnalyzer()
-        self.recommendation_service = RecommendationService(self.hotel_service)
+        # Change working directory to hotel_rec 2 so it can find hotel_data.json
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(hotel_rec_path)
+            # Initialize services with proper paths
+            self.hotel_service = HotelService()
+            self.chat_analyzer = ChatAnalyzer()
+            self.recommendation_service = RecommendationService(self.hotel_service)
+        finally:
+            os.chdir(original_cwd)
     
     def get_recommendations_from_chat(
         self, 
@@ -75,9 +82,6 @@ class HotelRecommendationService:
             # Get recommendations
             recommendations = self.recommendation_service.get_recommendations(preferences, limit=limit)
             
-            # Check readiness
-            is_ready, readiness_score = self.recommendation_service.check_readiness(preferences)
-            
             # Convert to dict format
             return {
                 "extracted_preferences": {
@@ -86,7 +90,6 @@ class HotelRecommendationService:
                     "min_price": preferences.min_price,
                     "amenities": preferences.amenities,
                     "room_types": preferences.room_types,
-                    "visual_descriptors": preferences.visual_descriptors,
                     "other_requirements": preferences.other_requirements
                 },
                 "recommendations": [
@@ -102,9 +105,7 @@ class HotelRecommendationService:
                         "matched_preferences": rec.matched_preferences
                     }
                     for rec in recommendations
-                ],
-                "is_ready": is_ready,
-                "readiness_score": readiness_score
+                ]
             }
         except Exception as e:
             raise Exception(f"Error getting recommendations: {str(e)}")

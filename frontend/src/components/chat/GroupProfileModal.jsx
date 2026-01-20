@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import ConfirmDeleteModal from './ConfirmDeleteModal';
+import Toast from '../common/Toast';
 
 /**
  * GroupProfileModal component
@@ -25,6 +26,19 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
   const [deleteTargetIndex, setDeleteTargetIndex] = useState(null);
   const [deleteTargetType, setDeleteTargetType] = useState(null); // 'recommendation' or 'cart'
   const [deleteTargetMember, setDeleteTargetMember] = useState(null);
+  const [activityRecommendations, setActivityRecommendations] = useState([]);
+  const [activityCart, setActivityCart] = useState(null);
+  const [loadingActivityCart, setLoadingActivityCart] = useState(false);
+  const [addingActivityToCart, setAddingActivityToCart] = useState(null);
+  const [generatingItinerary, setGeneratingItinerary] = useState(false);
+  const [generatedItinerary, setGeneratedItinerary] = useState(null);
+  const [toast, setToast] = useState({ message: '', type: 'success', isVisible: false });
+  const [removingActivityFromCart, setRemovingActivityFromCart] = useState(null);
+  const [aiHotelRecommendations, setAiHotelRecommendations] = useState([]);
+  const [loadingAiHotels, setLoadingAiHotels] = useState(false);
+  const [extractedPreferences, setExtractedPreferences] = useState(null);
+  const [votingActivity, setVotingActivity] = useState(null);
+  const [votingAiHotel, setVotingAiHotel] = useState(null);
 
   // Get current user from localStorage
   const getCurrentUserId = () => {
@@ -42,6 +56,15 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
 
   const currentUserId = getCurrentUserId();
 
+  // Clear state when chat changes (itinerary will be fetched from database)
+  useEffect(() => {
+    if (chat?.id) {
+      setActivityRecommendations([]);
+      setActivityCart(null);
+      // Don't clear itinerary here - it will be fetched from database
+    }
+  }, [chat?.id]);
+
   // Fetch full chat details with participants when modal opens or when recommendations tab is active
   useEffect(() => {
     if (isOpen && chat?.id) {
@@ -50,8 +73,68 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
       setEmailInput('');
       setFoundUser(null);
       setSearchError('');
+      // Refresh activity recommendations to get updated votes when switching to recommendations tab
+      if (activeTab === 'recommendations') {
+        fetchActivityRecommendations();
+      }
     }
   }, [isOpen, chat?.id, activeTab]);
+
+  // Fetch activity cart when cart tab is active
+  useEffect(() => {
+    if (isOpen && chat?.id && activeTab === 'cart') {
+      fetchActivityCart();
+    }
+  }, [isOpen, chat?.id, activeTab]);
+
+  // Fetch itinerary when modal opens or itineraries tab is active
+  useEffect(() => {
+    if (isOpen && chat?.id) {
+      fetchItinerary();
+    }
+  }, [isOpen, chat?.id]);
+
+  // Fetch activity recommendations when recommendations tab is active or modal opens
+  useEffect(() => {
+    if (isOpen && chat?.id) {
+      // Always fetch when modal opens or when switching to recommendations tab
+      if (activeTab === 'recommendations' || !activityRecommendations.length) {
+        fetchActivityRecommendations();
+        fetchAiHotelRecommendations();
+      }
+    }
+  }, [isOpen, chat?.id, activeTab]);
+
+  // Listen for activity recommendations (for real-time updates)
+  useEffect(() => {
+    const handleActivityRecommendations = (event) => {
+      if (event.detail.chatId === chat?.id) {
+        setActivityRecommendations(event.detail.recommendations);
+      }
+    };
+    window.addEventListener('activityRecommendations', handleActivityRecommendations);
+    return () => window.removeEventListener('activityRecommendations', handleActivityRecommendations);
+  }, [chat?.id]);
+
+  // Listen for itinerary generation events
+  useEffect(() => {
+    if (!chat?.id) return;
+    
+    const currentChatId = String(chat.id);
+    
+    const handleItineraryGenerated = (event) => {
+      const eventChatId = String(event.detail.chatId || '');
+      // Only set itinerary if it matches the current chat exactly
+      if (eventChatId === currentChatId) {
+        console.log('Setting itinerary for chat:', currentChatId);
+        setGeneratedItinerary(event.detail.itinerary);
+      } else {
+        console.log('Ignoring itinerary - event chatId:', eventChatId, 'current chatId:', currentChatId);
+      }
+    };
+    window.addEventListener('itineraryGenerated', handleItineraryGenerated);
+    return () => window.removeEventListener('itineraryGenerated', handleItineraryGenerated);
+  }, [chat?.id]);
 
   const fetchChatDetails = async () => {
     try {
@@ -75,6 +158,380 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
       console.error('Error fetching chat details:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Fetch activity recommendations from backend
+  const fetchActivityRecommendations = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
+      
+      const response = await fetch(`${BASE_URL}/api/chats/${chat.id}/activities/recommendations`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const data = await response.json();
+      if (data.success && data.data.recommendations) {
+        setActivityRecommendations(data.data.recommendations);
+      }
+    } catch (error) {
+      console.error('Error fetching activity recommendations:', error);
+    }
+  };
+
+  // Vote for an activity recommendation
+  const handleVoteActivity = async (activityIndex) => {
+    if (!chat?.id) {
+      console.error('No chat ID available');
+      setToast({ message: 'Chat not available', type: 'error', isVisible: true });
+      return;
+    }
+    
+    try {
+      console.log('Voting for activity at index:', activityIndex);
+      setVotingActivity(activityIndex);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setToast({ message: 'Please login to vote', type: 'error', isVisible: true });
+        setVotingActivity(null);
+        return;
+      }
+      
+      const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
+      
+      console.log(`Calling: ${BASE_URL}/api/chats/${chat.id}/activities/recommendations/${activityIndex}/vote`);
+      
+      const response = await fetch(`${BASE_URL}/api/chats/${chat.id}/activities/recommendations/${activityIndex}/vote`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+      console.log('Vote response:', data);
+
+      if (data.success) {
+        // Update activity recommendations with votes
+        if (data.data && data.data.activity_recommendations) {
+          console.log('Updating activity recommendations with votes:', data.data.activity_recommendations);
+          setActivityRecommendations(data.data.activity_recommendations);
+        } else {
+          // Refresh from backend
+          console.log('Refreshing activity recommendations from backend');
+          await fetchActivityRecommendations();
+        }
+        // Also refresh chat details to get updated recommendations
+        await fetchChatDetails();
+        setToast({ message: 'Vote added!', type: 'success', isVisible: true });
+      } else {
+        console.error('Vote failed:', data.message);
+        setToast({ message: data.message || 'Failed to vote', type: 'error', isVisible: true });
+      }
+    } catch (error) {
+      console.error('Vote activity error:', error);
+      setToast({ message: 'Failed to vote', type: 'error', isVisible: true });
+    } finally {
+      setVotingActivity(null);
+    }
+  };
+
+  // Remove vote from an activity recommendation
+  const handleUnvoteActivity = async (activityIndex) => {
+    if (!chat?.id) {
+      console.error('No chat ID available');
+      setToast({ message: 'Chat not available', type: 'error', isVisible: true });
+      return;
+    }
+    
+    try {
+      console.log('Unvoting for activity at index:', activityIndex);
+      setVotingActivity(activityIndex);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setToast({ message: 'Please login to vote', type: 'error', isVisible: true });
+        setVotingActivity(null);
+        return;
+      }
+      
+      const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
+      
+      console.log(`Calling: ${BASE_URL}/api/chats/${chat.id}/activities/recommendations/${activityIndex}/vote`);
+      
+      const response = await fetch(`${BASE_URL}/api/chats/${chat.id}/activities/recommendations/${activityIndex}/vote`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+      console.log('Unvote response:', data);
+
+      if (data.success) {
+        // Update activity recommendations with votes
+        if (data.data && data.data.activity_recommendations) {
+          console.log('Updating activity recommendations after unvote:', data.data.activity_recommendations);
+          setActivityRecommendations(data.data.activity_recommendations);
+        } else {
+          // Refresh from backend
+          console.log('Refreshing activity recommendations from backend');
+          await fetchActivityRecommendations();
+        }
+        // Also refresh chat details to get updated recommendations
+        await fetchChatDetails();
+        setToast({ message: 'Vote removed!', type: 'success', isVisible: true });
+      } else {
+        console.error('Unvote failed:', data.message);
+        setToast({ message: data.message || 'Failed to remove vote', type: 'error', isVisible: true });
+      }
+    } catch (error) {
+      console.error('Unvote activity error:', error);
+      setToast({ message: 'Failed to remove vote', type: 'error', isVisible: true });
+    } finally {
+      setVotingActivity(null);
+    }
+  };
+
+  // Fetch AI hotel recommendations from backend
+  const fetchAiHotelRecommendations = async () => {
+    try {
+      setLoadingAiHotels(true);
+      const token = localStorage.getItem('token');
+      const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
+      
+      const response = await fetch(`${BASE_URL}/api/chats/${chat.id}/hotels/recommendations`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const data = await response.json();
+      if (data.success && data.data) {
+        setAiHotelRecommendations(data.data.recommendations || []);
+        setExtractedPreferences(data.data.extracted_preferences || null);
+      }
+    } catch (error) {
+      console.error('Error fetching AI hotel recommendations:', error);
+      setAiHotelRecommendations([]);
+    } finally {
+      setLoadingAiHotels(false);
+    }
+  };
+
+  // Fetch activity cart
+  const fetchActivityCart = async () => {
+    try {
+      setLoadingActivityCart(true);
+      const token = localStorage.getItem('token');
+      const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
+      
+      const response = await fetch(`${BASE_URL}/api/chats/${chat.id}/activities/cart`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        setActivityCart(data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching activity cart:', error);
+    } finally {
+      setLoadingActivityCart(false);
+    }
+  };
+
+  // Fetch itinerary from backend
+  const fetchItinerary = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
+      
+      const response = await fetch(`${BASE_URL}/api/chats/${chat.id}/activities/itinerary`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const data = await response.json();
+      if (data.success && data.data) {
+        console.log('Fetched itinerary from database:', data.data);
+        setGeneratedItinerary(data.data);
+      } else {
+        // No itinerary found, clear state
+        setGeneratedItinerary(null);
+      }
+    } catch (error) {
+      console.error('Error fetching itinerary:', error);
+    }
+  };
+
+  // Add activity to cart
+  const handleAddActivityToCart = async (placeName) => {
+    try {
+      setAddingActivityToCart(placeName);
+      const token = localStorage.getItem('token');
+      const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
+      
+      const response = await fetch(`${BASE_URL}/api/chats/${chat.id}/activities/cart/add`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ place_name: placeName })
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        // Remove from recommendations
+        await fetchActivityRecommendations();
+        await fetchActivityCart();
+        setToast({ message: 'Activity added to cart!', type: 'success', isVisible: true });
+      } else {
+        setToast({ message: data.message || 'Failed to add activity to cart', type: 'error', isVisible: true });
+      }
+    } catch (error) {
+      console.error('Error adding activity to cart:', error);
+      setToast({ message: 'Failed to add activity to cart', type: 'error', isVisible: true });
+    } finally {
+      setAddingActivityToCart(null);
+    }
+  };
+
+  // Remove activity from cart
+  const handleRemoveActivityFromCart = async (placeName) => {
+    if (!placeName || !chat?.id) {
+      console.error('Invalid place name or chat ID');
+      setToast({ message: 'Invalid request', type: 'error', isVisible: true });
+      return;
+    }
+    
+    try {
+      setRemovingActivityFromCart(placeName);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setToast({ message: 'Authentication required', type: 'error', isVisible: true });
+        setRemovingActivityFromCart(null);
+        return;
+      }
+      
+      const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
+      
+      const response = await fetch(`${BASE_URL}/api/chats/${chat.id}/activities/cart/remove`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ place_name: placeName })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      if (data.success) {
+        await fetchActivityCart();
+        setToast({ message: 'Activity removed from cart', type: 'success', isVisible: true });
+      } else {
+        setToast({ message: data.message || 'Failed to remove activity from cart', type: 'error', isVisible: true });
+      }
+    } catch (error) {
+      console.error('Error removing activity from cart:', error);
+      setToast({ message: 'Failed to remove activity from cart', type: 'error', isVisible: true });
+    } finally {
+      setRemovingActivityFromCart(null);
+    }
+  };
+
+  // Update cart settings
+  const handleUpdateCartSettings = async (numDays, numPeople) => {
+    try {
+      const token = localStorage.getItem('token');
+      const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
+      
+      const response = await fetch(`${BASE_URL}/api/chats/${chat.id}/activities/cart/update`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ num_days: numDays, num_people: numPeople })
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        await fetchActivityCart();
+      }
+    } catch (error) {
+      console.error('Error updating cart settings:', error);
+    }
+  };
+
+  // Generate itinerary
+  const handleGenerateItinerary = async () => {
+    try {
+      setGeneratingItinerary(true);
+      const token = localStorage.getItem('token');
+      const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
+      
+      const response = await fetch(`${BASE_URL}/api/chats/${chat.id}/activities/itinerary/generate`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const data = await response.json();
+      console.log('Itinerary generation response:', data);
+      if (data.success && data.data) {
+        console.log('Itinerary generated, fetching from database...');
+        // Fetch the stored itinerary from database to ensure we have the latest
+        await fetchItinerary();
+        // Emit event for ItineraryDisplay to pick up
+        window.dispatchEvent(new CustomEvent('itineraryGenerated', {
+          detail: {
+            chatId: chat.id,
+            itinerary: data.data
+          }
+        }));
+        setToast({ message: 'Itinerary generated successfully!', type: 'success', isVisible: true });
+        // Switch to itineraries tab
+        setActiveTab('itineraries');
+        await fetchChatDetails(); // Refresh to get new itinerary
+      } else {
+        console.error('Itinerary generation failed:', data);
+        setToast({ message: data.message || 'Failed to generate itinerary', type: 'error', isVisible: true });
+      }
+    } catch (error) {
+      console.error('Error generating itinerary:', error);
+      setToast({ message: 'Failed to generate itinerary', type: 'error', isVisible: true });
+    } finally {
+      setGeneratingItinerary(false);
     }
   };
 
@@ -307,10 +764,146 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
     }
   };
 
+  // Add AI hotel to recommendations (for voting)
+  const handleAddHotelToRecommendations = async (hotel, rec) => {
+    try {
+      const token = localStorage.getItem('token');
+      const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
+      
+      // Create recommendation object in the format expected by the backend
+      const recommendation = {
+        hotel_id: hotel.hotel_code || hotel.name,
+        name: hotel.name,
+        description: hotel.description || rec.explanation || '',
+        amenities: hotel.amenities || [],
+        similarity_score: 0.9, // High score for AI recommendations
+        added_at: new Date().toISOString()
+      };
+
+      const response = await fetch(`${BASE_URL}/api/chats/${chat.id}/recommendations`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ recommendation })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setToast({ message: 'Hotel added to recommendations!', type: 'success', isVisible: true });
+        await fetchChatDetails();
+        // Refresh AI hotels to update the UI
+        await fetchAiHotelRecommendations();
+      } else {
+        setToast({ message: data.message || 'Failed to add hotel', type: 'error', isVisible: true });
+      }
+    } catch (error) {
+      console.error('Error adding hotel to recommendations:', error);
+      setToast({ message: 'Failed to add hotel', type: 'error', isVisible: true });
+    }
+  };
+
+  // Add AI hotel directly to cart
+  const handleAddAiHotelToCart = async (hotel, rec) => {
+    try {
+      const token = localStorage.getItem('token');
+      const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
+      
+      // First add to recommendations if not already there
+      const recommendations = chatDetails?.recommendations || chat?.recommendations || [];
+      const existingRecIndex = recommendations.findIndex(
+        r => (r.hotel_id === (hotel.hotel_code || hotel.name)) || (r.name === hotel.name)
+      );
+      
+      let recIndex = existingRecIndex;
+      
+      if (recIndex < 0) {
+        // Add to recommendations first
+        await handleAddHotelToRecommendations(hotel, rec);
+        // Wait a bit for the state to update
+        await new Promise(resolve => setTimeout(resolve, 500));
+        // Fetch updated chat details
+        await fetchChatDetails();
+        // Find the new index
+        const updatedChat = await fetch(`${BASE_URL}/api/chats/${chat.id}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }).then(r => r.json());
+        
+        if (updatedChat.success && updatedChat.data) {
+          const updatedRecs = updatedChat.data.recommendations || [];
+          recIndex = updatedRecs.findIndex(
+            r => (r.hotel_id === (hotel.hotel_code || hotel.name)) || (r.name === hotel.name)
+          );
+        }
+      }
+      
+      if (recIndex >= 0) {
+        // Now add to cart
+        const response = await fetch(`${BASE_URL}/api/chats/${chat.id}/recommendations/${recIndex}/add-to-cart`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          setToast({ message: 'Hotel added to cart!', type: 'success', isVisible: true });
+          await fetchChatDetails();
+          await fetchAiHotelRecommendations();
+        } else {
+          setToast({ message: data.message || 'Failed to add hotel to cart', type: 'error', isVisible: true });
+        }
+      } else {
+        setToast({ message: 'Failed to add hotel to cart', type: 'error', isVisible: true });
+      }
+    } catch (error) {
+      console.error('Error adding AI hotel to cart:', error);
+      setToast({ message: 'Failed to add hotel to cart', type: 'error', isVisible: true });
+    }
+  };
+
+  // Vote for an AI hotel (after it's been added to recommendations)
+  const handleVoteAiHotel = async (hotelIndex) => {
+    try {
+      setVotingAiHotel(hotelIndex);
+      const rec = aiHotelRecommendations[hotelIndex];
+      const hotel = rec.hotel || {};
+      
+      // First check if hotel is already in recommendations
+      const recommendations = chatDetails?.recommendations || chat?.recommendations || [];
+      const existingRecIndex = recommendations.findIndex(
+        r => (r.hotel_id === (hotel.hotel_code || hotel.name)) || (r.name === hotel.name)
+      );
+      
+      if (existingRecIndex >= 0) {
+        // Hotel is already in recommendations, vote on it
+        await handleVote(existingRecIndex);
+        setToast({ message: 'Vote added!', type: 'success', isVisible: true });
+      } else {
+        // Add to recommendations first, then vote
+        await handleAddHotelToRecommendations(hotel, rec);
+        // After adding, the hotel will be in recommendations, so we can vote
+        // The vote will be handled in the next render after fetchChatDetails
+        setToast({ message: 'Hotel added! You can now vote on it.', type: 'success', isVisible: true });
+      }
+    } catch (error) {
+      console.error('Vote AI hotel error:', error);
+      setToast({ message: 'Failed to vote', type: 'error', isVisible: true });
+    } finally {
+      setVotingAiHotel(null);
+    }
+  };
+
   // Admin: Add recommendation to cart
   const handleAddToCart = async (recommendationIndex) => {
-    if (!confirm('Add this recommendation to the cart?')) return;
-
     try {
       setAddingToCart(recommendationIndex);
       const token = localStorage.getItem('token');
@@ -327,15 +920,16 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
       const data = await response.json();
 
       if (data.success) {
+        // Refresh chat details to get updated recommendations (with item removed)
         await fetchChatDetails();
         onMembersChanged && onMembersChanged();
-        alert('Recommendation added to cart successfully!');
+        setToast({ message: 'Hotel added to cart!', type: 'success', isVisible: true });
       } else {
-        alert(data.message || 'Failed to add to cart');
+        setToast({ message: data.message || 'Failed to add to cart', type: 'error', isVisible: true });
       }
     } catch (error) {
       console.error('Add to cart error:', error);
-      alert('Failed to add to cart');
+      setToast({ message: 'Failed to add to cart', type: 'error', isVisible: true });
     } finally {
       setAddingToCart(null);
     }
@@ -684,111 +1278,80 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
           {/* Recommendations Tab */}
           {activeTab === 'recommendations' && (
             <div className="space-y-3">
-              {recommendations.length === 0 ? (
-                <div className="text-center py-8">
-                  <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
-                    <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                    </svg>
-                  </div>
-                  <p className="text-gray-500 text-sm">No recommendations yet</p>
-                  <p className="text-gray-400 text-xs mt-1">Use myLens or AI Summary to get recommendations</p>
+              {/* Activity Recommendations Section */}
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-gray-700">Activity Recommendations</h3>
+                  <span className="text-xs text-gray-500">AI-powered suggestions</span>
                 </div>
-              ) : (
-                recommendations.map((rec, index) => {
-                  // Handle both old format (string) and new format (object)
-                  const hotelName = typeof rec === 'string' ? rec : rec.name || rec.title || 'Hotel';
-                  const hotelPrice = rec.price;
-                  const hotelStars = rec.stars;
-                  const hotelDescription = rec.description;
-                  const hotelImage = rec.image_url || rec.imageUrl;
-                  const similarityScore = rec.similarity_score;
-                  
-                  // Voting data
-                  const votes = rec.votes || [];
-                  const voteCount = votes.length;
-                  const hasUserVoted = votes.some(
-                    vote => (vote.user_id?._id || vote.user_id)?.toString() === currentUserId?.toString()
-                  );
+                {activityRecommendations.length === 0 ? (
+                  <div className="text-center py-4 bg-gray-50 rounded-lg">
+                    <p className="text-xs text-gray-500">Chat more to get activity recommendations</p>
+                    <p className="text-xs text-gray-400 mt-1">Recommendations appear every 7 messages</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {activityRecommendations.map((activity, idx) => {
+                      // Voting data
+                      const votes = activity.votes || [];
+                      const voteCount = votes.length;
+                      const hasUserVoted = votes.some(
+                        vote => (vote.user_id?._id || vote.user_id)?.toString() === currentUserId?.toString()
+                      );
 
-                  return (
-                    <div key={index} className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition-shadow group relative">
-                      <div className="flex">
-                        {/* Hotel Image */}
-                        {hotelImage && (
-                          <div className="w-24 h-24 flex-shrink-0 overflow-hidden bg-gray-100">
-                            <img
-                              src={hotelImage}
-                              alt={hotelName}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.target.src = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80';
-                              }}
-                            />
-                          </div>
-                        )}
-                        
-                        {/* Hotel Details */}
-                        <div className="flex-1 p-3 pr-10">
-                          <div className="flex items-start justify-between gap-2 mb-1">
-                            <h4 className="font-semibold text-gray-900 text-sm flex-1">{hotelName}</h4>
-                            {hotelPrice && (
-                              <div className="text-right flex-shrink-0">
-                                <div className="text-sm font-bold text-blue-600">
-                                  ₹{hotelPrice.toLocaleString('en-IN')}
-                                </div>
-                                <div className="text-xs text-gray-500">per night</div>
+                      return (
+                        <div key={idx} className="bg-white rounded-lg border border-gray-200 p-3 hover:shadow-md transition-shadow">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <h4 className="font-semibold text-sm text-gray-900">{activity.name}</h4>
+                              <div className="flex items-center gap-2 mt-1">
+                                {activity.category && (
+                                  <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">
+                                    {activity.category}
+                                  </span>
+                                )}
+                                {activity.region && (
+                                  <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full">
+                                    {activity.region}
+                                  </span>
+                                )}
+                                {activity.duration && (
+                                  <span className="text-xs text-gray-500">{activity.duration}</span>
+                                )}
                               </div>
-                            )}
+                              {activity.score && (
+                                <div className="mt-1">
+                                  <span className="text-xs text-indigo-600 font-medium">
+                                    {((activity.score * 100)).toFixed(0)}% match
+                                  </span>
+                                </div>
+                              )}
+                            </div>
                           </div>
                           
-                          {/* Stars */}
-                          {hotelStars > 0 && (
-                            <div className="flex items-center gap-1 mb-1">
-                              {[...Array(5)].map((_, i) => (
-                                <svg
-                                  key={i}
-                                  className={`w-3 h-3 ${i < hotelStars ? 'text-yellow-400 fill-current' : 'text-gray-200'}`}
-                                  fill="currentColor"
-                                  viewBox="0 0 20 20"
-                                >
-                                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                                </svg>
-                              ))}
-                              <span className="text-xs text-gray-500 ml-1">{hotelStars} Star{hotelStars !== 1 ? 's' : ''}</span>
-                            </div>
-                          )}
-                          
-                          {/* Description */}
-                          {hotelDescription && (
-                            <p className="text-xs text-gray-600 line-clamp-2 mb-1">{hotelDescription}</p>
-                          )}
-                          
-                          {/* Similarity Score (if from myLens) */}
-                          {similarityScore && (
-                            <div className="flex items-center gap-1 mt-1">
-                              <svg className="w-3 h-3 text-indigo-600" fill="currentColor" viewBox="0 0 20 20">
-                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                              </svg>
-                              <span className="text-xs text-indigo-600 font-medium">
-                                {((similarityScore * 100) / 1.2).toFixed(1)}% match
-                              </span>
-                            </div>
-                          )}
-
-                          {/* Voting Section */}
+                          {/* Voting and Add to Cart Section */}
                           <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
                             {/* Vote Button */}
                             <button
-                              onClick={() => hasUserVoted ? handleUnvote(index) : handleVote(index)}
-                              disabled={votingRecommendation === index}
-                              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                console.log('Vote button clicked for activity:', idx, 'hasUserVoted:', hasUserVoted, 'activity:', activity.name);
+                                if (hasUserVoted) {
+                                  handleUnvoteActivity(idx);
+                                } else {
+                                  handleVoteActivity(idx);
+                                }
+                              }}
+                              disabled={votingActivity === idx || !chat?.id}
+                              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                                 hasUserVoted
                                   ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
                                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                               } disabled:opacity-50 disabled:cursor-not-allowed`}
                             >
-                              {votingRecommendation === index ? (
+                              {votingActivity === idx ? (
                                 <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
                               ) : (
                                 <svg className={`w-4 h-4 ${hasUserVoted ? 'fill-current' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -801,157 +1364,689 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
                             {/* Admin: Add to Cart Button */}
                             {isAdmin && (
                               <button
-                                onClick={() => handleAddToCart(index)}
-                                disabled={addingToCart === index}
-                                className="flex items-center gap-2 px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                onClick={() => handleAddActivityToCart(activity.name)}
+                                disabled={addingActivityToCart === activity.name}
+                                className="px-3 py-1.5 bg-[#FF6B35] text-white rounded-lg text-xs font-medium hover:bg-[#E55A2B] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                               >
-                                {addingToCart === index ? (
-                                  <>
-                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                    <span>Adding...</span>
-                                  </>
+                                {addingActivityToCart === activity.name ? (
+                                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                                 ) : (
-                                  <>
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                                    </svg>
-                                    <span>Add to Cart</span>
-                                  </>
+                                  'Add to Cart'
                                 )}
                               </button>
                             )}
                           </div>
                         </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
 
-                        {/* Remove Button */}
-                        <button
-                          onClick={() => handleOpenDeleteRecommendation(index, hotelName)}
-                          disabled={removingRecommendation === index}
-                          className="absolute top-2 right-2 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Remove recommendation"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
+              {/* Hotel Recommendations Section */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-gray-700">Hotel Recommendations</h3>
+                  <span className="text-xs text-gray-500">AI-powered suggestions</span>
+                </div>
+                
+                {/* AI Hotel Recommendations */}
+                {loadingAiHotels ? (
+                  <div className="text-center py-4 bg-gray-50 rounded-lg">
+                    <div className="inline-block w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-2"></div>
+                    <p className="text-gray-500 text-xs">Analyzing chat for hotel recommendations...</p>
+                  </div>
+                ) : aiHotelRecommendations.length > 0 ? (
+                  <div className="space-y-3 mb-4">
+                    {aiHotelRecommendations.map((rec, index) => {
+                      const hotel = rec.hotel || {};
+                      const explanation = rec.explanation || '';
+                      const matchedPrefs = rec.matched_preferences || [];
+                      
+                      return (
+                        <div key={index} className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow">
+                          {/* Hotel Header */}
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex-1">
+                              <h4 className="font-semibold text-gray-900 text-sm mb-1">{hotel.name || 'Hotel'}</h4>
+                              {hotel.hotel_code && (
+                                <p className="text-xs text-gray-500">Code: {hotel.hotel_code}</p>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* AI Explanation */}
+                          {explanation && (
+                            <div className="mb-3 p-2 bg-blue-50 rounded-lg border border-blue-100">
+                              <p className="text-xs text-blue-800 leading-relaxed">{explanation}</p>
+                            </div>
+                          )}
+                          
+                          {/* Matched Preferences */}
+                          {matchedPrefs.length > 0 && (
+                            <div className="mb-3">
+                              <p className="text-xs font-medium text-gray-600 mb-1">Matched Preferences:</p>
+                              <div className="flex flex-wrap gap-1">
+                                {matchedPrefs.map((pref, idx) => (
+                                  <span key={idx} className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs">
+                                    {pref}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Hotel Details */}
+                          <div className="space-y-2">
+                            {/* Description */}
+                            {hotel.description && (
+                              <p className="text-xs text-gray-600 line-clamp-2">{hotel.description}</p>
+                            )}
+                            
+                            {/* Amenities */}
+                            {hotel.amenities && hotel.amenities.length > 0 && (
+                              <div>
+                                <p className="text-xs font-medium text-gray-600 mb-1">Amenities:</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {hotel.amenities.slice(0, 5).map((amenity, idx) => (
+                                    <span key={idx} className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs">
+                                      {amenity}
+                                    </span>
+                                  ))}
+                                  {hotel.amenities.length > 5 && (
+                                    <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs">
+                                      +{hotel.amenities.length - 5} more
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Room Types */}
+                            {hotel.room_types && hotel.room_types.length > 0 && (
+                              <div>
+                                <p className="text-xs font-medium text-gray-600 mb-1">Room Types:</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {hotel.room_types.map((room, idx) => (
+                                    <span key={idx} className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs">
+                                      {room}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* Voting and Action Buttons */}
+                          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
+                            {/* Vote Button - Check if hotel is already in recommendations */}
+                            {(() => {
+                              const recommendations = chatDetails?.recommendations || chat?.recommendations || [];
+                              const existingRecIndex = recommendations.findIndex(
+                                r => (r.hotel_id === (hotel.hotel_code || hotel.name)) || (r.name === hotel.name)
+                              );
+                              const isInRecommendations = existingRecIndex >= 0;
+                              
+                              if (isInRecommendations) {
+                                // Hotel is in recommendations, show vote button with count
+                                const rec = recommendations[existingRecIndex];
+                                const votes = rec.votes || [];
+                                const voteCount = votes.length;
+                                const hasUserVoted = votes.some(
+                                  vote => (vote.user_id?._id || vote.user_id)?.toString() === currentUserId?.toString()
+                                );
+                                
+                                return (
+                                  <button
+                                    onClick={() => hasUserVoted ? handleUnvote(existingRecIndex) : handleVote(existingRecIndex)}
+                                    disabled={votingRecommendation === existingRecIndex}
+                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                                      hasUserVoted
+                                        ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                                  >
+                                    {votingRecommendation === existingRecIndex ? (
+                                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                                    ) : (
+                                      <svg className={`w-4 h-4 ${hasUserVoted ? 'fill-current' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+                                      </svg>
+                                    )}
+                                    <span>{voteCount} {voteCount === 1 ? 'vote' : 'votes'}</span>
+                                  </button>
+                                );
+                              } else {
+                                // Hotel not in recommendations yet, show add & vote button
+                                return (
+                                  <button
+                                    onClick={() => handleVoteAiHotel(index)}
+                                    disabled={votingAiHotel === index}
+                                    className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    {votingAiHotel === index ? (
+                                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                                    ) : (
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+                                      </svg>
+                                    )}
+                                    <span>Add & Vote</span>
+                                  </button>
+                                );
+                              }
+                            })()}
+
+                            {/* Admin: Add to Cart Button */}
+                            {isAdmin && (
+                              <button
+                                onClick={() => {
+                                  handleAddAiHotelToCart(hotel, rec);
+                                }}
+                                className="flex-1 px-3 py-1.5 bg-[#FF6B35] hover:bg-[#E55A2B] text-white rounded-lg text-xs font-medium transition-colors"
+                              >
+                                Add to Cart
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    
+                    {/* Extracted Preferences Info */}
+                    {extractedPreferences && (
+                      <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <p className="text-xs font-medium text-gray-700 mb-2">Extracted Preferences:</p>
+                        <div className="space-y-1 text-xs text-gray-600">
+                          {extractedPreferences.area && (
+                            <p>📍 Location: <span className="font-medium">{extractedPreferences.area}</span></p>
+                          )}
+                          {extractedPreferences.max_price && (
+                            <p>💰 Budget: <span className="font-medium">₹{extractedPreferences.max_price.toLocaleString('en-IN')}</span></p>
+                          )}
+                          {extractedPreferences.amenities && extractedPreferences.amenities.length > 0 && (
+                            <p>✨ Amenities: <span className="font-medium">{extractedPreferences.amenities.join(', ')}</span></p>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-4 bg-gray-50 rounded-lg mb-4">
+                    <p className="text-gray-500 text-sm">No AI hotel recommendations yet</p>
+                    <p className="text-gray-400 text-xs mt-1">Chat about hotels, amenities, or budget to get recommendations</p>
+                  </div>
+                )}
+              </div>
+
+              {/* myLens Hotel Recommendations Section */}
+              {recommendations && recommendations.length > 0 && (
+                <div className="mt-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-gray-700">Saved Hotel Recommendations</h3>
+                    <span className="text-xs text-gray-500">From myLens</span>
+                  </div>
+                  <div className="space-y-2">
+                    {recommendations
+                      .map((rec, originalIndex) => {
+                        // Filter out items already in cart
+                        const hotelName = typeof rec === 'string' ? rec : rec.name || rec.title || 'Hotel';
+                        const isInCart = cartItems.some(
+                          item => (item.hotel_id === rec.hotel_id) || (item.name === hotelName)
+                        );
+                        
+                        // Skip if already in cart
+                        if (isInCart) return null;
+                        
+                        const hotelPrice = rec.price;
+                        const hotelStars = rec.stars;
+                        const hotelDescription = rec.description;
+                        const hotelImage = rec.image_url || rec.imageUrl;
+                        const similarityScore = rec.similarity_score;
+                        const votes = rec.votes || [];
+                        const voteCount = votes.length;
+                        const hasUserVoted = votes.some(
+                          vote => (vote.user_id?._id || vote.user_id)?.toString() === currentUserId?.toString()
+                        );
+                        
+                        return (
+                          <div key={originalIndex} className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition-shadow group relative">
+                            <div className="flex">
+                              {/* Hotel Image */}
+                              {hotelImage && (
+                                <div className="w-24 h-24 flex-shrink-0 overflow-hidden bg-gray-100">
+                                  <img
+                                    src={hotelImage}
+                                    alt={hotelName}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      e.target.src = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80';
+                                    }}
+                                  />
+                                </div>
+                              )}
+                              
+                              {/* Hotel Details */}
+                              <div className="flex-1 p-3 pr-10">
+                                <div className="flex items-start justify-between gap-2 mb-1">
+                                  <h4 className="font-semibold text-gray-900 text-sm flex-1">{hotelName}</h4>
+                                  {hotelPrice && (
+                                    <div className="text-right flex-shrink-0">
+                                      <div className="text-sm font-bold text-blue-600">
+                                        ₹{hotelPrice.toLocaleString('en-IN')}
+                                      </div>
+                                      <div className="text-xs text-gray-500">per night</div>
+                                    </div>
+                                  )}
+                                </div>
+                                
+                                {/* Stars */}
+                                {hotelStars > 0 && (
+                                  <div className="flex items-center gap-1 mb-1">
+                                    {[...Array(5)].map((_, i) => (
+                                      <svg
+                                        key={i}
+                                        className={`w-3 h-3 ${i < hotelStars ? 'text-yellow-400 fill-current' : 'text-gray-200'}`}
+                                        fill="currentColor"
+                                        viewBox="0 0 20 20"
+                                      >
+                                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                      </svg>
+                                    ))}
+                                    <span className="text-xs text-gray-500 ml-1">{hotelStars} Star{hotelStars !== 1 ? 's' : ''}</span>
+                                  </div>
+                                )}
+                                
+                                {/* Description */}
+                                {hotelDescription && (
+                                  <p className="text-xs text-gray-600 line-clamp-2 mb-1">{hotelDescription}</p>
+                                )}
+                                
+                                {/* Similarity Score (if from myLens) */}
+                                {similarityScore && (
+                                  <div className="flex items-center gap-1 mt-1">
+                                    <svg className="w-3 h-3 text-indigo-600" fill="currentColor" viewBox="0 0 20 20">
+                                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                    </svg>
+                                    <span className="text-xs text-indigo-600 font-medium">
+                                      {((similarityScore * 100) / 1.2).toFixed(1)}% match
+                                    </span>
+                                  </div>
+                                )}
+
+                                {/* Voting and Add to Cart Section */}
+                                <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+                                  {/* Vote Button */}
+                                  <button
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      if (hasUserVoted) {
+                                        handleUnvote(originalIndex);
+                                      } else {
+                                        handleVote(originalIndex);
+                                      }
+                                    }}
+                                    disabled={votingRecommendation === originalIndex}
+                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                                      hasUserVoted
+                                        ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                                  >
+                                    {votingRecommendation === originalIndex ? (
+                                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                                    ) : (
+                                      <svg className={`w-4 h-4 ${hasUserVoted ? 'fill-current' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+                                      </svg>
+                                    )}
+                                    <span>{voteCount} {voteCount === 1 ? 'vote' : 'votes'}</span>
+                                  </button>
+
+                                  {/* Admin: Add to Cart Button */}
+                                  {isAdmin && (
+                                    <button
+                                      onClick={() => handleAddToCart(originalIndex)}
+                                      disabled={addingToCart === originalIndex}
+                                      className="px-3 py-1.5 bg-[#FF6B35] text-white rounded-lg text-xs font-medium hover:bg-[#E55A2B] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                      {addingToCart === originalIndex ? (
+                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                      ) : (
+                                        'Add to Cart'
+                                      )}
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Remove Recommendation Button (Admin only) */}
+                              {isAdmin && (
+                                <button
+                                  onClick={() => handleOpenDeleteRecommendation(originalIndex, hotelName)}
+                                  disabled={removingRecommendation === originalIndex}
+                                  className="absolute top-2 right-2 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                  title="Remove recommendation"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                      .filter(item => item !== null)}
+                  </div>
+                </div>
               )}
             </div>
           )}
 
           {/* Cart Tab */}
           {activeTab === 'cart' && (
-            <div className="space-y-3">
-              {cartItems.length === 0 ? (
-                <div className="text-center py-8">
-                  <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
-                    <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                  </div>
-                  <p className="text-gray-500 text-sm">Cart is empty</p>
-                  <p className="text-gray-400 text-xs mt-1">Admins can add recommendations to cart</p>
+            <div className="space-y-4">
+              {/* Activity Cart Section */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-gray-700">Activity Cart</h3>
+                  {activityCart && activityCart.items && activityCart.items.length > 0 && (
+                    <button
+                      onClick={handleGenerateItinerary}
+                      disabled={generatingItinerary}
+                      className="px-3 py-1.5 bg-[#FF6B35] text-white rounded-lg text-xs font-medium hover:bg-[#E55A2B] disabled:opacity-50"
+                    >
+                      {generatingItinerary ? 'Generating...' : 'Generate Itinerary'}
+                    </button>
+                  )}
                 </div>
-              ) : (
-                cartItems.map((item, index) => {
-                  const itemName = item.name || 'Hotel';
-                  const itemPrice = item.price;
-                  const itemImage = item.image_url || item.imageUrl;
-                  const itemStars = item.stars;
-
-                  return (
-                    <div key={index} className="bg-white rounded-lg border border-gray-200 overflow-hidden group relative">
-                      <div className="flex">
-                        {/* Item Image */}
-                        {itemImage && (
-                          <div className="w-20 h-20 flex-shrink-0 overflow-hidden bg-gray-100">
-                            <img
-                              src={itemImage}
-                              alt={itemName}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.target.src = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80';
-                              }}
-                            />
-                          </div>
-                        )}
-                        
-                        {/* Item Details */}
-                        <div className="flex-1 p-3 pr-10">
-                          <div className="flex items-start justify-between gap-2 mb-1">
-                            <h4 className="font-semibold text-gray-900 text-sm flex-1">{itemName}</h4>
-                            {itemPrice && (
-                              <div className="text-right flex-shrink-0">
-                                <div className="text-sm font-bold text-green-600">
-                                  ₹{itemPrice.toLocaleString('en-IN')}
-                                </div>
-                                <div className="text-xs text-gray-500">per night</div>
+                {loadingActivityCart ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-500 border-t-transparent"></div>
+                  </div>
+                ) : !activityCart || !activityCart.items || activityCart.items.length === 0 ? (
+                  <div className="text-center py-4 bg-gray-50 rounded-lg">
+                    <p className="text-xs text-gray-500">No activities in cart</p>
+                    <p className="text-xs text-gray-400 mt-1">Add activities from recommendations</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 mb-4">
+                    {activityCart.items.map((item, idx) => {
+                      if (!item || !item.place_name) return null;
+                      return (
+                        <div key={idx} className="bg-white rounded-lg border border-gray-200 p-3 group relative">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <h4 className="font-semibold text-sm text-gray-900">{item.place_name || 'Unknown Activity'}</h4>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-xs text-gray-500">Added by {item.added_by || 'Unknown'}</span>
+                                {item.count > 1 && (
+                                  <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">
+                                    x{item.count}
+                                  </span>
+                                )}
                               </div>
-                            )}
-                          </div>
-                          
-                          {/* Stars */}
-                          {itemStars > 0 && (
-                            <div className="flex items-center gap-1">
-                              {[...Array(5)].map((_, i) => (
-                                <svg
-                                  key={i}
-                                  className={`w-3 h-3 ${i < itemStars ? 'text-yellow-400 fill-current' : 'text-gray-200'}`}
-                                  fill="currentColor"
-                                  viewBox="0 0 20 20"
-                                >
-                                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                                </svg>
-                              ))}
-                              <span className="text-xs text-gray-500 ml-1">{itemStars} Star{itemStars !== 1 ? 's' : ''}</span>
                             </div>
-                          )}
+                            {isAdmin && (
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  if (item.place_name) {
+                                    handleRemoveActivityFromCart(item.place_name);
+                                  }
+                                }}
+                                disabled={removingActivityFromCart === item.place_name}
+                                className="ml-2 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed opacity-0 group-hover:opacity-100"
+                                title="Remove from cart"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                              </button>
+                            )}
+                  </div>
                         </div>
-
-                        {/* Admin: Remove from Cart Button */}
-                        {isAdmin && (
-                          <button
-                            onClick={() => handleOpenDeleteCart(index, itemName)}
-                            disabled={removingFromCart === index}
-                            className="absolute top-2 right-2 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                            title="Remove from cart"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
-                        )}
+                      );
+                    })}
+                    {/* Cart Settings */}
+                    <div className="bg-gray-50 rounded-lg p-3 mt-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs text-gray-600 mb-1 block">Number of Days</label>
+                          <input
+                            type="number"
+                            min="1"
+                            max="7"
+                            value={activityCart.num_days || 3}
+                            onChange={(e) => handleUpdateCartSettings(parseInt(e.target.value), activityCart.num_people)}
+                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-600 mb-1 block">Number of People</label>
+                          <input
+                            type="number"
+                            min="1"
+                            max="20"
+                            value={activityCart.num_people || 2}
+                            onChange={(e) => handleUpdateCartSettings(activityCart.num_days, parseInt(e.target.value))}
+                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                          />
+                        </div>
                       </div>
                     </div>
-                  );
-                })
-              )}
+                  </div>
+                )}
+              </div>
+
+              {/* Hotel Cart Section */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-gray-700">Hotel Cart</h3>
+                </div>
+                {loading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-500 border-t-transparent"></div>
+                  </div>
+                ) : cartItems.length === 0 ? (
+                  <div className="text-center py-4 bg-gray-50 rounded-lg">
+                    <p className="text-xs text-gray-500">No hotels in cart</p>
+                    <p className="text-xs text-gray-400 mt-1">Add hotels from recommendations</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 mb-4">
+                    {cartItems.map((item, index) => {
+                      // Filter to show only hotel items (items with hotel_id or hotel properties)
+                      if (!item.hotel_id && !item.name) return null;
+                      
+                      const hotelName = item.name || 'Hotel';
+                      const hotelPrice = item.price;
+                      const hotelStars = item.stars;
+                      const hotelDescription = item.description;
+                      const hotelImage = item.image_url || item.imageUrl;
+
+                      return (
+                        <div key={index} className="bg-white rounded-lg border border-gray-200 p-3 group relative">
+                          <div className="flex">
+                            {/* Hotel Image */}
+                            {hotelImage && (
+                              <div className="w-20 h-20 flex-shrink-0 overflow-hidden bg-gray-100 rounded-lg">
+                                <img
+                                  src={hotelImage}
+                                  alt={hotelName}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.src = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80';
+                                  }}
+                                />
+            </div>
+          )}
+
+                            {/* Hotel Details */}
+                            <div className="flex-1 ml-3">
+                              <div className="flex items-start justify-between gap-2 mb-1">
+                                <h4 className="font-semibold text-gray-900 text-sm flex-1">{hotelName}</h4>
+                                {hotelPrice && (
+                                  <div className="text-right flex-shrink-0">
+                                    <div className="text-sm font-bold text-blue-600">
+                                      ₹{hotelPrice.toLocaleString('en-IN')}
+                                    </div>
+                                    <div className="text-xs text-gray-500">per night</div>
+                                  </div>
+                                )}
+                              </div>
+                              
+                              {/* Stars */}
+                              {hotelStars > 0 && (
+                                <div className="flex items-center gap-1 mb-1">
+                                  {[...Array(5)].map((_, i) => (
+                                    <svg
+                                      key={i}
+                                      className={`w-3 h-3 ${i < hotelStars ? 'text-yellow-400 fill-current' : 'text-gray-200'}`}
+                                      fill="currentColor"
+                                      viewBox="0 0 20 20"
+                                    >
+                                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                    </svg>
+                                  ))}
+                                  <span className="text-xs text-gray-500 ml-1">{hotelStars} Star{hotelStars !== 1 ? 's' : ''}</span>
+                  </div>
+                              )}
+                              
+                              {/* Description */}
+                              {hotelDescription && (
+                                <p className="text-xs text-gray-600 line-clamp-2">{hotelDescription}</p>
+                              )}
+                </div>
+
+                            {/* Remove Button (Admin only) */}
+                            {isAdmin && (
+                              <button
+                                onClick={() => handleOpenDeleteCart(index, hotelName)}
+                                disabled={removingFromCart === index}
+                                className="ml-2 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed opacity-0 group-hover:opacity-100"
+                                title="Remove from cart"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
           {/* Itineraries Tab */}
           {activeTab === 'itineraries' && (
+            <div className="space-y-3">
+              {/* Generated Itinerary - Only show if it matches current chat */}
+              {generatedItinerary && String(generatedItinerary.chat_id) === String(chat?.id) && (
+                <div className="bg-gradient-to-br from-orange-50 to-amber-50 border-2 border-orange-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h3 className="font-semibold text-gray-800 text-sm">
+                        {chat.name ? `${chat.name} Trip Plan` : 'Generated Itinerary'}
+                      </h3>
+                      <p className="text-xs text-gray-600 mt-1">
+                        {generatedItinerary.days?.length || 0} days · {generatedItinerary.num_people || 2} people
+                      </p>
+                    </div>
+                    <span className="px-2 py-1 bg-orange-200 text-orange-800 text-xs font-medium rounded-full">
+                      AI Generated
+                    </span>
+                  </div>
+                  
+                  {generatedItinerary.days && generatedItinerary.days.length > 0 ? (
+                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                      {[...generatedItinerary.days].sort((a, b) => (a.day || 0) - (b.day || 0)).map((day, dayIndex) => (
+                        <div key={dayIndex} className="bg-white rounded-lg p-3 border border-orange-100">
+                          <h4 className="font-semibold text-gray-800 text-xs mb-2 flex items-center gap-2">
+                            <span className="w-6 h-6 rounded-full bg-orange-500 text-white flex items-center justify-center text-xs font-bold">
+                              {day.day}
+                            </span>
+                            Day {day.day}
+                            {day.total_duration_mins && (
+                              <span className="text-gray-500 font-normal ml-auto">
+                                {Math.floor(day.total_duration_mins / 60)}h {day.total_duration_mins % 60}m
+                              </span>
+                            )}
+                          </h4>
+                          
+                          {day.activities && day.activities.length > 0 ? (
+                            <div className="space-y-2 mt-2">
+                              {day.activities.map((activity, actIndex) => (
+                                <div key={actIndex} className="flex items-start gap-3 p-2 bg-gray-50 rounded">
+                                  <div className="flex-shrink-0 w-16 text-xs text-gray-600 font-medium pt-0.5">
+                                    {activity.start_time || 'TBD'}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="font-medium text-gray-800 text-xs">{activity.name || activity.place_name || 'Activity'}</p>
+                                    <div className="flex items-center gap-2 mt-1">
+                                      {activity.region && (
+                                        <span className="text-xs text-gray-500 flex items-center gap-1">
+                                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                          </svg>
+                                          {activity.region}
+                                        </span>
+                                      )}
+                                      {activity.duration && (
+                                        <span className="text-xs text-gray-500">· {activity.duration}</span>
+                                      )}
+                                    </div>
+                                    {activity.end_time && (
+                                      <p className="text-xs text-gray-400 mt-1">Until {activity.end_time}</p>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-gray-500 italic">No activities scheduled</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500">No itinerary data available</p>
+                  )}
+                </div>
+              )}
+              
+              {/* Saved Itineraries */}
+              {savedItineraries.length > 0 && (
             <div className="space-y-2">
-              {savedItineraries.length === 0 ? (
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Saved Itineraries</h3>
+                  {savedItineraries.map((itinerary, index) => (
+                    <div key={index} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                      <p className="text-sm font-medium text-gray-800">{itinerary.name || `Itinerary ${index + 1}`}</p>
+                      <p className="text-xs text-gray-500 mt-1">{itinerary.dates || 'No dates specified'}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {/* Empty State */}
+              {(!generatedItinerary || String(generatedItinerary.chat_id) !== String(chat?.id)) && savedItineraries.length === 0 && (
                 <div className="text-center py-8">
                   <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
                     <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
                     </svg>
                   </div>
-                  <p className="text-gray-500 text-sm">No saved itineraries</p>
-                  <p className="text-gray-400 text-xs mt-1">Create and save group itineraries here</p>
+                  <p className="text-gray-500 text-sm">No itineraries yet</p>
+                  <p className="text-gray-400 text-xs mt-1">Generate an itinerary from your cart to see it here</p>
                 </div>
-              ) : (
-                savedItineraries.map((itinerary, index) => (
-                  <div key={index} className="p-3 bg-gray-50 rounded-lg">
-                    <p className="text-sm font-medium text-gray-800">{itinerary.name}</p>
-                    <p className="text-xs text-gray-500">{itinerary.dates}</p>
-                  </div>
-                ))
               )}
             </div>
           )}
@@ -1010,6 +2105,14 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
         message="Are you sure you want to remove this member from the group? This action cannot be undone."
         itemName={deleteTargetMember?.name || null}
         isLoading={deleteTargetMember && actionLoading === deleteTargetMember.id}
+      />
+
+      {/* Toast Notification */}
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={() => setToast({ ...toast, isVisible: false })}
       />
     </div>
   );
