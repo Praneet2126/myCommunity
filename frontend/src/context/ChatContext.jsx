@@ -491,6 +491,52 @@ export const ChatProvider = ({ children }) => {
       // #endregion
       socketService.sendPrivateMessage(activeChatId, trimmedText);
     }
+
+    // Process message for activity recommendations (only for private chats)
+    if (activeChatId !== 'public') {
+      processActivityRecommendation(activeChatId, trimmedText);
+    }
+  };
+
+  /**
+   * Process message for activity recommendations
+   * Called asynchronously after message is sent
+   */
+  const processActivityRecommendation = async (chatId, messageText) => {
+    try {
+      const token = localStorage.getItem('token');
+      const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
+
+      const response = await fetch(`${BASE_URL}/api/chats/${chatId}/activities/process-message`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ message: messageText })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Recommendations are available in data.data.recommendations
+        // Store them in context or emit event for GroupProfileModal
+        if (data.success && data.data.trigger_rec && data.data.recommendations?.length > 0) {
+          // Store activity recommendations - could be used by GroupProfileModal
+          // For now, we'll emit a custom event that GroupProfileModal can listen to
+          window.dispatchEvent(new CustomEvent('activityRecommendations', {
+            detail: {
+              chatId: chatId,
+              recommendations: data.data.recommendations
+            }
+          }));
+          console.log('Activity recommendations available:', data.data.recommendations);
+        }
+      }
+    } catch (error) {
+      // Silently fail - activity recommendations are not critical
+      console.error('Error processing activity recommendation:', error);
+    }
   };
 
   /**

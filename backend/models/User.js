@@ -60,7 +60,25 @@ const userSchema = new mongoose.Schema({
   },
   password_reset_expires: {
     type: Date
-  }
+  },
+  saved_itineraries: [{
+    title: String,
+    days: Number,
+    activities: [{
+      day: Number,
+      time: String,
+      activity: String,
+      location: String,
+      duration: String
+    }],
+    estimatedCost: String,
+    tags: [String],
+    saved_from_chat_id: String,
+    saved_at: {
+      type: Date,
+      default: Date.now
+    }
+  }]
 }, {
   timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' }
 });

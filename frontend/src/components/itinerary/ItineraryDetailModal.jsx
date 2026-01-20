@@ -1,9 +1,57 @@
+import { useState } from 'react';
+import Toast from '../common/Toast';
+
 /**
  * ItineraryDetailModal Component
  * Shows detailed day-wise and time-wise schedule for an itinerary
  */
-function ItineraryDetailModal({ itinerary, onClose }) {
+function ItineraryDetailModal({ itinerary, onClose, activeChatId = null }) {
+  const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState({ message: '', type: 'success', isVisible: false });
+
   if (!itinerary) return null;
+
+  const handleSaveItinerary = async () => {
+    try {
+      setSaving(true);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setToast({ message: 'Please login to save itineraries', type: 'error', isVisible: true });
+        return;
+      }
+
+      const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
+
+      const response = await fetch(`${BASE_URL}/api/users/save-itinerary`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          title: itinerary.title,
+          days: itinerary.days,
+          activities: itinerary.activities,
+          estimatedCost: itinerary.estimatedCost,
+          tags: itinerary.tags || [],
+          saved_from_chat_id: activeChatId || null
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setToast({ message: 'Itinerary saved to your profile!', type: 'success', isVisible: true });
+      } else {
+        setToast({ message: data.message || 'Failed to save itinerary', type: 'error', isVisible: true });
+      }
+    } catch (error) {
+      console.error('Error saving itinerary:', error);
+      setToast({ message: 'Failed to save itinerary', type: 'error', isVisible: true });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const getActivitiesByDay = (activities, day) => {
     return activities.filter(act => act.day === day);
@@ -157,8 +205,12 @@ function ItineraryDetailModal({ itinerary, onClose }) {
 
           {/* Action Buttons */}
           <div className="flex gap-3 mt-8 pt-6 border-t border-gray-200">
-            <button className="flex-1 bg-gradient-to-r from-[#FF6B35] to-[#E55A2B] text-white px-6 py-4 rounded-xl font-bold text-lg hover:from-[#E55A2B] hover:to-[#D1491F] transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
-              Save Itinerary
+            <button 
+              onClick={handleSaveItinerary}
+              disabled={saving}
+              className="flex-1 bg-gradient-to-r from-[#FF6B35] to-[#E55A2B] text-white px-6 py-4 rounded-xl font-bold text-lg hover:from-[#E55A2B] hover:to-[#D1491F] transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+            >
+              {saving ? 'Saving...' : 'Save Itinerary'}
             </button>
             <button className="px-6 py-4 border-2 border-gray-300 text-gray-700 rounded-xl font-bold hover:border-[#FF6B35] hover:text-[#FF6B35] transition-all">
               Share
@@ -166,6 +218,14 @@ function ItineraryDetailModal({ itinerary, onClose }) {
           </div>
         </div>
       </div>
+
+      {/* Toast Notification */}
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={() => setToast({ ...toast, isVisible: false })}
+      />
     </div>
   );
 }

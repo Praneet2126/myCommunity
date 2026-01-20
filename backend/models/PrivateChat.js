@@ -54,6 +54,46 @@ const privateChatSchema = new mongoose.Schema({
       }
     }]
   }],
+  activity_recommendations: [{
+    name: String,
+    duration: String,
+    score: Number,
+    category: String,
+    region: String,
+    lat: Number,
+    lon: Number,
+    best_time: String,
+    generated_at: {
+      type: Date,
+      default: Date.now
+    },
+    based_on_messages: Number // Number of messages used to generate these recommendations
+  }],
+  activity_itineraries: [{
+    chat_id: String,
+    days: [{
+      day: Number,
+      activities: [{
+        name: String,
+        place_name: String,
+        duration: String,
+        category: String,
+        region: String,
+        lat: Number,
+        lon: Number,
+        best_time: String,
+        start_time: String,
+        end_time: String,
+        travel_time_from_prev: String
+      }],
+      total_duration_mins: Number
+    }],
+    num_people: Number,
+    generated_at: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   cart: [{
     type: mongoose.Schema.Types.Mixed
   }],

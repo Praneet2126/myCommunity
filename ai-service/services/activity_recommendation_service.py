@@ -366,6 +366,33 @@ class ActivityRecommendationService:
         """Get the current cart for a chat"""
         return self.cart_manager.get_cart(chat_id)
     
+    def remove_from_cart(self, chat_id: str, place_name: str) -> Dict:
+        """Remove an activity from the cart"""
+        cart = self.cart_manager.get_cart(chat_id)
+        items = cart.get("items", [])
+        
+        # Find and remove the item
+        for i, item in enumerate(items):
+            if item["place_name"] == place_name:
+                if item["count"] > 1:
+                    # Decrement count
+                    item["count"] -= 1
+                else:
+                    # Remove item completely
+                    items.pop(i)
+                break
+        
+        # Update cart
+        if chat_id not in self.cart_manager.carts:
+            self.cart_manager.carts[chat_id] = {
+                "items": [],
+                "num_days": 3,
+                "num_people": 2
+            }
+        self.cart_manager.carts[chat_id]["items"] = items
+        
+        return {"status": "success", "cart": self.cart_manager.get_cart(chat_id)}
+    
     def update_cart_settings(self, chat_id: str, num_days: int, num_people: int) -> Dict:
         """Update cart settings (num_days, num_people)"""
         self.cart_manager.update_cart_settings(chat_id, num_days, num_people)
