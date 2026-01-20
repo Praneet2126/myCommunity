@@ -1,17 +1,39 @@
 import { useState, useRef } from 'react';
 import { searchSimilarHotels } from '../services/imageSearchService';
+import { useAuth } from '../context/AuthContext';
+import LoginModal from '../components/auth/LoginModal';
+import SignupModal from '../components/auth/SignupModal';
 
 /**
  * MylensPage Component
  * AI-powered image search for finding similar hotels
+ * Requires authentication to access
  */
 function MylensPage() {
+  const { isLoggedIn } = useAuth();
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [hotels, setHotels] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const fileInputRef = useRef(null);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isSignupModalOpen, setIsSignupModalOpen] = useState(false);
+
+  const handleOpenLogin = () => {
+    setIsLoginModalOpen(true);
+    setIsSignupModalOpen(false);
+  };
+
+  const handleOpenSignup = () => {
+    setIsSignupModalOpen(true);
+    setIsLoginModalOpen(false);
+  };
+
+  const handleCloseModals = () => {
+    setIsLoginModalOpen(false);
+    setIsSignupModalOpen(false);
+  };
 
   // Handle image selection
   const handleImageSelect = (e) => {
@@ -99,6 +121,106 @@ function MylensPage() {
       maximumFractionDigits: 0
     }).format(price);
   };
+
+  // If not logged in, show login prompt
+  if (!isLoggedIn) {
+    return (
+      <div className="min-h-screen bg-gray-50/50 relative">
+        {/* Blurred Background Preview */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="relative bg-gradient-to-br from-slate-200 via-blue-200 to-indigo-200 min-h-screen filter blur-sm opacity-60">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20">
+              <div className="text-center mb-12">
+                <div className="inline-flex items-center gap-2 bg-indigo-50 px-4 py-2 rounded-full mb-6 border border-indigo-100">
+                  <span className="text-sm font-semibold text-indigo-700">AI-Powered Visual Search</span>
+                </div>
+                <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">myLens</h1>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Login Prompt Overlay */}
+        <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-[2px]">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 text-center">
+            {/* Lock Icon */}
+            <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
+              <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </div>
+
+            {/* Title */}
+            <h2 className="text-2xl font-bold text-gray-900 mb-2 flex items-center justify-center gap-2">
+              <img src="/myLogo.png" alt="my" className="w-8 h-8 object-contain" />
+              <span>Lens</span>
+            </h2>
+            <p className="text-gray-600 mb-6">
+              Sign in to access AI-powered visual hotel search and discover your perfect stay.
+            </p>
+
+            {/* Features Preview */}
+            <div className="bg-gray-50 rounded-lg p-4 mb-6 text-left">
+              <p className="text-sm font-semibold text-gray-700 mb-3">What you'll get:</p>
+              <ul className="space-y-2 text-sm text-gray-600">
+                <li className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Upload any hotel image
+                </li>
+                <li className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  AI finds visually similar hotels
+                </li>
+                <li className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Save to your trip recommendations
+                </li>
+              </ul>
+            </div>
+
+            {/* Login Button */}
+            <button
+              onClick={handleOpenLogin}
+              className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-200 mb-3"
+            >
+              Sign In to Continue
+            </button>
+
+            {/* Signup Link */}
+            <p className="text-sm text-gray-500">
+              Don't have an account?{' '}
+              <button
+                onClick={handleOpenSignup}
+                className="text-indigo-600 hover:text-indigo-700 font-semibold"
+              >
+                Sign up for free
+              </button>
+            </p>
+          </div>
+        </div>
+
+        {/* Login Modal */}
+        <LoginModal
+          isOpen={isLoginModalOpen}
+          onClose={handleCloseModals}
+          onSwitchToSignup={handleOpenSignup}
+        />
+
+        {/* Signup Modal */}
+        <SignupModal
+          isOpen={isSignupModalOpen}
+          onClose={handleCloseModals}
+          onSwitchToLogin={handleOpenLogin}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50/50">
