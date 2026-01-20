@@ -1,5 +1,6 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import List, Optional
 import uvicorn
@@ -91,6 +92,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount hotels folder as static files for serving hotel images
+hotels_path = Path(__file__).parent.parent / "hotels"
+if hotels_path.exists():
+    app.mount("/hotels", StaticFiles(directory=str(hotels_path)), name="hotels")
 
 # Services will be initialized on first request
 

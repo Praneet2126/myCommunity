@@ -78,9 +78,6 @@ export const ChatProvider = ({ children }) => {
       // Only process city messages when viewing public chat
       if (activeChatIdRef.current !== 'public') {
         console.log('Ignoring city message - currently viewing private chat');
-        // #region agent log
-        fetch('http://127.0.0.1:7247/ingest/e971833d-01fb-4800-88bf-25966a5b1e4b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H3',location:'ChatContext.jsx:handleNewCityMessage:ignored',message:'Ignored city message - wrong chat view',data:{messageId:data._id,activeChatIdRef:activeChatIdRef.current},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         return;
       }
       
@@ -99,18 +96,10 @@ export const ChatProvider = ({ children }) => {
       const senderId = typeof data.sender_id === 'object' ? data.sender_id._id : data.sender_id;
       const isOwnMessage = user && senderId === user._id;
       
-      // #region agent log
-      fetch('http://127.0.0.1:7247/ingest/e971833d-01fb-4800-88bf-25966a5b1e4b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H4',location:'ChatContext.jsx:handleNewCityMessage:received',message:'Received city message broadcast',data:{messageId:data._id,content:data.content?.substring(0,50),isOwnMessage,senderId,userId:user?._id,pendingCount:pendingMessagesRef.current.size},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
-      
       if (isOwnMessage) {
         // Find and replace optimistic message with confirmed server message
         const pendingKey = `${senderId}-${data.content}`;
         const pendingTempId = pendingMessagesRef.current.get(pendingKey);
-        
-        // #region agent log
-        fetch('http://127.0.0.1:7247/ingest/e971833d-01fb-4800-88bf-25966a5b1e4b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H4',location:'ChatContext.jsx:handleNewCityMessage:ownMessage',message:'Processing own message',data:{messageId:data._id,pendingKey,pendingTempId,hasPending:!!pendingTempId},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         
         if (pendingTempId) {
           // Replace optimistic message with server-confirmed message
@@ -118,9 +107,6 @@ export const ChatProvider = ({ children }) => {
             msg._id === pendingTempId ? incomingMessage : msg
           ));
           pendingMessagesRef.current.delete(pendingKey);
-          // #region agent log
-          fetch('http://127.0.0.1:7247/ingest/e971833d-01fb-4800-88bf-25966a5b1e4b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H4',location:'ChatContext.jsx:handleNewCityMessage:replaced',message:'Replaced optimistic with confirmed',data:{tempId:pendingTempId,confirmedId:data._id},timestamp:Date.now()})}).catch(()=>{});
-          // #endregion
         } else {
           // Message wasn't in pending (maybe loaded from history), check for duplicates
           setMessages(prev => {
@@ -128,9 +114,6 @@ export const ChatProvider = ({ children }) => {
             if (exists) return prev;
             return [...prev, incomingMessage];
           });
-          // #region agent log
-          fetch('http://127.0.0.1:7247/ingest/e971833d-01fb-4800-88bf-25966a5b1e4b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H4',location:'ChatContext.jsx:handleNewCityMessage:noPending',message:'No pending found for own message',data:{messageId:data._id,pendingKey},timestamp:Date.now()})}).catch(()=>{});
-          // #endregion
         }
       } else {
         // Message from another user - just add it
@@ -161,9 +144,6 @@ export const ChatProvider = ({ children }) => {
     // Handle socket errors
     const handleError = (error) => {
       console.error('Socket error:', error);
-      // #region agent log
-      fetch('http://127.0.0.1:7247/ingest/e971833d-01fb-4800-88bf-25966a5b1e4b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H2-H6',location:'ChatContext.jsx:handleError',message:'Socket error received',data:{errorMessage:error?.message,errorReason:error?.reason,errorFlags:error?.flags},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       
       // If message was blocked by moderation, remove the most recent pending message
       if (error?.message?.includes('blocked') || error?.message?.includes('moderation')) {
@@ -192,9 +172,6 @@ export const ChatProvider = ({ children }) => {
       // Only process if we're viewing this specific private chat
       if (activeChatIdRef.current !== data.chatId) {
         console.log('Ignoring private message - not viewing this chat');
-        // #region agent log
-        fetch('http://127.0.0.1:7247/ingest/e971833d-01fb-4800-88bf-25966a5b1e4b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H3',location:'ChatContext.jsx:handleNewPrivateMessage:ignored',message:'Ignored private message - wrong chat view',data:{messageId:data._id,chatId:data.chatId,activeChatIdRef:activeChatIdRef.current},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         return;
       }
       
@@ -213,35 +190,21 @@ export const ChatProvider = ({ children }) => {
       const senderId = typeof data.sender_id === 'object' ? data.sender_id._id : data.sender_id;
       const isOwnMessage = user && senderId === user._id;
       
-      // #region agent log
-      fetch('http://127.0.0.1:7247/ingest/e971833d-01fb-4800-88bf-25966a5b1e4b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H4',location:'ChatContext.jsx:handleNewPrivateMessage:received',message:'Received private message broadcast',data:{messageId:data._id,content:data.content?.substring(0,50),isOwnMessage,senderId,userId:user?._id,pendingCount:pendingMessagesRef.current.size},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
-      
       if (isOwnMessage) {
         const pendingKey = `${senderId}-${data.content}`;
         const pendingTempId = pendingMessagesRef.current.get(pendingKey);
-        
-        // #region agent log
-        fetch('http://127.0.0.1:7247/ingest/e971833d-01fb-4800-88bf-25966a5b1e4b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H4',location:'ChatContext.jsx:handleNewPrivateMessage:ownMessage',message:'Processing own private message',data:{messageId:data._id,pendingKey,pendingTempId,hasPending:!!pendingTempId},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         
         if (pendingTempId) {
           setMessages(prev => prev.map(msg => 
             msg._id === pendingTempId ? incomingMessage : msg
           ));
           pendingMessagesRef.current.delete(pendingKey);
-          // #region agent log
-          fetch('http://127.0.0.1:7247/ingest/e971833d-01fb-4800-88bf-25966a5b1e4b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H4',location:'ChatContext.jsx:handleNewPrivateMessage:replaced',message:'Replaced optimistic with confirmed',data:{tempId:pendingTempId,confirmedId:data._id},timestamp:Date.now()})}).catch(()=>{});
-          // #endregion
         } else {
           setMessages(prev => {
             const exists = prev.some(msg => msg._id === data._id);
             if (exists) return prev;
             return [...prev, incomingMessage];
           });
-          // #region agent log
-          fetch('http://127.0.0.1:7247/ingest/e971833d-01fb-4800-88bf-25966a5b1e4b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H4',location:'ChatContext.jsx:handleNewPrivateMessage:noPending',message:'No pending found for own private message',data:{messageId:data._id,pendingKey},timestamp:Date.now()})}).catch(()=>{});
-          // #endregion
         }
       } else {
         setMessages(prev => {
@@ -304,9 +267,6 @@ export const ChatProvider = ({ children }) => {
   const loadMessages = useCallback(async (cityId) => {
     const targetCityId = cityId || activeCityId;
     if (!targetCityId || !token) {
-      // #region agent log
-      fetch('http://127.0.0.1:7247/ingest/e971833d-01fb-4800-88bf-25966a5b1e4b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix-1',hypothesisId:'H1',location:'frontend/src/context/ChatContext.jsx:loadMessages',message:'loadMessages:skipped',data:{hasCityId:!!targetCityId,hasToken:!!token},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       return;
     }
     
@@ -317,10 +277,6 @@ export const ChatProvider = ({ children }) => {
       // Normalize so we always produce exactly one `/api` in the final URL.
       const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
       const url = `${BASE_URL}/api/cities/${targetCityId}/chat/messages`;
-
-      // #region agent log
-      fetch('http://127.0.0.1:7247/ingest/e971833d-01fb-4800-88bf-25966a5b1e4b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix-1',hypothesisId:'H2',location:'frontend/src/context/ChatContext.jsx:loadMessages',message:'loadMessages:request',data:{apiUrlEnv:import.meta.env.VITE_API_URL?true:false,computedUrl:url,cityId:targetCityId},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       
       const response = await fetch(url, {
         headers: {
@@ -333,19 +289,8 @@ export const ChatProvider = ({ children }) => {
       try {
         data = await response.json();
       } catch (e) {
-        // #region agent log
-        fetch('http://127.0.0.1:7247/ingest/e971833d-01fb-4800-88bf-25966a5b1e4b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix-1',hypothesisId:'H2',location:'frontend/src/context/ChatContext.jsx:loadMessages',message:'loadMessages:responseJsonParseFailed',data:{status:response.status,ok:response.ok},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         throw e;
       }
-
-      // #region agent log
-      fetch('http://127.0.0.1:7247/ingest/e971833d-01fb-4800-88bf-25966a5b1e4b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix-1',hypothesisId:'H3',location:'frontend/src/context/ChatContext.jsx:loadMessages',message:'loadMessages:response',data:{status:response.status,ok:response.ok,success:!!data?.success,count:Array.isArray(data?.data)?data.data.length:null,message:data?.message||null},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
-
-      // #region agent log
-      fetch('http://127.0.0.1:7247/ingest/e971833d-01fb-4800-88bf-25966a5b1e4b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix-1',hypothesisId:'D2',location:'frontend/src/context/ChatContext.jsx:loadMessages',message:'rest:history:firstMessageTimestampFields',data:{firstHasCreatedAt:data?.data?.[0]?.createdAt!=null,firstHasCreated_at:data?.data?.[0]?.created_at!=null,firstKeys:data?.data?.[0]?Object.keys(data.data[0]).slice(0,20):[],count:Array.isArray(data?.data)?data.data.length:null},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       
       if (data.success) {
         const normalized = (data.data || []).map((m) => ({
@@ -391,10 +336,6 @@ export const ChatProvider = ({ children }) => {
     if (activeChatId === 'public') {
       loadMessages(activeCityId);
     }
-
-    // #region agent log
-    fetch('http://127.0.0.1:7247/ingest/e971833d-01fb-4800-88bf-25966a5b1e4b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix-1',hypothesisId:'H4',location:'frontend/src/context/ChatContext.jsx:joinEffect',message:'joinEffect:joinedAndRequestedLoad',data:{activeCityId, socketConnected:true, hasToken:!!token},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     
   }, [activeCityId, socketConnected, loadMessages, activeChatId]);
 
@@ -451,10 +392,6 @@ export const ChatProvider = ({ children }) => {
     const pendingKey = `${user._id}-${trimmedText}`;
     pendingMessagesRef.current.set(pendingKey, tempId);
 
-    // #region agent log
-    fetch('http://127.0.0.1:7247/ingest/e971833d-01fb-4800-88bf-25966a5b1e4b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H1',location:'ChatContext.jsx:sendMessage:start',message:'sendMessage initiated',data:{tempId,content:trimmedText.substring(0,50),activeChatId,activeCityId,socketConnected,isPublic:activeChatId==='public',pendingCount:pendingMessagesRef.current.size},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-
     // Immediately add to UI (optimistic update)
     setMessages(prev => [...prev, optimisticMessage]);
 
@@ -465,14 +402,8 @@ export const ChatProvider = ({ children }) => {
         // Remove optimistic message since we can't send
         setMessages(prev => prev.filter(msg => msg._id !== tempId));
         pendingMessagesRef.current.delete(pendingKey);
-        // #region agent log
-        fetch('http://127.0.0.1:7247/ingest/e971833d-01fb-4800-88bf-25966a5b1e4b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H1',location:'ChatContext.jsx:sendMessage:abortPublic',message:'Cannot send public message',data:{tempId,activeCityId,socketConnected},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         return;
       }
-      // #region agent log
-      fetch('http://127.0.0.1:7247/ingest/e971833d-01fb-4800-88bf-25966a5b1e4b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H1',location:'ChatContext.jsx:sendMessage:emitCity',message:'Emitting send-city-message',data:{tempId,cityId:activeCityId,socketIsConnected:socketService.isConnected()},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       socketService.sendCityMessage(activeCityId, trimmedText);
     } else {
       // Send to private chat via WebSocket
@@ -481,14 +412,8 @@ export const ChatProvider = ({ children }) => {
         // Remove optimistic message
         setMessages(prev => prev.filter(msg => msg._id !== tempId));
         pendingMessagesRef.current.delete(pendingKey);
-        // #region agent log
-        fetch('http://127.0.0.1:7247/ingest/e971833d-01fb-4800-88bf-25966a5b1e4b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H1',location:'ChatContext.jsx:sendMessage:abortPrivate',message:'Cannot send private message - removed optimistic',data:{tempId,socketConnected},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         return;
       }
-      // #region agent log
-      fetch('http://127.0.0.1:7247/ingest/e971833d-01fb-4800-88bf-25966a5b1e4b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H1',location:'ChatContext.jsx:sendMessage:emitPrivate',message:'Emitting send-private-message',data:{tempId,chatId:activeChatId,socketIsConnected:socketService.isConnected()},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       socketService.sendPrivateMessage(activeChatId, trimmedText);
     }
 

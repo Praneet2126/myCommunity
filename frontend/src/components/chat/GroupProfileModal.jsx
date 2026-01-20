@@ -32,6 +32,7 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
   const [addingActivityToCart, setAddingActivityToCart] = useState(null);
   const [generatingItinerary, setGeneratingItinerary] = useState(false);
   const [generatedItinerary, setGeneratedItinerary] = useState(null);
+  const [allItineraries, setAllItineraries] = useState([]);
   const [toast, setToast] = useState({ message: '', type: 'success', isVisible: false });
   const [removingActivityFromCart, setRemovingActivityFromCart] = useState(null);
   const [aiHotelRecommendations, setAiHotelRecommendations] = useState([]);
@@ -365,7 +366,8 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
       const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
       
-      const response = await fetch(`${BASE_URL}/api/chats/${chat.id}/activities/itinerary`, {
+      // Fetch all itineraries
+      const response = await fetch(`${BASE_URL}/api/chats/${chat.id}/activities/itinerary?all=true`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -374,10 +376,24 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
       
       const data = await response.json();
       if (data.success && data.data) {
-        console.log('Fetched itinerary from database:', data.data);
-        setGeneratedItinerary(data.data);
+        console.log('Fetched all itineraries from database:', data.data);
+        // data.data is now an array of all itineraries
+        if (Array.isArray(data.data)) {
+          setAllItineraries(data.data);
+          // Set the most recent as the currently displayed one
+          if (data.data.length > 0) {
+            setGeneratedItinerary(data.data[data.data.length - 1]);
+          } else {
+            setGeneratedItinerary(null);
+          }
+        } else {
+          // Fallback for backwards compatibility if API returns single itinerary
+          setAllItineraries([data.data]);
+          setGeneratedItinerary(data.data);
+        }
       } else {
         // No itinerary found, clear state
+        setAllItineraries([]);
         setGeneratedItinerary(null);
       }
     } catch (error) {
@@ -404,9 +420,16 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
       
       const data = await response.json();
       if (data.success) {
-        // Remove from recommendations
-        await fetchActivityRecommendations();
-        await fetchActivityCart();
+        // Immediately remove the activity from local recommendations state for instant UI update
+        setActivityRecommendations(prev => prev.filter(activity => activity.name !== placeName));
+        
+        // Update activity cart with new data if returned, otherwise fetch
+        if (data.data) {
+          setActivityCart(data.data);
+        } else {
+          await fetchActivityCart();
+        }
+        
         setRecentlyAddedToCart({ name: placeName, type: 'activity' });
       } else {
         setToast({ message: data.message || 'Failed to add activity to cart', type: 'error', isVisible: true });
@@ -857,9 +880,23 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
         const data = await response.json();
 
         if (data.success) {
+          // Immediately remove the hotel from AI recommendations for instant UI update
+          setAiHotelRecommendations(prev => 
+            prev.filter(r => {
+              const h = r.hotel || {};
+              return h.name !== hotel.name && 
+                     (h.hotel_code || h.name) !== (hotel.hotel_code || hotel.name);
+            })
+          );
+          
+          // Use the returned data to update chat details directly
+          if (data.data) {
+            setChatDetails(data.data);
+          } else {
+            await fetchChatDetails();
+          }
+          
           setRecentlyAddedToCart({ name: hotel.name, type: 'hotel' });
-          await fetchChatDetails();
-          await fetchAiHotelRecommendations();
         } else {
           setToast({ message: data.message || 'Failed to add hotel to cart', type: 'error', isVisible: true });
         }
@@ -912,6 +949,11 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
       const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
       
+      // Get the hotel name before the API call
+      const recommendations = chatDetails?.recommendations || chat?.recommendations || [];
+      const rec = recommendations[recommendationIndex];
+      const hotelName = typeof rec === 'string' ? rec : rec?.name || rec?.title || 'Hotel';
+      
       const response = await fetch(`${BASE_URL}/api/chats/${chat.id}/recommendations/${recommendationIndex}/add-to-cart`, {
         method: 'POST',
         headers: {
@@ -922,13 +964,13 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
       const data = await response.json();
 
       if (data.success) {
-        // Get the hotel name before refreshing
-        const recommendations = chatDetails?.recommendations || chat?.recommendations || [];
-        const rec = recommendations[recommendationIndex];
-        const hotelName = typeof rec === 'string' ? rec : rec?.name || rec?.title || 'Hotel';
-        
-        // Refresh chat details to get updated recommendations (with item removed)
-        await fetchChatDetails();
+        // Use the returned updated chat data directly to update state immediately
+        if (data.data) {
+          setChatDetails(data.data);
+        } else {
+          // Fallback to fetching if data not returned
+          await fetchChatDetails();
+        }
         onMembersChanged && onMembersChanged();
         setRecentlyAddedToCart({ name: hotelName, type: 'hotel' });
       } else {
@@ -1023,7 +1065,7 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
     { id: 'members', label: 'Members', count: members.length },
     { id: 'recommendations', label: 'Recommendations', count: recommendations.length },
     { id: 'cart', label: 'Cart', count: cartItems.length },
-    { id: 'itineraries', label: 'Itineraries', count: savedItineraries.length },
+    { id: 'itineraries', label: 'Itineraries', count: allItineraries.length },
   ];
 
   return (
@@ -2000,96 +2042,96 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
           {/* Itineraries Tab */}
           {activeTab === 'itineraries' && (
             <div className="space-y-3">
-              {/* Generated Itinerary - Only show if it matches current chat */}
-              {generatedItinerary && String(generatedItinerary.chat_id) === String(chat?.id) && (
-                <div className="bg-gradient-to-br from-orange-50 to-amber-50 border-2 border-orange-200 rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <h3 className="font-semibold text-gray-800 text-sm">
-                        {chat.name ? `${chat.name} Trip Plan` : 'Generated Itinerary'}
-                      </h3>
-                      <p className="text-xs text-gray-600 mt-1">
-                        {generatedItinerary.days?.length || 0} days · {generatedItinerary.num_people || 2} people
-                      </p>
-                    </div>
-                    <span className="px-2 py-1 bg-orange-200 text-orange-800 text-xs font-medium rounded-full">
-                      AI Generated
-                    </span>
-                  </div>
-                  
-                  {generatedItinerary.days && generatedItinerary.days.length > 0 ? (
-                    <div className="space-y-3 max-h-96 overflow-y-auto">
-                      {[...generatedItinerary.days].sort((a, b) => (a.day || 0) - (b.day || 0)).map((day, dayIndex) => (
-                        <div key={dayIndex} className="bg-white rounded-lg p-3 border border-orange-100">
-                          <h4 className="font-semibold text-gray-800 text-xs mb-2 flex items-center gap-2">
-                            <span className="w-6 h-6 rounded-full bg-orange-500 text-white flex items-center justify-center text-xs font-bold">
-                              {day.day}
-                            </span>
-                            Day {day.day}
-                            {day.total_duration_mins && (
-                              <span className="text-gray-500 font-normal ml-auto">
-                                {Math.floor(day.total_duration_mins / 60)}h {day.total_duration_mins % 60}m
+              {/* All Generated Itineraries */}
+              {allItineraries.length > 0 ? (
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold text-gray-700">
+                    Your Itineraries ({allItineraries.length})
+                  </h3>
+                  {[...allItineraries].reverse().map((itinerary, itineraryIndex) => (
+                    <div 
+                      key={itinerary.chat_id || itineraryIndex} 
+                      className={`bg-gradient-to-br ${itineraryIndex === 0 ? 'from-orange-50 to-amber-50 border-orange-200' : 'from-gray-50 to-slate-50 border-gray-200'} border-2 rounded-lg p-4`}
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <h3 className="font-semibold text-gray-800 text-sm">
+                            {chat.name ? `${chat.name} Trip Plan` : 'Generated Itinerary'} {allItineraries.length > 1 ? `#${allItineraries.length - itineraryIndex}` : ''}
+                          </h3>
+                          <p className="text-xs text-gray-600 mt-1">
+                            {itinerary.days?.length || 0} days · {itinerary.num_people || 2} people
+                            {itinerary.generated_at && (
+                              <span className="ml-2 text-gray-400">
+                                · {new Date(itinerary.generated_at).toLocaleDateString()}
                               </span>
                             )}
-                          </h4>
-                          
-                          {day.activities && day.activities.length > 0 ? (
-                            <div className="space-y-2 mt-2">
-                              {day.activities.map((activity, actIndex) => (
-                                <div key={actIndex} className="flex items-start gap-3 p-2 bg-gray-50 rounded">
-                                  <div className="flex-shrink-0 w-16 text-xs text-gray-600 font-medium pt-0.5">
-                                    {activity.start_time || 'TBD'}
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="font-medium text-gray-800 text-xs">{activity.name || activity.place_name || 'Activity'}</p>
-                                    <div className="flex items-center gap-2 mt-1">
-                                      {activity.region && (
-                                        <span className="text-xs text-gray-500 flex items-center gap-1">
-                                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                          </svg>
-                                          {activity.region}
-                                        </span>
-                                      )}
-                                      {activity.duration && (
-                                        <span className="text-xs text-gray-500">· {activity.duration}</span>
-                                      )}
-                                    </div>
-                                    {activity.end_time && (
-                                      <p className="text-xs text-gray-400 mt-1">Until {activity.end_time}</p>
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="text-xs text-gray-500 italic">No activities scheduled</p>
-                          )}
+                          </p>
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-gray-500">No itinerary data available</p>
-                  )}
-                </div>
-              )}
-              
-              {/* Saved Itineraries */}
-              {savedItineraries.length > 0 && (
-            <div className="space-y-2">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Saved Itineraries</h3>
-                  {savedItineraries.map((itinerary, index) => (
-                    <div key={index} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                      <p className="text-sm font-medium text-gray-800">{itinerary.name || `Itinerary ${index + 1}`}</p>
-                      <p className="text-xs text-gray-500 mt-1">{itinerary.dates || 'No dates specified'}</p>
+                        <span className={`px-2 py-1 ${itineraryIndex === 0 ? 'bg-orange-200 text-orange-800' : 'bg-gray-200 text-gray-700'} text-xs font-medium rounded-full`}>
+                          {itineraryIndex === 0 ? 'Latest' : 'AI Generated'}
+                        </span>
+                      </div>
+                      
+                      {itinerary.days && itinerary.days.length > 0 ? (
+                        <div className="space-y-3 max-h-64 overflow-y-auto">
+                          {[...itinerary.days].sort((a, b) => (a.day || 0) - (b.day || 0)).map((day, dayIndex) => (
+                            <div key={dayIndex} className={`bg-white rounded-lg p-3 border ${itineraryIndex === 0 ? 'border-orange-100' : 'border-gray-100'}`}>
+                              <h4 className="font-semibold text-gray-800 text-xs mb-2 flex items-center gap-2">
+                                <span className={`w-6 h-6 rounded-full ${itineraryIndex === 0 ? 'bg-orange-500' : 'bg-gray-500'} text-white flex items-center justify-center text-xs font-bold`}>
+                                  {day.day}
+                                </span>
+                                Day {day.day}
+                                {day.total_duration_mins && (
+                                  <span className="text-gray-500 font-normal ml-auto">
+                                    {Math.floor(day.total_duration_mins / 60)}h {day.total_duration_mins % 60}m
+                                  </span>
+                                )}
+                              </h4>
+                              
+                              {day.activities && day.activities.length > 0 ? (
+                                <div className="space-y-2 mt-2">
+                                  {day.activities.map((activity, actIndex) => (
+                                    <div key={actIndex} className="flex items-start gap-3 p-2 bg-gray-50 rounded">
+                                      <div className="flex-shrink-0 w-16 text-xs text-gray-600 font-medium pt-0.5">
+                                        {activity.start_time || 'TBD'}
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <p className="font-medium text-gray-800 text-xs">{activity.name || activity.place_name || 'Activity'}</p>
+                                        <div className="flex items-center gap-2 mt-1">
+                                          {activity.region && (
+                                            <span className="text-xs text-gray-500 flex items-center gap-1">
+                                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                              </svg>
+                                              {activity.region}
+                                            </span>
+                                          )}
+                                          {activity.duration && (
+                                            <span className="text-xs text-gray-500">· {activity.duration}</span>
+                                          )}
+                                        </div>
+                                        {activity.end_time && (
+                                          <p className="text-xs text-gray-400 mt-1">Until {activity.end_time}</p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-xs text-gray-500 italic">No activities scheduled</p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-500">No itinerary data available</p>
+                      )}
                     </div>
                   ))}
                 </div>
-              )}
-              
-              {/* Empty State */}
-              {(!generatedItinerary || String(generatedItinerary.chat_id) !== String(chat?.id)) && savedItineraries.length === 0 && (
+              ) : (
+                /* Empty State */
                 <div className="text-center py-8">
                   <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
                     <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

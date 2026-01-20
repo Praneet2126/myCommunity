@@ -185,6 +185,14 @@ class ImageSearchService:
             for hotel_id, res in sorted_hotels:
                 hotel_details = self.get_hotel_details(hotel_id)
                 if hotel_details:
+                    # Convert absolute path to relative URL for serving via FastAPI static files
+                    # Use path without leading slash to avoid double-slash when frontend appends to base URL
+                    image_path = res["image_path"]
+                    if "/hotels/" in image_path:
+                        relative_path = "hotels/" + image_path.split("/hotels/", 1)[1]
+                    else:
+                        relative_path = image_path
+                    
                     result = {
                         "hotel_id": str(hotel_id),
                         "name": hotel_details["name"],
@@ -196,7 +204,7 @@ class ImageSearchService:
                             "ai_semantic_score": res["ai_score"],
                             "color_texture_score": res["color_score"]
                         },
-                        "best_match_image_path": res["image_path"],
+                        "best_match_image_path": relative_path,
                         "image_index": res["image_index"]
                     }
                     results.append(result)

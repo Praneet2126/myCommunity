@@ -1455,23 +1455,31 @@ router.post('/:chatId/activities/itinerary/generate', authenticate, async (req, 
 router.get('/:chatId/activities/itinerary', authenticate, async (req, res, next) => {
   try {
     const { chatId } = req.params;
+    const { all } = req.query; // Optional query param to get all itineraries
     
     const chat = await PrivateChat.findById(chatId).select('activity_itineraries');
     
     if (!chat || !chat.activity_itineraries || chat.activity_itineraries.length === 0) {
       return res.json({
         success: true,
-        data: null
+        data: all === 'true' ? [] : null
       });
     }
     
-    // Return the most recent itinerary
-    const latestItinerary = chat.activity_itineraries[chat.activity_itineraries.length - 1];
-    
-    res.json({
-      success: true,
-      data: latestItinerary
-    });
+    // Return all itineraries or just the most recent one based on query param
+    if (all === 'true') {
+      res.json({
+        success: true,
+        data: chat.activity_itineraries
+      });
+    } else {
+      // Return the most recent itinerary (backwards compatible)
+      const latestItinerary = chat.activity_itineraries[chat.activity_itineraries.length - 1];
+      res.json({
+        success: true,
+        data: latestItinerary
+      });
+    }
   } catch (error) {
     console.error('Error fetching itinerary:', error);
     next(error);
