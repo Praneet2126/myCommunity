@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import socketService from '../services/socketService';
 import { useAuth } from './AuthContext';
+import Toast from '../components/Toast';
 
 const ChatContext = createContext();
 
@@ -17,6 +18,7 @@ export const ChatProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [socketConnected, setSocketConnected] = useState(false);
   const [roomJoined, setRoomJoined] = useState(false);
+  const [toast, setToast] = useState(null);
   
   // Use refs to prevent re-render loops
   const socketInitialized = useRef(false);
@@ -26,6 +28,8 @@ export const ChatProvider = ({ children }) => {
   const pendingMessagesRef = useRef(new Map());
   // Track active chat ID in a ref for socket handlers
   const activeChatIdRef = useRef('public');
+  // Track alerts shown to prevent duplicates
+  const alertsShownRef = useRef(new Set());
 
   /**
    * Initialize socket connection when user is authenticated
@@ -173,6 +177,32 @@ export const ChatProvider = ({ children }) => {
             // Remove from pending tracking
             const pendingKey = `${user?._id}-${lastPending.content}`;
             pendingMessagesRef.current.delete(pendingKey);
+            
+            // Create unique alert key to prevent duplicates
+            const alertKey = `${pendingKey}-${error?.reason || error?.message || 'blocked'}`;
+            
+            // Only show toast if we haven't shown it for this message yet
+            if (!alertsShownRef.current.has(alertKey)) {
+              alertsShownRef.current.add(alertKey);
+              
+              // Show toast notification (outside of setState to prevent multiple calls)
+              setTimeout(() => {
+                const errorMessage = error?.reason || 
+                  error?.message || 
+                  'This message was blocked by moderation.';
+                
+                setToast({
+                  message: errorMessage,
+                  type: 'error'
+                });
+                
+                // Clean up alert key after 5 seconds
+                setTimeout(() => {
+                  alertsShownRef.current.delete(alertKey);
+                }, 5000);
+              }, 0);
+            }
+            
             // Remove from messages
             return prev.filter(msg => msg._id !== lastPending._id);
           }
@@ -763,6 +793,13 @@ export const ChatProvider = ({ children }) => {
   return (
     <ChatContext.Provider value={value}>
       {children}
+      {toast && (
+        <Toast 
+          message={toast.message} 
+          type={toast.type}
+          onClose={() => setToast(null)} 
+        />
+      )}
     </ChatContext.Provider>
   );
 };

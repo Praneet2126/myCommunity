@@ -178,27 +178,63 @@ module.exports = (io, socket) => {
         console.log(`📝 Created CityChat for city: ${cityId}`);
       }
 
-      // Content moderation check - DISABLED
-      // const moderationResult = await contentModerator.moderate(
-      //   content,
-      //   socket.user._id.toString(),
-      //   'city'
-      // );
+      // Content moderation check with timeout (fail-open on error/timeout)
+      let moderationResult;
+      const moderationStartTime = Date.now();
+      try {
+        // Create a timeout promise with shorter timeout for better UX
+        const moderationTimeout = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Moderation timeout')), 3000); // 3 second timeout (reduced from 5)
+        });
+
+        // Race between moderation and timeout
+        moderationResult = await Promise.race([
+          contentModerator.moderate(
+            content,
+            socket.user._id.toString(),
+            'city'
+          ),
+          moderationTimeout
+        ]);
+        
+        const moderationDuration = Date.now() - moderationStartTime;
+        if (moderationDuration > 2000) {
+          console.warn(`Moderation took ${moderationDuration}ms (slow)`);
+        }
+      } catch (error) {
+        // On timeout or error, allow message (fail-open)
+        const moderationDuration = Date.now() - moderationStartTime;
+        console.warn(`Moderation check failed or timed out after ${moderationDuration}ms, allowing message:`, error.message);
+        moderationResult = {
+          allowed: true,
+          decision: 'ALLOW',
+          flags: [],
+          reason: null
+        };
+      }
 
       // #region agent log
-      // fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H2-H6',location:'backend/socket/handlers/cityChat.js:send-city-message:moderation-result',message:'Moderation check complete',data:{allowed:moderationResult.allowed,reason:moderationResult.reason,flags:moderationResult.flags},timestamp:Date.now()})+'\n', 'utf8');
+      try {
+        fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H2-H6',location:'backend/socket/handlers/cityChat.js:send-city-message:moderation-result',message:'Moderation check complete',data:{allowed:moderationResult.allowed,reason:moderationResult.reason,flags:moderationResult.flags},timestamp:Date.now()})+'\n', 'utf8');
+      } catch (err) {
+        // Debug logging failed - ignore silently
+      }
       // #endregion
 
-      // if (!moderationResult.allowed) {
-      //   // #region agent log
-      //   fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H6',location:'backend/socket/handlers/cityChat.js:send-city-message:blocked-by-moderation',message:'Message blocked by moderation',data:{reason:moderationResult.reason,flags:moderationResult.flags},timestamp:Date.now()})+'\n', 'utf8');
-      //   // #endregion
-      //   return socket.emit('error', {
-      //     message: 'Message blocked by content moderation',
-      //     reason: moderationResult.reason || 'Content violates community guidelines',
-      //     flags: moderationResult.flags
-      //   });
-      // }
+      if (!moderationResult.allowed) {
+        // #region agent log
+        try {
+          fs.appendFileSync('/Users/int1927/Documents/_myCommunity__/.cursor/debug.log', JSON.stringify({sessionId:'debug-session',runId:'initial',hypothesisId:'H6',location:'backend/socket/handlers/cityChat.js:send-city-message:blocked-by-moderation',message:'Message blocked by moderation',data:{reason:moderationResult.reason,flags:moderationResult.flags},timestamp:Date.now()})+'\n', 'utf8');
+        } catch (err) {
+          // Debug logging failed - ignore silently
+        }
+        // #endregion
+        return socket.emit('error', {
+          message: 'Message blocked by content moderation',
+          reason: moderationResult.reason || 'Content violates community guidelines',
+          flags: moderationResult.flags
+        });
+      }
 
       // Create message
       const message = new Message({

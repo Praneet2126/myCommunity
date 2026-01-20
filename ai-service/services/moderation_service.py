@@ -134,18 +134,7 @@ moderate();
             reason = result.get("reason", None)
             
             # Determine categories
-            # Spam includes: spam flags, promotional content, excessive caps, word repetition, and suspicious links
-            spam_indicators = [
-                "spam", "promotional", "excessive_caps", "word_repetition", 
-                "character_repetition", "excessive_punctuation", "urgency_language",
-                "suspicious_link", "high_link_density", "url_shortener", 
-                "suspicious_tld", "affiliate_link", "insecure_link", 
-                "multiple_links", "suspicious_domain"
-            ]
-            is_spam = any(
-                any(indicator in flag.lower() for indicator in spam_indicators)
-                for flag in flags
-            )
+            is_spam = any("spam" in flag.lower() for flag in flags)
             is_abusive = any(
                 flag in ["toxic", "severe_toxic", "obscene", "threat", "insult", "identity_hate"]
                 for flag in flags

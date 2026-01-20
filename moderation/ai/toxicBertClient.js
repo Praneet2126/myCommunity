@@ -95,6 +95,59 @@ class ToxicBertClient {
   }
 
   /**
+   * Check if negative sentiment is legitimate feedback (not toxic)
+   * Allows negative feedback about places, hotels, services, etc.
+   * @param {string} text - Message text to analyze
+   * @returns {boolean} True if this appears to be legitimate constructive criticism
+   */
+  isLegitimateNegativeFeedback(text) {
+    if (!text || typeof text !== 'string') {
+      return false;
+    }
+
+    const lowerText = text.toLowerCase();
+    
+    // Travel/place related keywords that indicate legitimate feedback
+    const feedbackKeywords = [
+      'beach', 'hotel', 'place', 'restaurant', 'service', 'location',
+      'area', 'spot', 'destination', 'resort', 'accommodation',
+      'room', 'staff', 'food', 'clean', 'dirty', 'crowded',
+      'price', 'cost', 'value', 'worth', 'quality', 'standard',
+      'not good', 'not up to', 'not worth', 'disappointed', 'disappointing',
+      'poor', 'bad', 'terrible', 'awful', 'horrible', 'worst',
+      'garbage', 'trash', 'messy', 'filthy', 'overpriced', 'upto',
+      'up to', 'not upto', 'not up to the mark', 'filled with'
+    ];
+    
+    // Check if message contains feedback-related keywords
+    const hasFeedbackKeywords = feedbackKeywords.some(keyword => 
+      lowerText.includes(keyword)
+    );
+    
+    // Check if it's about a thing/place/service (not a person)
+    const isAboutThing = 
+      lowerText.includes('this ') || 
+      lowerText.includes('the ') ||
+      lowerText.includes('place') ||
+      lowerText.includes('hotel') ||
+      lowerText.includes('beach') ||
+      lowerText.includes('restaurant') ||
+      lowerText.includes('service') ||
+      lowerText.includes('location') ||
+      lowerText.includes('area');
+    
+    // Exclude personal attacks (you, your, etc. with negative words)
+    const isPersonalAttack = 
+      (lowerText.includes('you ') || lowerText.includes('your ')) &&
+      (lowerText.includes('idiot') || lowerText.includes('stupid') || 
+       lowerText.includes('dumb') || lowerText.includes('fool') ||
+       lowerText.includes('moron') || lowerText.includes('asshole'));
+    
+    // Must have feedback keywords and be about a thing, not a personal attack
+    return hasFeedbackKeywords && isAboutThing && !isPersonalAttack;
+  }
+
+  /**
    * Analyze text for offensive content
    * Returns: { decision: 'BLOCK' | 'FLAG' | 'ALLOW', confidence: number, flags: string[], scores: object }
    */
@@ -191,24 +244,55 @@ class ToxicBertClient {
         identity_hate: 0
       };
 
+      // Check if this is legitimate negative feedback (not toxic)
+      const isLegitimateFeedback = this.isLegitimateNegativeFeedback(text);
+      
+      // Get lowercase text for toxic language checking
+      const lowerText = text.toLowerCase();
+
       // Decision logic (conservative thresholds to avoid false positives)
       const flags = [];
       let decision = 'ALLOW';
       let confidence = offensiveScore;
 
-      // Thresholds for offensive content
-      if (offensiveScore > 0.85) {
-        // High confidence - block
-        decision = 'BLOCK';
-        flags.push('toxic');
-      } else if (offensiveScore > 0.70) {
-        // Medium confidence - flag
-        decision = 'FLAG';
-        flags.push('toxic');
-      } else if (offensiveScore > 0.50) {
-        // Low-medium confidence - flag but allow
-        decision = 'FLAG';
-        flags.push('potentially_toxic');
+      // If it's legitimate feedback, be more lenient
+      // Negative feedback about places/services is not the same as toxicity
+      if (isLegitimateFeedback) {
+        // Check for actual toxic language mixed with feedback (e.g., personal attacks)
+        const hasToxicLanguage = 
+          lowerText.includes('idiot') || 
+          lowerText.includes('stupid') || 
+          lowerText.includes('dumb') ||
+          lowerText.includes('moron') ||
+          lowerText.includes('asshole') ||
+          lowerText.includes('fuck') ||
+          lowerText.includes('shit') ||
+          lowerText.includes('damn');
+        
+        // Only block if it has actual toxic language AND high confidence
+        // Legitimate negative feedback will have high negative sentiment scores
+        // but that doesn't mean it's toxic - allow it unless it has toxic words
+        if (hasToxicLanguage && offensiveScore > 0.90) {
+          decision = 'BLOCK';
+          flags.push('toxic');
+        }
+        // Otherwise ALLOW - negative feedback about places/services is legitimate
+        // even if it has high negative sentiment (that's expected for complaints)
+      } else {
+        // Original thresholds for non-feedback messages
+        if (offensiveScore > 0.85) {
+          // High confidence - block
+          decision = 'BLOCK';
+          flags.push('toxic');
+        } else if (offensiveScore > 0.70) {
+          // Medium confidence - flag
+          decision = 'FLAG';
+          flags.push('toxic');
+        } else if (offensiveScore > 0.50) {
+          // Low-medium confidence - flag but allow
+          decision = 'FLAG';
+          flags.push('potentially_toxic');
+        }
       }
 
       return {

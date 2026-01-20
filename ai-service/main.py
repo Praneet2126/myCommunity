@@ -27,25 +27,17 @@ def get_image_search_service():
     from services.image_search_service import ImageSearchService
     return ImageSearchService()
 
-def get_moderation_service():
-    """Lazy import for moderation service"""
-    from services.moderation_service import ModerationService
-    return ModerationService()
-
 # Initialize services
 hotel_recommendation_service = None
 image_search_service = None
-moderation_service = None
 
 def init_services():
     """Initialize services on first use"""
-    global hotel_recommendation_service, image_search_service, moderation_service
+    global hotel_recommendation_service, image_search_service
     if hotel_recommendation_service is None:
         hotel_recommendation_service = get_hotel_recommendation_service()
     if image_search_service is None:
         image_search_service = get_image_search_service()
-    if moderation_service is None:
-        moderation_service = get_moderation_service()
 
 app = FastAPI(
     title="AI Microservice",
@@ -298,18 +290,19 @@ async def moderate_content(request: ContentModerationRequest):
     Check if content is safe, spam, or contains abusive language.
     """
     try:
-        # Initialize moderation service if needed
-        init_services()
+        # TODO: Implement AI service integration for content moderation
+        # This will call your AI service to check content
         
-        # Call the actual moderation service
-        result = moderation_service.moderate_content(
-            content=request.content,
-            user_id=request.user_id,
-            message_id=request.message_id,
-            chat_type="city"  # Default to city chat, can be made configurable
+        # Placeholder response
+        return ContentModerationResponse(
+            is_safe=True,
+            is_spam=False,
+            is_abusive=False,
+            confidence_score=0.98,
+            flagged_categories=[],
+            suggested_action=None,
+            reason=None
         )
-        
-        return ContentModerationResponse(**result)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error moderating content: {str(e)}")
 
@@ -321,18 +314,11 @@ async def moderate_content_batch(requests: List[ContentModerationRequest]):
     Check multiple content items in batch.
     """
     try:
-        # Initialize moderation service if needed
-        init_services()
-        
+        # TODO: Implement batch processing
         results = []
         for request in requests:
-            result = moderation_service.moderate_content(
-                content=request.content,
-                user_id=request.user_id,
-                message_id=request.message_id,
-                chat_type="city"
-            )
-            results.append(ContentModerationResponse(**result))
+            result = await moderate_content(request)
+            results.append(result)
         return results
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error in batch moderation: {str(e)}")

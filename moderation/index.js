@@ -145,8 +145,10 @@ class ContentModerator {
       finalResult.flags.push(...aiResults.flags);
 
       // AI decision takes precedence for toxicity-related flags
+      // Respect the AI's decision - if it says ALLOW (even for legitimate negative feedback), allow it
       if (aiResults.decision === 'BLOCK') {
-        // Only block if AI confidence is high
+        // Only block if AI confidence is high AND AI explicitly decided to block
+        // The AI client already handles legitimate feedback with higher thresholds
         if (aiResults.confidence > 0.85) {
           finalResult.allowed = false;
           finalResult.decision = 'BLOCK';
@@ -155,6 +157,16 @@ class ContentModerator {
           // Medium confidence - flag but allow
           finalResult.decision = 'FLAG';
           finalResult.reason = `Flagged by AI: ${aiResults.maxCategory} (confidence: ${(aiResults.confidence * 100).toFixed(1)}%)`;
+        }
+      } else if (aiResults.decision === 'ALLOW') {
+        // AI decided to allow (e.g., legitimate negative feedback) - respect that decision
+        // Override any rule-based BLOCK if AI says it's safe (legitimate feedback)
+        if (finalResult.decision === 'BLOCK' && 
+            aiResults.flags.some(f => f.includes('potentially_toxic') || !f.includes('toxic'))) {
+          // AI says it's legitimate feedback, allow it
+          finalResult.allowed = true;
+          finalResult.decision = 'ALLOW';
+          finalResult.reason = 'Allowed - legitimate feedback';
         }
       } else if (aiResults.decision === 'FLAG' && finalResult.decision === 'ALLOW') {
         finalResult.decision = 'FLAG';
@@ -237,10 +249,19 @@ class ContentModerator {
     let aiResults = null;
     if (needsAI) {
       try {
-        aiResults = await toxicBertClient.analyze(text);
+        // Add timeout for AI analysis to prevent hanging
+        const aiTimeout = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('AI analysis timeout')), 2500); // 2.5 second timeout
+        });
+        
+        aiResults = await Promise.race([
+          toxicBertClient.analyze(text),
+          aiTimeout
+        ]);
       } catch (error) {
-        console.error('AI analysis error:', error);
-        // Continue with rule-based results only
+        console.warn('AI analysis error or timeout:', error.message);
+        // Continue with rule-based results only - fail open
+        aiResults = null;
       }
     }
 

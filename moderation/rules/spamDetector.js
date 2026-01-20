@@ -7,7 +7,7 @@ class SpamDetector {
   constructor() {
     // Common spam patterns
     this.spamPatterns = [
-      /(.)\1{4,}/g, // 5+ consecutive identical characters
+      /(.)\1{5,}/g, // 6+ consecutive identical characters (increased from 5+ to allow typos)
       /[!]{4,}/g,   // 4+ consecutive exclamation marks
       /[?]{4,}/g,   // 4+ consecutive question marks
       /[.]{4,}/g    // 4+ consecutive periods
@@ -16,10 +16,12 @@ class SpamDetector {
 
   /**
    * Check for character repetition
+   * Increased threshold to 6+ consecutive characters to allow common typos
+   * (e.g., "goood", "beacch") while still catching obvious spam (e.g., "aaaaaaa")
    */
   hasExcessiveRepetition(text) {
-    // Check for 4+ consecutive identical characters
-    return /(.)\1{3,}/.test(text);
+    // Check for 6+ consecutive identical characters (increased from 4+)
+    return /(.)\1{5,}/.test(text);
   }
 
   /**
