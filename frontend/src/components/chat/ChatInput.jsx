@@ -12,7 +12,7 @@ import { useState, useRef, useEffect } from 'react';
  */
 function ChatInput({ onSend, onAIClick, onMyLensClick, onImageUpload, isUploadingImage }) {
   const [message, setMessage] = useState('');
-  const [showPlusMenu, setShowPlusMenu] = useState(false);
+  const [showPlusMenu, setShowPlusMenu] = useState(true);
   const menuRef = useRef(null);
   const fileInputRef = useRef(null);
 
