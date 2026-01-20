@@ -99,6 +99,16 @@ const privateChatSchema = new mongoose.Schema({
       }],
       total_duration_mins: Number
     }],
+    hotels: [{
+      hotel_id: String,
+      name: String,
+      price: Number,
+      stars: Number,
+      description: String,
+      image_url: String,
+      reason: String,  // Why this hotel was selected by AI
+      recommended_for_days: [Number]  // Which days to stay at this hotel
+    }],
     num_people: Number,
     hotel: {
       name: String,

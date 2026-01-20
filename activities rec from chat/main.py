@@ -38,14 +38,26 @@ class LocalLLM:
     def generate_itinerary(self, chat_id: str, num_days: int, num_people: int, places: List[Dict]) -> Optional[Dict]:
         places_json = json.dumps(places)
         messages = [
-            {"role": "system", "content": """You are an expert travel planner for Goa. Create a realistic, non-overlapping, sequential itinerary.
-            CRITICAL RULES:
-            1. NO OVERLAPPING TIMES. The 'end_time' of one activity must be BEFORE the 'start_time' of the next.
-            2. SEQUENTIAL FLOW: Activities must be in order (e.g., 9am, then 1pm, then 6pm).
-            3. RESPECT BEST TIME: Only schedule Casinos/Clubs at night (after 7pm). Schedule Treks/Wildlife in the morning.
-            4. TRAVEL TIME: Include 45-60 mins of travel between activities.
-            5. FORMAT: Use 12-hour AM/PM format (e.g., 09:00 AM, 01:00 PM). Max 6 hours of activity per day.
-            6. Output ONLY valid JSON matching the schema below.
+            {"role": "system", "content": """You are an expert travel planner for Goa. Create a realistic, TIME-AWARE, non-overlapping, sequential itinerary.
+            CRITICAL TIME-SENSITIVE RULES:
+            1. MUST generate EXACTLY the number of days requested by the user. Do not skip days or generate fewer days.
+            2. NO OVERLAPPING TIMES. The 'end_time' of one activity must be BEFORE the 'start_time' of the next.
+            3. SEQUENTIAL FLOW: Activities must be in chronological order throughout the day.
+            4. TIME-SPECIFIC SCHEDULING:
+               - Morning Activities (6 AM - 11 AM): Treks, Wildlife tours, Yoga, Morning water sports
+               - Afternoon Activities (11 AM - 4 PM): Museums, Forts, Shopping, Water sports
+               - Late Afternoon/Sunset (4 PM - 6 PM): Beach visits, Sunset spots (MUST end before 6 PM)
+               - Evening (6 PM - 9 PM): Dining, River cruises, Cultural shows
+               - Night Activities (9 PM - 3 AM): Casinos, Nightclubs, Late-night parties
+            5. STRICT CONSTRAINTS:
+               - Beach activities MUST be scheduled before 6:00 PM
+               - Nightclubs and parties MUST start after 9:00 PM
+               - Casinos MUST be scheduled after 8:00 PM
+               - Water sports MUST be between 10:00 AM and 5:00 PM
+               - Wildlife/nature activities MUST be in early morning (before 11 AM)
+            6. TRAVEL TIME: Include 45-60 mins of travel between activities.
+            7. FORMAT: Use 12-hour AM/PM format (e.g., 09:00 AM, 01:00 PM). Max 6 hours of activity per day.
+            8. Output ONLY valid JSON matching the schema below.
             
             Schema:
             {
@@ -322,6 +334,67 @@ def parse_duration(duration_str: str) -> int:
     
     return 120
 
+
+def parse_time_to_minutes(time_str: str) -> int:
+    """Convert time string like '09:00 AM' to minutes from midnight"""
+    time_str = time_str.strip().upper()
+    match = re.match(r'(\d{1,2}):(\d{2})\s*(AM|PM)', time_str)
+    if not match:
+        return 0
+    
+    hour, minute, period = match.groups()
+    hour = int(hour)
+    minute = int(minute)
+    
+    if period == 'PM' and hour != 12:
+        hour += 12
+    elif period == 'AM' and hour == 12:
+        hour = 0
+    
+    return hour * 60 + minute
+
+
+def get_time_slot_priority(place) -> tuple:
+    """
+    Categorize activity by time slot and return (priority, earliest_start_minutes, latest_end_minutes)
+    Priority: 0=morning, 1=afternoon, 2=late_afternoon, 3=evening, 4=night
+    """
+    best_time = place.best_time.lower() if hasattr(place, 'best_time') else place.get("best_time", "").lower()
+    category = place.category.lower() if hasattr(place, 'category') else place.get("category", "").lower()
+    name = place.name.lower() if hasattr(place, 'name') else place.get("name", "").lower()
+    
+    # Night activities (9 PM - 3 AM) - Priority 4
+    if any(keyword in category for keyword in ["casino", "nightlife"]) or \
+       any(keyword in name for keyword in ["club", "casino", "party", "tito", "lpk"]) or \
+       "night" in best_time or \
+       ("09:00 pm" in best_time or "10:00 pm" in best_time or "11:00 pm" in best_time):
+        return (4, 21 * 60, 27 * 60)  # 9 PM - 3 AM
+    
+    # Morning activities (6 AM - 11 AM) - Priority 0
+    if any(keyword in category for keyword in ["trek", "wildlife", "nature"]) or \
+       "morning" in best_time or \
+       ("06:00 am" in best_time or "07:00 am" in best_time or "08:00 am" in best_time) or \
+       any(keyword in name for keyword in ["trek", "wildlife", "bird", "yoga"]):
+        return (0, 6 * 60, 11 * 60)  # 6 AM - 11 AM
+    
+    # Beach activities (must end before 6 PM) - Priority 2
+    if "beach" in category or "beach" in name or "sunset" in best_time:
+        return (2, 16 * 60, 18 * 60)  # 4 PM - 6 PM (sunset time)
+    
+    # Water sports (10 AM - 5 PM) - Priority 1
+    if "water sports" in category or any(keyword in name for keyword in ["scuba", "parasailing", "kayaking", "jet ski", "surfing"]):
+        return (1, 10 * 60, 17 * 60)  # 10 AM - 5 PM
+    
+    # Evening activities (6 PM - 9 PM) - Priority 3
+    if "restaurant" in category or "dining" in category or \
+       any(keyword in name.lower() for keyword in ["restaurant", "dining", "cruise", "cultural show"]) or \
+       ("06:00 pm" in best_time or "07:00 pm" in best_time or "08:00 pm" in best_time):
+        return (3, 18 * 60, 21 * 60)  # 6 PM - 9 PM
+    
+    # Default to afternoon (11 AM - 4 PM) - Priority 1
+    # For museums, forts, shopping, churches, etc.
+    return (1, 11 * 60, 16 * 60)  # 11 AM - 4 PM
+
 @app.on_event("startup")
 def startup_event():
     SearchEngine()
@@ -406,81 +479,143 @@ def generate_itinerary(chat_id: str):
         num_people=cart.num_people,
         places=[p.dict() for p in all_places]
     )
+    
+    # Validate LLM output - ensure it has the correct number of days
     if llm_itinerary:
-        try: return Itinerary(**llm_itinerary)
-        except: pass
-
-    # 3. Determinstic Robust Scheduler (Fallback)
-    # Group by region to minimize travel
-    by_region = {"North": [], "South": [], "Central": [], "Unknown": []}
-    for p in all_places:
-        by_region[p.region].append(p)
-    
-    num_days = cart.num_days
-    days = [ItineraryDay(day=i+1, activities=[], total_duration_mins=0) for i in range(num_days)]
-    day_clocks = [480 for _ in range(num_days)] # Start at 8:00 AM
-    
-    # Simple assignment: Assign regions to days
-    regions = ["North", "South", "Central", "Unknown"]
-    
-    for r_idx, region_name in enumerate(regions):
-        queue = by_region[region_name]
-        # Sort queue: Morning -> Night
-        def t_score(p):
-            bt = p.best_time.lower()
-            if "morning" in bt or "07:" in bt or "08:" in bt: return 0
-            if "night" in bt or "pm" in bt: return 2
-            return 1
-        queue.sort(key=t_score)
-        
-        for place in queue:
-            duration = parse_duration(place.duration)
-            bt = place.best_time.lower()
+        try:
+            llm_num_days = len(llm_itinerary.get("days", []))
+            requested_days = cart.num_days
             
-            # Find a day. Preference: Day matching the region index, or next available.
-            start_day = r_idx % num_days
-            for offset in range(num_days):
-                d_idx = (start_day + offset) % num_days
-                
-                # Check constraints: 
-                # a) Max 6 hours (360 mins) per day
-                # b) Sequential timing
-                if days[d_idx].total_duration_mins + duration > 360:
+            if llm_num_days == requested_days:
+                print(f"[LLM] Generated {llm_num_days} days as requested")
+                return Itinerary(**llm_itinerary)
+            else:
+                print(f"[LLM] Generated {llm_num_days} days but {requested_days} were requested - falling back to deterministic")
+        except:
+            print("[LLM] Error parsing LLM output - falling back to deterministic")
+
+    # 3. Time-aware Deterministic Scheduler (Fallback)
+    num_days = cart.num_days
+    print(f"[Scheduler] Using deterministic scheduler for {num_days} days")
+    print(f"[Itinerary Generator] Creating {num_days}-day itinerary for {cart.num_people} people with {len(all_places)} activities")
+    
+    days = [ItineraryDay(day=i+1, activities=[], total_duration_mins=0) for i in range(num_days)]
+    day_clocks = [480 for _ in range(num_days)]  # Start at 8:00 AM
+    
+    print(f"[Itinerary Generator] Created {len(days)} day slots")
+    
+    # Collect all places with their time slot priorities
+    all_places_with_priority = []
+    for place in all_places:
+        priority, earliest_start, latest_end = get_time_slot_priority(place)
+        all_places_with_priority.append({
+            "place": place,
+            "priority": priority,
+            "earliest_start": earliest_start,
+            "latest_end": latest_end
+        })
+    
+    # Sort by priority (morning first, night last), then by region to group similar activities
+    all_places_with_priority.sort(key=lambda x: (x["priority"], x["place"].region))
+    
+    # Schedule activities with round-robin distribution across days
+    current_day_index = 0  # Start with day 0 and rotate
+    
+    for item in all_places_with_priority:
+        place = item["place"]
+        priority = item["priority"]
+        earliest_start = item["earliest_start"]
+        latest_end = item["latest_end"]
+        duration = parse_duration(place.duration)
+        
+        # Try to find a suitable day, starting from current_day_index and cycling through
+        best_day_idx = None
+        best_start_time = None
+        
+        # Try all days starting from the current day index
+        for offset in range(num_days):
+            d_idx = (current_day_index + offset) % num_days
+            
+            # Check if day has room (max 6 hours)
+            if days[d_idx].total_duration_mins + duration > 360:
+                continue
+            
+            curr_time = day_clocks[d_idx]
+            
+            # Adjust current time based on activity time slot
+            if priority == 0:  # Morning activities (6 AM - 11 AM)
+                if curr_time < earliest_start:
+                    curr_time = earliest_start
+                if curr_time + duration > latest_end:
                     continue
-                
-                curr_time = day_clocks[d_idx]
-                
-                # If night activity, jump to evening
-                if ("night" in bt or "pm" in bt) and curr_time < 1140:
-                    curr_time = 1140 # 7:00 PM
-                
-                # Format times
-                def fmt(m):
-                    h = (m // 60) % 24
-                    mins = m % 60
-                    ap = "AM" if h < 12 else "PM"
-                    dh = h if 0 < h <= 12 else (h-12 if h > 12 else 12)
-                    return f"{dh:02d}:{mins:02d} {ap}"
-                
-                act = ActivityInItinerary(
-                    **place.dict(),
-                    start_time=fmt(curr_time),
-                    end_time=fmt(curr_time + duration),
-                    travel_time_from_prev="45 mins" if days[d_idx].activities else "0 mins"
-                )
-                
-                days[d_idx].activities.append(act)
-                days[d_idx].total_duration_mins += duration
-                day_clocks[d_idx] = curr_time + duration + 45 # Travel buffer
-                break
+                    
+            elif priority == 1:  # Afternoon activities (11 AM - 4 PM)
+                if curr_time < earliest_start:
+                    curr_time = earliest_start
+                if curr_time + duration > latest_end:
+                    continue
+                    
+            elif priority == 2:  # Beach/Sunset (4 PM - 6 PM) - MUST end before 6 PM
+                if curr_time < earliest_start:
+                    curr_time = earliest_start
+                if curr_time + duration > latest_end:
+                    continue
+                    
+            elif priority == 3:  # Evening (6 PM - 9 PM)
+                if curr_time < earliest_start:
+                    curr_time = earliest_start
+                if curr_time + duration > latest_end:
+                    continue
+                    
+            elif priority == 4:  # Night activities (9 PM - 3 AM)
+                if curr_time < earliest_start:
+                    curr_time = earliest_start
+            
+            # Found a suitable slot
+            best_day_idx = d_idx
+            best_start_time = curr_time
+            break
+        
+        # If no suitable day found, skip this activity
+        if best_day_idx is None:
+            continue
+        
+        # Format times
+        def fmt(m):
+            h = (m // 60) % 24
+            mins = m % 60
+            ap = "AM" if h < 12 else "PM"
+            dh = h if 0 < h <= 12 else (h - 12 if h > 12 else 12)
+            return f"{dh:02d}:{mins:02d} {ap}"
+        
+        # Add travel time if not first activity
+        travel_buffer = 45 if days[best_day_idx].activities else 0
+        
+        act = ActivityInItinerary(
+            **place.dict(),
+            start_time=fmt(best_start_time),
+            end_time=fmt(best_start_time + duration),
+            travel_time_from_prev=f"{travel_buffer} mins"
+        )
+        
+        days[best_day_idx].activities.append(act)
+        days[best_day_idx].total_duration_mins += duration
+        day_clocks[best_day_idx] = best_start_time + duration + travel_buffer
+        
+        # Move to next day for better distribution (round-robin)
+        current_day_index = (best_day_idx + 1) % num_days
+    
+    # Log the distribution
+    for day in days:
+        print(f"[Itinerary Generator] Day {day.day} (type: {type(day.day)}): {len(day.activities)} activities, {day.total_duration_mins} mins")
+    
+    print(f"[Itinerary Generator] Total days created: {len(days)}")
+    print(f"[Itinerary Generator] Days with activities: {sum(1 for d in days if d.activities)}")
+    
+    # Debug: Print actual day numbers
+    print(f"[Itinerary Generator] Day numbers: {[d.day for d in days]}")
                 
     return Itinerary(chat_id=chat_id, days=days, num_people=cart.num_people)
-
-    return Itinerary(
-        chat_id=chat_id,
-        days=days,
-        num_people=cart.num_people
-    )
 
 if __name__ == "__main__":
     import uvicorn

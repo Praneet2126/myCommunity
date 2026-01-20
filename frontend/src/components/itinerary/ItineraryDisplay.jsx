@@ -60,8 +60,12 @@ function ItineraryDisplay({ chatType = 'community', cityName = 'City', chatName 
       });
       
       const data = await response.json();
-      if (data.success && Array.isArray(data.data)) {
-        console.log('Fetched itineraries from database:', data.data);
+      console.log('[ItineraryDisplay] Fetched itinerary response:', data);
+      
+      if (data.success && data.data) {
+        console.log('[ItineraryDisplay] Setting itinerary with', data.data.days?.length || 0, 'days');
+        console.log('[ItineraryDisplay] Itinerary chat_id:', data.data.chat_id, 'Fetched for chatId:', chatId);
+        
         // Store in ref for persistence
         itinerariesRef.current = data.data;
         setRealItineraries(data.data);
@@ -69,12 +73,10 @@ function ItineraryDisplay({ chatType = 'community', cityName = 'City', chatName 
         fetch('http://127.0.0.1:7243/ingest/1bfc7f15-dcb0-4f7b-960c-ab0b5c7f7c64',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H3',location:'ItineraryDisplay.jsx:fetchItineraries:success',message:'fetch itineraries success',data:{count:data.data.length},timestamp:Date.now()})}).catch(()=>{});
         // #endregion
       } else {
-        // No itineraries found, clear state
-        itinerariesRef.current = [];
-        setRealItineraries([]);
-        // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/1bfc7f15-dcb0-4f7b-960c-ab0b5c7f7c64',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H3',location:'ItineraryDisplay.jsx:fetchItineraries:empty',message:'fetch itineraries empty',data:{success:data?.success,hasData:Array.isArray(data?.data)},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
+        // No itinerary found, clear state
+        console.log('[ItineraryDisplay] No itinerary found');
+        itineraryRef.current = null;
+        setRealItinerary(null);
       }
     } catch (error) {
       console.error('Error fetching itinerary:', error);
@@ -260,18 +262,16 @@ function ItineraryDisplay({ chatType = 'community', cityName = 'City', chatName 
     tags: ['Personalized', 'Flexible', 'Custom']
   };
 
-  // Only show itineraries that match the current chat
-  const chatItineraries = realItineraries.filter(
-    (itinerary) => String(itinerary.chat_id) === String(activeChatId)
-  );
-  const convertedItineraries = chatItineraries
-    .map((itinerary, index) => convertItineraryFormat(itinerary, index))
-    .filter(Boolean);
-  console.log('Real itineraries state:', realItineraries);
-  console.log('Converted itineraries:', convertedItineraries);
-  const itineraries = chatType === 'community'
-    ? communityItineraries
-    : convertedItineraries;
+  // Show real itinerary if available (we've already fetched it for the current chat)
+  const convertedItinerary = realItinerary ? convertItineraryFormat(realItinerary) : null;
+  console.log('Real itinerary state:', realItinerary);
+  console.log('Converted itinerary:', convertedItinerary);
+  console.log('Active chat ID:', activeChatId, 'Itinerary chat_id:', realItinerary?.chat_id);
+  
+  // Use converted itinerary if available, otherwise use default
+  const privateItinerary = convertedItinerary || defaultPrivateItinerary;
+  console.log('Final private itinerary:', privateItinerary);
+  const itineraries = chatType === 'community' ? communityItineraries : [privateItinerary];
   console.log('Displaying itineraries:', itineraries);
   console.log('Chat type:', chatType, 'Active chat ID:', activeChatId);
   console.log('Number of itineraries to render:', itineraries.length);
