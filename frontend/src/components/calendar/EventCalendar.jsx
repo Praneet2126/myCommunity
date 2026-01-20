@@ -132,12 +132,6 @@ function EventCalendar({ cityId = null }) {
     setIsEventDetailOpen(true);
   };
 
-  const handleUserJoined = (updatedEvent) => {
-    setSelectedEvent(updatedEvent);
-    // Update the event in the list
-    setEvents(events.map(e => e._id === updatedEvent._id ? updatedEvent : e));
-  };
-
   const changeMonth = (direction) => {
     const newDate = new Date(currentDate);
     newDate.setMonth(currentDate.getMonth() + direction);
@@ -274,7 +268,6 @@ function EventCalendar({ cityId = null }) {
         <EventDetailModal
           event={selectedEvent}
           onClose={() => setIsEventDetailOpen(false)}
-          onUserJoined={handleUserJoined}
         />
       )}
     </div>

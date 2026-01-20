@@ -114,13 +114,6 @@ function EventsPage() {
     setSelectedEvent(null);
   };
 
-  // Handle user joined event
-  const handleUserJoined = (event) => {
-    console.log('User joined event:', event);
-    // You can add logic here to handle event joining
-    handleCloseModal();
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-50">
       {/* Hero Section with Search */}
@@ -355,7 +348,6 @@ function EventsPage() {
           <EventDetailModal
             event={selectedEvent}
             onClose={handleCloseModal}
-            onUserJoined={handleUserJoined}
           />
         )}
       </div>

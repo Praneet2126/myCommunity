@@ -39,6 +39,7 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
   const [extractedPreferences, setExtractedPreferences] = useState(null);
   const [votingActivity, setVotingActivity] = useState(null);
   const [votingAiHotel, setVotingAiHotel] = useState(null);
+  const [recentlyAddedToCart, setRecentlyAddedToCart] = useState(null);
 
   // Get current user from localStorage
   const getCurrentUserId = () => {
@@ -73,6 +74,7 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
       setEmailInput('');
       setFoundUser(null);
       setSearchError('');
+      setRecentlyAddedToCart(null);
       // Refresh activity recommendations to get updated votes when switching to recommendations tab
       if (activeTab === 'recommendations') {
         fetchActivityRecommendations();
@@ -80,9 +82,9 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
     }
   }, [isOpen, chat?.id, activeTab]);
 
-  // Fetch activity cart when cart tab is active
+  // Fetch activity cart when cart or recommendations tab is active
   useEffect(() => {
-    if (isOpen && chat?.id && activeTab === 'cart') {
+    if (isOpen && chat?.id && (activeTab === 'cart' || activeTab === 'recommendations')) {
       fetchActivityCart();
     }
   }, [isOpen, chat?.id, activeTab]);
@@ -405,7 +407,7 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
         // Remove from recommendations
         await fetchActivityRecommendations();
         await fetchActivityCart();
-        setToast({ message: 'Activity added to cart!', type: 'success', isVisible: true });
+        setRecentlyAddedToCart({ name: placeName, type: 'activity' });
       } else {
         setToast({ message: data.message || 'Failed to add activity to cart', type: 'error', isVisible: true });
       }
@@ -855,7 +857,7 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
         const data = await response.json();
 
         if (data.success) {
-          setToast({ message: 'Hotel added to cart!', type: 'success', isVisible: true });
+          setRecentlyAddedToCart({ name: hotel.name, type: 'hotel' });
           await fetchChatDetails();
           await fetchAiHotelRecommendations();
         } else {
@@ -920,10 +922,15 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
       const data = await response.json();
 
       if (data.success) {
+        // Get the hotel name before refreshing
+        const recommendations = chatDetails?.recommendations || chat?.recommendations || [];
+        const rec = recommendations[recommendationIndex];
+        const hotelName = typeof rec === 'string' ? rec : rec?.name || rec?.title || 'Hotel';
+        
         // Refresh chat details to get updated recommendations (with item removed)
         await fetchChatDetails();
         onMembersChanged && onMembersChanged();
-        setToast({ message: 'Hotel added to cart!', type: 'success', isVisible: true });
+        setRecentlyAddedToCart({ name: hotelName, type: 'hotel' });
       } else {
         setToast({ message: data.message || 'Failed to add to cart', type: 'error', isVisible: true });
       }
@@ -1099,7 +1106,12 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => {
+                if (tab.id !== 'recommendations') {
+                  setRecentlyAddedToCart(null);
+                }
+                setActiveTab(tab.id);
+              }}
               className={`flex-1 py-3 text-xs font-medium transition-colors relative ${
                 activeTab === tab.id
                   ? 'text-[#1976D2]'
@@ -1291,7 +1303,13 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {activityRecommendations.map((activity, idx) => {
+                    {activityRecommendations
+                      .filter(activity => {
+                        // Filter out activities already in cart
+                        const cartItems = activityCart?.items || [];
+                        return !cartItems.some(item => item.place_name === activity.name);
+                      })
+                      .map((activity, idx) => {
                       // Voting data
                       const votes = activity.votes || [];
                       const voteCount = votes.length;
@@ -1361,7 +1379,7 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
                               <span>{voteCount} {voteCount === 1 ? 'vote' : 'votes'}</span>
                             </button>
 
-                            {/* Admin: Add to Cart Button */}
+                            {/* Add to Cart Button (Admin only) */}
                             {isAdmin && (
                               <button
                                 onClick={() => handleAddActivityToCart(activity.name)}
@@ -1398,7 +1416,15 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
                   </div>
                 ) : aiHotelRecommendations.length > 0 ? (
                   <div className="space-y-3 mb-4">
-                    {aiHotelRecommendations.map((rec, index) => {
+                    {aiHotelRecommendations
+                      .filter(rec => {
+                        // Filter out hotels already in cart
+                        const hotel = rec.hotel || {};
+                        return !cartItems.some(
+                          item => (item.hotel_id === (hotel.hotel_code || hotel.name)) || (item.name === hotel.name)
+                        );
+                      })
+                      .map((rec, index) => {
                       const hotel = rec.hotel || {};
                       const explanation = rec.explanation || '';
                       const matchedPrefs = rec.matched_preferences || [];
@@ -1537,13 +1563,13 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
                               }
                             })()}
 
-                            {/* Admin: Add to Cart Button */}
+                            {/* Add to Cart Button (Admin only) */}
                             {isAdmin && (
                               <button
                                 onClick={() => {
                                   handleAddAiHotelToCart(hotel, rec);
                                 }}
-                                className="flex-1 px-3 py-1.5 bg-[#FF6B35] hover:bg-[#E55A2B] text-white rounded-lg text-xs font-medium transition-colors"
+                                className="px-3 py-1.5 bg-[#FF6B35] hover:bg-[#E55A2B] text-white rounded-lg text-xs font-medium transition-colors"
                               >
                                 Add to Cart
                               </button>
@@ -1704,7 +1730,7 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
                                     <span>{voteCount} {voteCount === 1 ? 'vote' : 'votes'}</span>
                                   </button>
 
-                                  {/* Admin: Add to Cart Button */}
+                                  {/* Add to Cart Button (Admin only) */}
                                   {isAdmin && (
                                     <button
                                       onClick={() => handleAddToCart(originalIndex)}
@@ -1740,6 +1766,32 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
                       })
                       .filter(item => item !== null)}
                   </div>
+                </div>
+              )}
+
+              {/* Added to Cart Notice */}
+              {recentlyAddedToCart && (
+                <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="text-sm text-green-800">
+                      <span className="font-medium">{recentlyAddedToCart.name}</span> added to cart
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setRecentlyAddedToCart(null);
+                      setActiveTab('cart');
+                    }}
+                    className="text-sm font-medium text-green-700 hover:text-green-900 flex items-center gap-1"
+                  >
+                    View
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
                 </div>
               )}
             </div>
