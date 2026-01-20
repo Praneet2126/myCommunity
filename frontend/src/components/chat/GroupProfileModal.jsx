@@ -2016,6 +2016,46 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
                       AI Generated
                     </span>
                   </div>
+
+                  {/* Hotel Information */}
+                  {generatedItinerary.hotel && (
+                    <div className="bg-white rounded-lg p-3 border-2 border-indigo-200 mb-3">
+                      <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0 w-8 h-8 rounded bg-indigo-100 flex items-center justify-center">
+                          <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                          </svg>
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-gray-800 text-sm">{generatedItinerary.hotel.name}</h4>
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            {generatedItinerary.hotel.stars && (
+                              <div className="flex items-center">
+                                {[...Array(generatedItinerary.hotel.stars)].map((_, i) => (
+                                  <svg key={i} className="w-3 h-3 text-yellow-400 fill-current" viewBox="0 0 20 20">
+                                    <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
+                                  </svg>
+                                ))}
+                              </div>
+                            )}
+                            {generatedItinerary.hotel.price && (
+                              <span className="text-xs font-medium text-indigo-600">
+                                ₹{generatedItinerary.hotel.price.toLocaleString()}/night
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3 mt-2 text-xs text-gray-600">
+                            <span>Check-in: {generatedItinerary.hotel.check_in || '02:00 PM'}</span>
+                            <span>•</span>
+                            <span>Check-out: {generatedItinerary.hotel.check_out || '11:00 AM'}</span>
+                          </div>
+                          {generatedItinerary.hotel.description && (
+                            <p className="text-xs text-gray-600 mt-2">{generatedItinerary.hotel.description}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   
                   {generatedItinerary.days && generatedItinerary.days.length > 0 ? (
                     <div className="space-y-3 max-h-96 overflow-y-auto">

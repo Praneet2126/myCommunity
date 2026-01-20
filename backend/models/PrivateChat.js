@@ -81,6 +81,7 @@ const privateChatSchema = new mongoose.Schema({
   }],
   activity_itineraries: [{
     chat_id: String,
+    title: String,
     days: [{
       day: Number,
       activities: [{
@@ -99,6 +100,16 @@ const privateChatSchema = new mongoose.Schema({
       total_duration_mins: Number
     }],
     num_people: Number,
+    hotel: {
+      name: String,
+      hotel_id: String,
+      check_in: String,
+      check_out: String,
+      price: Number,
+      stars: Number,
+      description: String,
+      image_url: String
+    },
     generated_at: {
       type: Date,
       default: Date.now

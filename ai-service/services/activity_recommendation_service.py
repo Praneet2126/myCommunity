@@ -33,27 +33,46 @@ class LocalLLM:
                 )
         return cls._instance
 
-    def generate_itinerary(self, chat_id: str, num_days: int, num_people: int, places: List[Dict]) -> Optional[Dict]:
+    def generate_itinerary(self, chat_id: str, num_days: int, num_people: int, places: List[Dict], hotels: List[Dict] = None) -> Optional[Dict]:
         places_json = json.dumps(places)
+        hotels_json = json.dumps(hotels) if hotels else "[]"
+        
+        # Build the prompt based on available data
+        hotel_instructions = ""
+        hotel_schema = ""
+        if hotels and len(hotels) > 0:
+            hotel_instructions = """
+            7. INCLUDE HOTEL: Include the selected hotel in the itinerary. Show check-in on day 1 and check-out on the last day.
+            8. HOTEL TIMING: Check-in is typically at 2:00 PM, check-out at 11:00 AM."""
+            hotel_schema = """
+                "hotel": {
+                    "name": "...",
+                    "check_in": "02:00 PM",
+                    "check_out": "11:00 AM",
+                    "price": 0,
+                    "stars": 0,
+                    "description": "..."
+                },"""
+        
         messages = [
-            {"role": "system", "content": """You are an expert travel planner for Goa. Create a realistic, non-overlapping, sequential itinerary.
+            {"role": "system", "content": f"""You are an expert travel planner for Goa. Create a realistic, non-overlapping, sequential itinerary.
             CRITICAL RULES:
             1. NO OVERLAPPING TIMES. The 'end_time' of one activity must be BEFORE the 'start_time' of the next.
             2. SEQUENTIAL FLOW: Activities must be in order (e.g., 9am, then 1pm, then 6pm).
             3. RESPECT BEST TIME: Only schedule Casinos/Clubs at night (after 7pm). Schedule Treks/Wildlife in the morning.
             4. TRAVEL TIME: Include 45-60 mins of travel between activities.
             5. FORMAT: Use 12-hour AM/PM format (e.g., 09:00 AM, 01:00 PM). Max 6 hours of activity per day.
-            6. Output ONLY valid JSON matching the schema below.
+            6. Output ONLY valid JSON matching the schema below.{hotel_instructions}
             
             Schema:
-            {
+            {{
                 "chat_id": "...",
-                "num_people": 0,
+                "num_people": 0,{hotel_schema}
                 "days": [
-                    {
+                    {{
                         "day": 1,
                         "activities": [
-                            {
+                            {{
                                 "name": "...", 
                                 "start_time": "09:00 AM", 
                                 "end_time": "11:00 AM", 
@@ -61,14 +80,14 @@ class LocalLLM:
                                 "region": "...",
                                 "category": "...",
                                 "duration": "..."
-                            }
+                            }}
                         ],
                         "total_duration_mins": 0
-                    }
+                    }}
                 ]
-            }
+            }}
             """},
-            {"role": "user", "content": f"Create a {num_days}-day realistic itinerary for {num_people} people. Activities: {places_json}"}
+            {"role": "user", "content": f"Create a {num_days}-day realistic itinerary for {num_people} people. Activities: {places_json}. Hotels: {hotels_json}"}
         ]
         
         try:
@@ -220,6 +239,7 @@ class ActivityCartManager:
             cls._instance.message_counts = {}
             cls._instance.participants = {}
             cls._instance.message_buffers = {}
+            cls._instance.hotels = {}  # Store hotels for each chat
         return cls._instance
 
     def add_to_cart(self, chat_id: str, place_name: str, user_name: str):
@@ -242,12 +262,23 @@ class ActivityCartManager:
             "count": 1
         })
 
+    def set_hotels(self, chat_id: str, hotels: List[Dict]):
+        """Store hotels for a chat session (from backend cart)"""
+        self.hotels[chat_id] = hotels
+
+    def get_hotels(self, chat_id: str) -> List[Dict]:
+        """Get hotels for a chat session"""
+        return self.hotels.get(chat_id, [])
+
     def get_cart(self, chat_id: str) -> Dict:
-        return self.carts.get(chat_id, {
+        cart = self.carts.get(chat_id, {
             "items": [],
             "num_days": 3,
             "num_people": 2
         })
+        # Include hotels in cart response
+        cart["hotels"] = self.get_hotels(chat_id)
+        return cart
 
     def update_cart_settings(self, chat_id: str, num_days: int, num_people: int):
         if chat_id not in self.carts:
@@ -398,16 +429,24 @@ class ActivityRecommendationService:
         self.cart_manager.update_cart_settings(chat_id, num_days, num_people)
         return {"status": "success"}
     
-    def generate_itinerary(self, chat_id: str) -> Dict:
-        """Generate an itinerary from cart items"""
+    def set_hotels_for_chat(self, chat_id: str, hotels: List[Dict]):
+        """Set hotels for a chat session (called from backend)"""
+        self.cart_manager.set_hotels(chat_id, hotels)
+
+    def generate_itinerary(self, chat_id: str, hotels: List[Dict] = None) -> Dict:
+        """Generate an itinerary from cart items and hotels"""
         cart = self.cart_manager.get_cart(chat_id)
         
-        if not cart.get("items"):
-            return {"error": "Cart is empty", "status": "error"}
+        # Get hotels from parameter or cart manager
+        hotel_list = hotels if hotels is not None else cart.get("hotels", [])
         
-        # 1. Expand items by count
+        # Check if we have at least activities or hotels
+        if not cart.get("items") and not hotel_list:
+            return {"error": "Cart is empty. Add activities or hotels to generate an itinerary.", "status": "error"}
+        
+        # 1. Expand activity items by count
         all_places = []
-        for item in cart["items"]:
+        for item in cart.get("items", []):
             place = self.search_engine.get_place_by_name(item["place_name"])
             if place:
                 for _ in range(item["count"]):
@@ -419,17 +458,21 @@ class ActivityRecommendationService:
             chat_id=chat_id,
             num_days=cart["num_days"],
             num_people=cart["num_people"],
-            places=all_places
+            places=all_places,
+            hotels=hotel_list
         )
         
         if llm_itinerary and "days" in llm_itinerary:
+            # Add hotels to the result if not already present
+            if hotel_list and "hotel" not in llm_itinerary:
+                llm_itinerary["hotel"] = hotel_list[0] if len(hotel_list) == 1 else hotel_list
             return llm_itinerary
         
         # 3. Deterministic Robust Scheduler (Fallback)
-        return self._generate_deterministic_itinerary(chat_id, all_places, cart["num_days"], cart["num_people"])
+        return self._generate_deterministic_itinerary(chat_id, all_places, cart["num_days"], cart["num_people"], hotel_list)
     
     def _generate_deterministic_itinerary(self, chat_id: str, all_places: List[Dict], 
-                                         num_days: int, num_people: int) -> Dict:
+                                         num_days: int, num_people: int, hotels: List[Dict] = None) -> Dict:
         """Fallback deterministic scheduler"""
         # Group by region to minimize travel
         by_region = {"North": [], "South": [], "Central": [], "Unknown": []}
@@ -500,8 +543,23 @@ class ActivityRecommendationService:
                     day_clocks[d_idx] = curr_time + duration + 45  # Travel buffer
                     break
         
-        return {
+        result = {
             "chat_id": chat_id,
             "days": days,
             "num_people": num_people
         }
+        
+        # Add hotel information if available
+        if hotels and len(hotels) > 0:
+            hotel = hotels[0]  # Use the first hotel for the itinerary
+            result["hotel"] = {
+                "name": hotel.get("name", "Selected Hotel"),
+                "check_in": "02:00 PM",
+                "check_out": "11:00 AM",
+                "price": hotel.get("price"),
+                "stars": hotel.get("stars"),
+                "description": hotel.get("description"),
+                "image_url": hotel.get("image_url")
+            }
+        
+        return result

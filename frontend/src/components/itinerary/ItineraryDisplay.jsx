@@ -12,30 +12,39 @@ import ItineraryDetailModal from './ItineraryDetailModal';
 function ItineraryDisplay({ chatType = 'community', cityName = 'City', chatName = '', activeChatId = null }) {
   const [selectedItinerary, setSelectedItinerary] = useState(null);
   const [viewingItinerary, setViewingItinerary] = useState(null);
-  const [realItinerary, setRealItinerary] = useState(null);
+  const [realItineraries, setRealItineraries] = useState([]);
   const [loadingItinerary, setLoadingItinerary] = useState(false);
+  // #region agent log
+  fetch('http://127.0.0.1:7243/ingest/1bfc7f15-dcb0-4f7b-960c-ab0b5c7f7c64',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H1',location:'ItineraryDisplay.jsx:state:init',message:'component render',data:{chatType,activeChatId,hasSetRealItineraries:typeof setRealItineraries},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
 
-  // Reset selected itinerary when chat type changes (but preserve realItinerary if same chat)
+  // Reset selected itinerary when chat type changes (but preserve realItineraries if same chat)
   useEffect(() => {
     setSelectedItinerary(null);
     setViewingItinerary(null);
-    // Only clear realItinerary if chatType changes, not if just activeChatId changes
+    // Only clear realItineraries if chatType changes, not if just activeChatId changes
     // This prevents clearing the itinerary when switching between chats of the same type
     if (chatType === 'community') {
-      setRealItinerary(null);
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/1bfc7f15-dcb0-4f7b-960c-ab0b5c7f7c64',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H2',location:'ItineraryDisplay.jsx:reset:community',message:'clearing itineraries for community',data:{chatType},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+      setRealItineraries([]);
     }
     // For private chats, we'll preserve the itinerary if it matches the activeChatId
   }, [chatType]);
 
-  // Store itinerary in a way that persists across re-renders
-  // Use a ref to store the latest itinerary for this chat
-  const itineraryRef = useRef(null);
+  // Store itineraries in a way that persists across re-renders
+  // Use a ref to store the latest itineraries for this chat
+  const itinerariesRef = useRef([]);
   
   // Fetch itinerary from database
-  const fetchItinerary = async (chatId) => {
+  const fetchItineraries = async (chatId) => {
     if (!chatId || chatId === 'public') return;
     
     try {
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/1bfc7f15-dcb0-4f7b-960c-ab0b5c7f7c64',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H3',location:'ItineraryDisplay.jsx:fetchItineraries:start',message:'fetch itineraries start',data:{chatId},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       setLoadingItinerary(true);
       const token = localStorage.getItem('token');
       if (!token) return;
@@ -43,7 +52,7 @@ function ItineraryDisplay({ chatType = 'community', cityName = 'City', chatName 
       const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
       
-      const response = await fetch(`${BASE_URL}/api/chats/${chatId}/activities/itinerary`, {
+      const response = await fetch(`${BASE_URL}/api/chats/${chatId}/activities/itineraries`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -51,22 +60,25 @@ function ItineraryDisplay({ chatType = 'community', cityName = 'City', chatName 
       });
       
       const data = await response.json();
-      if (data.success && data.data) {
-        console.log('Fetched itinerary from database:', data.data);
+      if (data.success && Array.isArray(data.data)) {
+        console.log('Fetched itineraries from database:', data.data);
         // Store in ref for persistence
-        itineraryRef.current = {
-          chatId: chatId,
-          itinerary: data.data
-        };
-        setRealItinerary(data.data);
+        itinerariesRef.current = data.data;
+        setRealItineraries(data.data);
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/1bfc7f15-dcb0-4f7b-960c-ab0b5c7f7c64',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H3',location:'ItineraryDisplay.jsx:fetchItineraries:success',message:'fetch itineraries success',data:{count:data.data.length},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
       } else {
-        // No itinerary found, clear state
-        itineraryRef.current = null;
-        setRealItinerary(null);
+        // No itineraries found, clear state
+        itinerariesRef.current = [];
+        setRealItineraries([]);
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/1bfc7f15-dcb0-4f7b-960c-ab0b5c7f7c64',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H3',location:'ItineraryDisplay.jsx:fetchItineraries:empty',message:'fetch itineraries empty',data:{success:data?.success,hasData:Array.isArray(data?.data)},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
       }
     } catch (error) {
       console.error('Error fetching itinerary:', error);
-      setRealItinerary(null);
+      setRealItineraries([]);
     } finally {
       setLoadingItinerary(false);
     }
@@ -75,9 +87,9 @@ function ItineraryDisplay({ chatType = 'community', cityName = 'City', chatName 
   // Fetch real itinerary for private chats
   useEffect(() => {
     if (chatType === 'private' && activeChatId && activeChatId !== 'public') {
-      // Fetch itinerary from database when chat changes
+      // Fetch itineraries from database when chat changes
       const currentChatId = String(activeChatId);
-      fetchItinerary(currentChatId);
+      fetchItineraries(currentChatId);
       
       // Listen for itinerary generation events (for real-time updates)
       const handleItineraryGenerated = (event) => {
@@ -96,18 +108,21 @@ function ItineraryDisplay({ chatType = 'community', cityName = 'City', chatName 
                        eventChatId.replace(/[^a-zA-Z0-9]/g, '') === currentChatId.replace(/[^a-zA-Z0-9]/g, '');
         
         if (matches && event.detail.itinerary) {
-          console.log('Itinerary matched! Setting itinerary:', event.detail.itinerary);
-          // Store in ref for persistence
-          itineraryRef.current = {
-            chatId: activeChatId,
-            itinerary: event.detail.itinerary
-          };
-          setRealItinerary(event.detail.itinerary);
+          console.log('Itinerary matched! Appending itinerary:', event.detail.itinerary);
+          const updated = [...itinerariesRef.current, event.detail.itinerary];
+          itinerariesRef.current = updated;
+          setRealItineraries(updated);
+          // #region agent log
+          fetch('http://127.0.0.1:7243/ingest/1bfc7f15-dcb0-4f7b-960c-ab0b5c7f7c64',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H4',location:'ItineraryDisplay.jsx:itineraryGenerated:append',message:'appended itinerary',data:{eventChatId,currentChatId,updatedCount:updated.length},timestamp:Date.now()})}).catch(()=>{});
+          // #endregion
         } else {
           console.log('Chat ID mismatch or missing itinerary');
           console.log('Event chatId:', eventChatId, 'Type:', typeof eventChatId);
           console.log('Active chatId:', currentChatId, 'Type:', typeof currentChatId);
           console.log('Matches:', matches, 'Has itinerary:', !!event.detail.itinerary);
+          // #region agent log
+          fetch('http://127.0.0.1:7243/ingest/1bfc7f15-dcb0-4f7b-960c-ab0b5c7f7c64',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H4',location:'ItineraryDisplay.jsx:itineraryGenerated:skip',message:'skipped itinerary event',data:{eventChatId,currentChatId,matches,hasItinerary:!!event.detail.itinerary},timestamp:Date.now()})}).catch(()=>{});
+          // #endregion
         }
       };
       
@@ -118,8 +133,8 @@ function ItineraryDisplay({ chatType = 'community', cityName = 'City', chatName 
       };
     } else {
       // Clear itinerary when switching away from private chat
-      itineraryRef.current = null;
-      setRealItinerary(null);
+      itinerariesRef.current = [];
+      setRealItineraries([]);
     }
   }, [chatType, activeChatId]);
 
@@ -174,7 +189,7 @@ function ItineraryDisplay({ chatType = 'community', cityName = 'City', chatName 
   ];
 
   // Convert real itinerary format to display format
-  const convertItineraryFormat = (itinerary) => {
+  const convertItineraryFormat = (itinerary, index) => {
     console.log('Converting itinerary:', itinerary);
     if (!itinerary || !itinerary.days) {
       console.log('Invalid itinerary - missing days');
@@ -204,9 +219,15 @@ function ItineraryDisplay({ chatType = 'community', cityName = 'City', chatName 
     });
 
     console.log(`Total activities extracted: ${activities.length}`);
+    const generatedDate = itinerary.generated_at ? new Date(itinerary.generated_at) : null;
+    const formattedDate = generatedDate
+      ? generatedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      : null;
+    const title = itinerary.title || `Itinerary ${index + 1}${formattedDate ? ` • ${formattedDate}` : ''}`;
+
     const converted = {
-      id: itinerary.chat_id || 'generated-1',
-      title: `${chatName || 'Your'} Trip Plan`,
+      id: `${itinerary.chat_id || 'generated'}-${itinerary.generated_at || index}`,
+      title,
       days: itinerary.days.length,
       activities: activities,
       estimatedCost: 'Custom',
@@ -239,15 +260,18 @@ function ItineraryDisplay({ chatType = 'community', cityName = 'City', chatName 
     tags: ['Personalized', 'Flexible', 'Custom']
   };
 
-  // Only show itinerary if it matches the current chat
-  const shouldShowItinerary = realItinerary && String(realItinerary.chat_id) === String(activeChatId);
-  const convertedItinerary = shouldShowItinerary ? convertItineraryFormat(realItinerary) : null;
-  console.log('Real itinerary state:', realItinerary);
-  console.log('Converted itinerary:', convertedItinerary);
-  console.log('Should show itinerary:', shouldShowItinerary, 'chat_id:', realItinerary?.chat_id, 'activeChatId:', activeChatId);
-  const privateItinerary = convertedItinerary || defaultPrivateItinerary;
-  console.log('Final private itinerary:', privateItinerary);
-  const itineraries = chatType === 'community' ? communityItineraries : [privateItinerary];
+  // Only show itineraries that match the current chat
+  const chatItineraries = realItineraries.filter(
+    (itinerary) => String(itinerary.chat_id) === String(activeChatId)
+  );
+  const convertedItineraries = chatItineraries
+    .map((itinerary, index) => convertItineraryFormat(itinerary, index))
+    .filter(Boolean);
+  console.log('Real itineraries state:', realItineraries);
+  console.log('Converted itineraries:', convertedItineraries);
+  const itineraries = chatType === 'community'
+    ? communityItineraries
+    : convertedItineraries;
   console.log('Displaying itineraries:', itineraries);
   console.log('Chat type:', chatType, 'Active chat ID:', activeChatId);
   console.log('Number of itineraries to render:', itineraries.length);
@@ -276,9 +300,9 @@ function ItineraryDisplay({ chatType = 'community', cityName = 'City', chatName 
             <p className="text-xs text-gray-600">
               Your personalized trip plan
             </p>
-            {realItinerary && (
+            {realItineraries.length > 0 && (
               <p className="text-xs text-green-600 mt-1">
-                ✓ Itinerary loaded ({realItinerary.days?.length || 0} days)
+                ✓ Itineraries loaded ({realItineraries.length})
               </p>
             )}
           </>

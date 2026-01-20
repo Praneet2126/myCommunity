@@ -1402,15 +1402,34 @@ router.delete('/:chatId/activities/recommendations/:activityIndex/vote', authent
   }
 });
 
-// Generate itinerary from cart
+// Generate itinerary from cart (activities + hotels)
 router.post('/:chatId/activities/itinerary/generate', authenticate, async (req, res, next) => {
   try {
     const { chatId } = req.params;
 
-    // Call AI service with chat_id as query parameter
+    // Fetch hotel cart items from the chat
+    const chat = await PrivateChat.findById(chatId).select('cart activity_itineraries');
+    
+    // Extract hotel items from cart (filter out activity items)
+    const hotelCartItems = (chat?.cart || []).filter(item => {
+      // Hotel items have hotel_id or are not activities
+      return item.hotel_id || item.name; 
+    }).map(item => ({
+      hotel_id: item.hotel_id || item.name,
+      name: item.name || 'Hotel',
+      price: item.price,
+      stars: item.stars,
+      description: item.description,
+      image_url: item.image_url || item.imageUrl
+    }));
+
+    // Call AI service with chat_id and hotel data
     const response = await axios.post(
       `${AI_SERVICE_URL}/api/v1/activities/itinerary/generate`,
-      null,
+      {
+        chat_id: chatId,
+        hotels: hotelCartItems
+      },
       {
         params: { chat_id: chatId }
       }
@@ -1419,12 +1438,16 @@ router.post('/:chatId/activities/itinerary/generate', authenticate, async (req, 
     // Store itinerary in database
     if (response.data && response.data.chat_id) {
       try {
+        const nextIndex = (chat?.activity_itineraries?.length || 0) + 1;
+        const title = `Itinerary ${nextIndex}`;
         await PrivateChat.findByIdAndUpdate(chatId, {
           $push: {
             activity_itineraries: {
               chat_id: response.data.chat_id,
+              title,
               days: response.data.days || [],
               num_people: response.data.num_people || 2,
+              hotel: response.data.hotel || null,
               generated_at: new Date()
             }
           }
@@ -1474,6 +1497,36 @@ router.get('/:chatId/activities/itinerary', authenticate, async (req, res, next)
     });
   } catch (error) {
     console.error('Error fetching itinerary:', error);
+    next(error);
+  }
+});
+
+// Get all itineraries for a chat
+router.get('/:chatId/activities/itineraries', authenticate, async (req, res, next) => {
+  try {
+    const { chatId } = req.params;
+    const chat = await PrivateChat.findById(chatId).select('activity_itineraries');
+
+    if (!chat || !chat.activity_itineraries || chat.activity_itineraries.length === 0) {
+      return res.json({
+        success: true,
+        data: []
+      });
+    }
+
+    // Return itineraries sorted by generated_at ascending (oldest first)
+    const itineraries = [...chat.activity_itineraries].sort((a, b) => {
+      const aTime = new Date(a.generated_at || 0).getTime();
+      const bTime = new Date(b.generated_at || 0).getTime();
+      return aTime - bTime;
+    });
+
+    res.json({
+      success: true,
+      data: itineraries
+    });
+  } catch (error) {
+    console.error('Error fetching itineraries:', error);
     next(error);
   }
 });

@@ -2,6 +2,7 @@ from fastapi import FastAPI, File, UploadFile, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
+import json
 import uvicorn
 import sys
 import os
@@ -419,6 +420,20 @@ class UpdateCartSettingsRequest(BaseModel):
     num_people: int
 
 
+class HotelCartItem(BaseModel):
+    hotel_id: Optional[str] = None
+    name: str
+    price: Optional[int] = None
+    stars: Optional[int] = None
+    description: Optional[str] = None
+    image_url: Optional[str] = None
+
+
+class GenerateItineraryRequest(BaseModel):
+    chat_id: str
+    hotels: Optional[List[HotelCartItem]] = None
+
+
 class ActivityInItinerary(ActivityPlace):
     start_time: str
     end_time: str
@@ -431,10 +446,21 @@ class ItineraryDay(BaseModel):
     total_duration_mins: int
 
 
+class ItineraryHotel(BaseModel):
+    name: str
+    check_in: Optional[str] = "02:00 PM"
+    check_out: Optional[str] = "11:00 AM"
+    price: Optional[int] = None
+    stars: Optional[int] = None
+    description: Optional[str] = None
+    image_url: Optional[str] = None
+
+
 class Itinerary(BaseModel):
     chat_id: str
     days: List[ItineraryDay]
     num_people: int
+    hotel: Optional[ItineraryHotel] = None
 
 
 @app.post("/api/v1/activities/message", response_model=ProcessMessageResponse)
@@ -607,23 +633,56 @@ async def update_activity_cart_settings(request: UpdateCartSettingsRequest):
 
 
 @app.post("/api/v1/activities/itinerary/generate", response_model=Itinerary)
-async def generate_activity_itinerary(chat_id: str = Query(..., description="The chat ID for which to generate the itinerary")):
+async def generate_activity_itinerary(
+    chat_id: str = Query(..., description="The chat ID for which to generate the itinerary"),
+    request: Optional[GenerateItineraryRequest] = None
+):
     """
-    Generate an itinerary from cart activities using AI or deterministic scheduling.
+    Generate an itinerary from cart activities and hotels using AI or deterministic scheduling.
     
-    This endpoint takes all activities in the cart and generates a day-by-day itinerary
-    with time slots, considering travel time, best time to visit, and regional clustering.
+    This endpoint takes all activities in the cart along with hotels and generates a day-by-day 
+    itinerary with time slots, considering travel time, best time to visit, and regional clustering.
     
     Query parameters:
     - chat_id: The chat ID for which to generate the itinerary
+    
+    Request body (optional):
+    {
+        "chat_id": "city_goa_123",
+        "hotels": [
+            {
+                "hotel_id": "hotel_123",
+                "name": "Beach Resort",
+                "price": 15000,
+                "stars": 4,
+                "description": "Beautiful beachfront resort",
+                "image_url": "https://..."
+            }
+        ]
+    }
     """
     try:
         init_activity_recommendation_service()
         
-        result = activity_recommendation_service.generate_itinerary(chat_id)
+        # Extract hotel data from request body if provided
+        hotels = None
+        if request and request.hotels:
+            hotels = [hotel.dict() for hotel in request.hotels]
+        
+        # #region agent log
+        with open("/Users/int1964/myCommunity-1/.cursor/debug.log", "a") as _f:
+            _f.write(json.dumps({"sessionId":"debug-session","runId":"pre-fix","hypothesisId":"H3","location":"ai-service/main.py:generate_activity_itinerary","message":"Incoming itinerary request","data":{"chatId":chat_id,"hasRequest":bool(request),"hotelsCount":len(hotels) if hotels else 0},"timestamp":int(__import__("time").time()*1000)}) + "\n")
+        # #endregion agent log
+        
+        result = activity_recommendation_service.generate_itinerary(chat_id, hotels=hotels)
         
         if result.get("status") == "error":
             raise HTTPException(status_code=400, detail=result.get("error", "Failed to generate itinerary"))
+        
+        # #region agent log
+        with open("/Users/int1964/myCommunity-1/.cursor/debug.log", "a") as _f:
+            _f.write(json.dumps({"sessionId":"debug-session","runId":"pre-fix","hypothesisId":"H4","location":"ai-service/main.py:generate_activity_itinerary","message":"Itinerary generated","data":{"chatId":chat_id,"hasHotel":bool(result.get("hotel")),"daysCount":len(result.get("days", []))},"timestamp":int(__import__("time").time()*1000)}) + "\n")
+        # #endregion agent log
         
         return Itinerary(**result)
     except HTTPException:
