@@ -187,7 +187,10 @@ function MyLensModal({ isOpen, onClose, onAddToRecommendations, chatId }) {
         <div className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white p-6">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-bold">myLens</h2>
+              <h2 className="text-2xl font-bold flex items-center gap-1">
+                <img src="/myLogo.png" alt="my" className="w-7 h-7 object-contain" />
+                <span>Lens</span>
+              </h2>
               <p className="text-indigo-100 text-sm mt-1">AI-powered hotel image search</p>
             </div>
             <button
@@ -430,14 +433,14 @@ function MyLensModal({ isOpen, onClose, onAddToRecommendations, chatId }) {
         </div>
 
         {/* Footer */}
-        <div className="border-t p-4 bg-gray-50">
+        {/* <div className="border-t p-4 bg-gray-50">
           <button
             onClick={handleClose}
             className="w-full py-2.5 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition"
           >
             Close
           </button>
-        </div>
+        </div> */}
       </div>
     </div>
   );

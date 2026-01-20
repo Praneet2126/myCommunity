@@ -130,7 +130,10 @@ function ChatInput({ onSend, onAIClick, onMyLensClick, onImageUpload, isUploadin
                   </svg>
                 </div>
                 <div>
-                  <p className="font-semibold text-gray-800 text-sm">myLens</p>
+                  <p className="font-semibold text-gray-800 text-sm flex items-center gap-0.5">
+                    <img src="/myLogo.png" alt="my" className="w-4 h-4 object-contain" />
+                    <span>Lens</span>
+                  </p>
                   <p className="text-xs text-gray-500">Find similar hotels</p>
                 </div>
               </button>

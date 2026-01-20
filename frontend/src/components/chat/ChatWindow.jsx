@@ -134,14 +134,15 @@ function ChatWindow({
                 </p>
               </div>
             </div>
-            {/* Arrow for Private Chat Profile - Right Corner */}
+            {/* Details Button for Private Chat Profile - Right Corner */}
             {isPrivateChat && (
               <button
                 onClick={() => setShowGroupProfile(true)}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                className="px-4 py-2 bg-gradient-to-br from-[#1976D2] to-[#1565C0] hover:from-[#1565C0] hover:to-[#0D47A1] rounded-lg transition-all text-sm font-medium text-white flex items-center gap-1 shadow-sm hover:shadow-md"
                 title="View group info"
               >
-                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                Details
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </button>
@@ -170,14 +171,15 @@ function ChatWindow({
                 </p>
               </div>
             </div>
-            {/* Arrow for Private Chat Profile - Right Corner */}
+            {/* Details Button for Private Chat Profile - Right Corner */}
             {isPrivateChat && (
               <button
                 onClick={() => setShowGroupProfile(true)}
-                className="p-1.5 hover:bg-gray-100 rounded-full transition-colors flex-shrink-0"
+                className="px-3 py-1.5 bg-gradient-to-br from-[#1976D2] to-[#1565C0] hover:from-[#1565C0] hover:to-[#0D47A1] rounded-lg transition-all text-xs font-medium text-white flex items-center gap-1 flex-shrink-0 shadow-sm hover:shadow-md"
                 title="View group info"
               >
-                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                Details
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </button>

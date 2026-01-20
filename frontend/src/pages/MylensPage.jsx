@@ -122,8 +122,9 @@ function MylensPage() {
               <span className="text-sm font-semibold text-indigo-700">AI-Powered Visual Search</span>
             </div>
 
-            <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-              myLens
+            <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4 flex items-center justify-center gap-2">
+              <img src="/myLogo.png" alt="my" className="w-12 h-12 md:w-14 md:h-14 object-contain" />
+              <span>Lens</span>
             </h1>
             <p className="text-lg text-gray-600 font-medium max-w-2xl mx-auto">
               Discover similar hotels using advanced AI image recognition. Upload a hotel image to find matching accommodations.

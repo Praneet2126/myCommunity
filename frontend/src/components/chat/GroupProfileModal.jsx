@@ -484,12 +484,20 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
 
   // Update cart settings
   const handleUpdateCartSettings = async (numDays, numPeople) => {
+    // Update local state immediately (no loading)
+    setActivityCart(prev => ({
+      ...prev,
+      num_days: numDays,
+      num_people: numPeople
+    }));
+    
+    // Save to backend in background
     try {
       const token = localStorage.getItem('token');
       const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
       
-      const response = await fetch(`${BASE_URL}/api/chats/${chat.id}/activities/cart/update`, {
+      await fetch(`${BASE_URL}/api/chats/${chat.id}/activities/cart/update`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -497,11 +505,6 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
         },
         body: JSON.stringify({ num_days: numDays, num_people: numPeople })
       });
-      
-      const data = await response.json();
-      if (data.success) {
-        await fetchActivityCart();
-      }
     } catch (error) {
       console.error('Error updating cart settings:', error);
     }
@@ -1043,77 +1046,74 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-        {/* Header with Group Avatar */}
+      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+        {/* Header with Group Avatar and Info */}
         <div className="bg-gradient-to-br from-[#1976D2] to-[#1565C0] text-white p-6 relative">
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 text-white/80 hover:text-white hover:bg-white/20 rounded-full p-2 transition"
+            className="absolute top-4 right-4 text-white/80 hover:text-white hover:bg-white/20 rounded-full p-2 transition z-10"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
 
-          <div className="flex flex-col items-center">
-            {/* Group Avatar */}
-            <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center text-3xl font-bold mb-3">
-              {chat.name?.charAt(0).toUpperCase() || 'G'}
-            </div>
-            
-            {/* Group Name */}
-            <h2 className="text-xl font-bold text-center">{chat.name || 'Private Group'}</h2>
-            
-            {/* Group Type */}
-            <p className="text-blue-100 text-sm mt-1">
-              Private Group · {loading ? '...' : members.length} {members.length === 1 ? 'member' : 'members'}
-            </p>
-          </div>
-        </div>
+          <div className="flex flex-col gap-3">
+            {/* Top Row: Profile (Left) + Location/Created (Right) */}
+            <div className="flex items-center gap-8">
+              {/* Left: Avatar + Name/Members */}
+              <div className="flex items-center gap-3">
+                {/* Avatar */}
+                <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center text-2xl font-bold flex-shrink-0">
+                  {chat.name?.charAt(0).toUpperCase() || 'G'}
+                </div>
+                
+                {/* Name + Members */}
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-xl font-bold">{chat.name || 'Private Group'}</h2>
+                    {/* Lock Icon for Private */}
+                    <svg className="w-4 h-4 text-blue-200" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <p className="text-blue-100 text-sm">
+                    {loading ? '.' : members.length} {members.length === 1 ? 'member' : 'members'}
+                  </p>
+                </div>
+              </div>
 
-        {/* Group Info */}
-        <div className="p-4 border-b border-gray-100 space-y-3">
-          {/* Location */}
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center">
-              <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">Location</p>
-              <p className="text-sm font-medium text-gray-800">{cityName || 'Not specified'}</p>
-            </div>
-          </div>
+              {/* Right: Location + Created */}
+              <div className="flex flex-col gap-1">
+                {/* Location */}
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <span className="text-sm text-white">{cityName || 'Not specified'}</span>
+                </div>
 
-          {/* Created At */}
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-green-50 flex items-center justify-center">
-              <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
+                {/* Created At */}
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <span className="text-sm text-white">created on {formatDate(chat.createdAt || chat.created_at)}</span>
+                </div>
+              </div>
             </div>
-            <div>
-              <p className="text-xs text-gray-500">Created</p>
-              <p className="text-sm font-medium text-gray-800">{formatDate(chat.createdAt || chat.created_at)}</p>
-            </div>
-          </div>
 
-          {/* Description */}
-          {chat.description && (
-            <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-full bg-purple-50 flex items-center justify-center flex-shrink-0">
-                <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            {/* Description - Full Width Below */}
+            {chat.description && (
+              <div className="flex items-center gap-2 text-blue-100 text-sm">
+                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
+                <span>{chat.description}</span>
               </div>
-              <div>
-                <p className="text-xs text-gray-500">Description</p>
-                <p className="text-sm text-gray-800">{chat.description}</p>
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Tabs */}
@@ -1334,7 +1334,15 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
 
                       return (
                         <div key={idx} className="bg-white rounded-lg border border-gray-200 p-3 hover:shadow-md transition-shadow">
-                          <div className="flex items-start justify-between">
+                          <div className="flex items-start gap-3">
+                            {/* Activity Icon */}
+                            <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-orange-100 to-amber-100 flex items-center justify-center flex-shrink-0 p-2">
+                              <img 
+                                src="https://cdn-icons-png.flaticon.com/512/6556/6556349.png" 
+                                alt="Activity" 
+                                className="w-full h-full object-contain"
+                              />
+                            </div>
                             <div className="flex-1">
                               <h4 className="font-semibold text-sm text-gray-900">{activity.name}</h4>
                               <div className="flex items-center gap-2 mt-1">
@@ -1447,7 +1455,13 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
                       return (
                         <div key={index} className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow">
                           {/* Hotel Header */}
-                          <div className="flex items-start justify-between mb-2">
+                          <div className="flex items-start gap-3 mb-2">
+                            {/* Hotel Icon */}
+                            <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center flex-shrink-0">
+                              <svg className="w-7 h-7 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                              </svg>
+                            </div>
                             <div className="flex-1">
                               <h4 className="font-semibold text-gray-900 text-sm mb-1">{hotel.name || 'Hotel'}</h4>
                               {hotel.hotel_code && (
@@ -1625,7 +1639,7 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
                 <div className="mt-6">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-sm font-semibold text-gray-700">Saved Hotel Recommendations</h3>
-                    <span className="text-xs text-gray-500">From myLens</span>
+                    <span className="text-xs text-gray-500 flex items-center gap-0.5">From <img src="/myLogo.png" alt="my" className="w-3 h-3 object-contain inline" />Lens</span>
                   </div>
                   <div className="space-y-2">
                     {recommendations
@@ -1844,7 +1858,15 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
                       if (!item || !item.place_name) return null;
                       return (
                         <div key={idx} className="bg-white rounded-lg border border-gray-200 p-3 group relative">
-                          <div className="flex items-start justify-between">
+                          <div className="flex items-start gap-3">
+                            {/* Activity Icon */}
+                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-100 to-amber-100 flex items-center justify-center flex-shrink-0 p-1.5">
+                              <img 
+                                src="https://cdn-icons-png.flaticon.com/512/6556/6556349.png" 
+                                alt="Activity" 
+                                className="w-full h-full object-contain"
+                              />
+                            </div>
                             <div className="flex-1">
                               <h4 className="font-semibold text-sm text-gray-900">{item.place_name || 'Unknown Activity'}</h4>
                               <div className="flex items-center gap-2 mt-1">
@@ -1871,10 +1893,10 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
                               >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
+                                </svg>
                               </button>
                             )}
-                  </div>
+                          </div>
                         </div>
                       );
                     })}
@@ -1938,8 +1960,8 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
                       return (
                         <div key={index} className="bg-white rounded-lg border border-gray-200 p-3 group relative">
                           <div className="flex">
-                            {/* Hotel Image */}
-                            {hotelImage && (
+                            {/* Hotel Image or Icon */}
+                            {hotelImage ? (
                               <div className="w-20 h-20 flex-shrink-0 overflow-hidden bg-gray-100 rounded-lg">
                                 <img
                                   src={hotelImage}
@@ -1949,8 +1971,14 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
                                     e.target.src = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80';
                                   }}
                                 />
-            </div>
-          )}
+                              </div>
+                            ) : (
+                              <div className="w-20 h-20 flex-shrink-0 rounded-lg bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center">
+                                <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                </svg>
+                              </div>
+                            )}
 
                             {/* Hotel Details */}
                             <div className="flex-1 ml-3">
