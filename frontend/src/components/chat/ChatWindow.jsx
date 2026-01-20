@@ -5,6 +5,7 @@ import CreatePrivateChat from './CreatePrivateChat';
 import AIRecommendationModal from './AIRecommendationModal';
 import GroupProfileModal from './GroupProfileModal';
 import MyLensModal from './MyLensModal';
+import { getHotelFirstImageUrl } from '../../services/hotelService';
 
 /**
  * ChatWindow component
@@ -29,6 +30,7 @@ function ChatWindow({
   const [showAIModal, setShowAIModal] = useState(false);
   const [showMyLensModal, setShowMyLensModal] = useState(false);
   const [showGroupProfile, setShowGroupProfile] = useState(false);
+  const [profileRefreshKey, setProfileRefreshKey] = useState(0);
 
   // Get current private chat object
   const currentPrivateChat = privateChats.find(chat => chat.id === activeChatId);
@@ -72,6 +74,23 @@ function ChatWindow({
       const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
       
+      // Fetch the correct hotel image from the hotels folder
+      let hotelImageUrl = hotel.image_url;
+      
+      try {
+        // Try to get the first image from the hotel's folder
+        const imageUrl = await getHotelFirstImageUrl(hotel.name);
+        if (imageUrl) {
+          hotelImageUrl = imageUrl;
+        }
+      } catch (error) {
+        console.warn('Could not fetch hotel image, using fallback:', error);
+        // Fallback to best_match_image_path if available
+        if (hotel.best_match_image_path) {
+          hotelImageUrl = hotel.best_match_image_path;
+        }
+      }
+      
       // Create recommendation object
       const recommendation = {
         hotel_id: hotel.hotel_id,
@@ -79,7 +98,7 @@ function ChatWindow({
         price: hotel.price,
         stars: hotel.stars,
         description: hotel.description,
-        image_url: hotel.image_url || hotel.best_match_image_path,
+        image_url: hotelImageUrl,
         similarity_score: hotel.similarity_score,
         added_at: new Date().toISOString()
       };
@@ -97,9 +116,9 @@ function ChatWindow({
       const data = await response.json();
 
       if (data.success) {
-        // Show success message (optional - could add a toast notification)
-        console.log('Recommendation added successfully');
-        // The GroupProfileModal will refresh when opened or when activeTab changes
+        console.log('Recommendation added successfully!');
+        // Trigger refresh of GroupProfileModal
+        setProfileRefreshKey(prev => prev + 1);
         return;
       } else {
         throw new Error(data.message || 'Failed to add recommendation');
@@ -398,6 +417,7 @@ function ChatWindow({
 
       {/* Group Profile Modal */}
       <GroupProfileModal
+        key={profileRefreshKey}
         isOpen={showGroupProfile}
         onClose={() => setShowGroupProfile(false)}
         chat={currentPrivateChat}

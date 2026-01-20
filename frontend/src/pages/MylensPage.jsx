@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { searchSimilarHotels } from '../services/imageSearchService';
+import { getHotelFirstImageUrl } from '../services/hotelService';
 import { useAuth } from '../context/AuthContext';
 import LoginModal from '../components/auth/LoginModal';
 import SignupModal from '../components/auth/SignupModal';
@@ -84,8 +85,27 @@ function MylensPage() {
 
     try {
       const response = await searchSimilarHotels(selectedImage);
+      
       if (response.similar_hotels && Array.isArray(response.similar_hotels)) {
-        setHotels(response.similar_hotels);
+        // Fetch the correct hotel images from the hotels folder
+        const hotelsWithImages = await Promise.all(
+          response.similar_hotels.map(async (hotel) => {
+            try {
+              const imageUrl = await getHotelFirstImageUrl(hotel.name);
+              return {
+                ...hotel,
+                image_url: imageUrl || hotel.image_url || hotel.best_match_image_path
+              };
+            } catch (error) {
+              console.warn(`Could not fetch image for ${hotel.name}:`, error);
+              return {
+                ...hotel,
+                image_url: hotel.image_url || hotel.best_match_image_path
+              };
+            }
+          })
+        );
+        setHotels(hotelsWithImages);
       } else {
         setError('No similar hotels found');
       }
@@ -371,16 +391,7 @@ function MylensPage() {
                 <div className="flex flex-col md:flex-row">
                   {/* Left Side - Hotel Image (1/3) */}
                   <div className="md:w-1/3 relative h-48 md:h-auto md:min-h-[220px] overflow-hidden bg-gray-100">
-                    {hotel.best_match_image_path ? (
-                      <img
-                        src={`${import.meta.env.VITE_AI_SERVICE_URL || 'http://localhost:8001'}/${hotel.best_match_image_path}`}
-                        alt={hotel.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        onError={(e) => {
-                          e.target.src = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80';
-                        }}
-                      />
-                    ) : hotel.image_url ? (
+                    {hotel.image_url ? (
                       <img
                         src={hotel.image_url}
                         alt={hotel.name}

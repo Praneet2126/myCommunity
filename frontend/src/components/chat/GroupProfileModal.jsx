@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import ConfirmDeleteModal from './ConfirmDeleteModal';
 import Toast from '../common/Toast';
+import { getHotelFirstImageUrl } from '../../services/hotelService';
 
 /**
  * GroupProfileModal component
@@ -129,7 +130,10 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
       // Only set itinerary if it matches the current chat exactly
       if (eventChatId === currentChatId) {
         console.log('Setting itinerary for chat:', currentChatId);
-        setGeneratedItinerary(event.detail.itinerary);
+        // Add the new itinerary to the beginning of the array (most recent first)
+        setGeneratedItineraries(prev => [event.detail.itinerary, ...prev]);
+        // Also refresh the full itinerary list from database
+        fetchItinerary();
       } else {
         console.log('Ignoring itinerary - event chatId:', eventChatId, 'current chatId:', currentChatId);
       }
@@ -154,6 +158,31 @@ function GroupProfileModal({ isOpen, onClose, chat, cityName, onMembersChanged }
       
       const data = await response.json();
       if (data.success) {
+        // Fetch correct hotel images for recommendations
+        if (data.data.recommendations && data.data.recommendations.length > 0) {
+          const recommendationsWithImages = await Promise.all(
+            data.data.recommendations.map(async (rec) => {
+              // If the recommendation already has a proper image URL from backend, use it
+              if (rec.image_url && rec.image_url.startsWith('http')) {
+                return rec;
+              }
+              
+              // Otherwise, try to fetch the correct image from hotels folder
+              try {
+                const imageUrl = await getHotelFirstImageUrl(rec.name);
+                return {
+                  ...rec,
+                  image_url: imageUrl || rec.image_url
+                };
+              } catch (error) {
+                console.warn(`Could not fetch image for ${rec.name}:`, error);
+                return rec;
+              }
+            })
+          );
+          data.data.recommendations = recommendationsWithImages;
+        }
+        
         setChatDetails(data.data);
       }
     } catch (error) {

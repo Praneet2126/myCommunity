@@ -1,5 +1,6 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { searchSimilarHotels } from '../../services/imageSearchService';
+import { getHotelFirstImageUrl } from '../../services/hotelService';
 
 /**
  * MyLensModal Component
@@ -95,8 +96,27 @@ function MyLensModal({ isOpen, onClose, onAddToRecommendations, chatId }) {
 
     try {
       const response = await searchSimilarHotels(selectedImage);
+      
       if (response.similar_hotels && Array.isArray(response.similar_hotels)) {
-        setHotels(response.similar_hotels);
+        // Fetch the correct hotel images from the hotels folder
+        const hotelsWithImages = await Promise.all(
+          response.similar_hotels.map(async (hotel) => {
+            try {
+              const imageUrl = await getHotelFirstImageUrl(hotel.name);
+              return {
+                ...hotel,
+                image_url: imageUrl || hotel.image_url || hotel.best_match_image_path
+              };
+            } catch (error) {
+              console.warn(`Could not fetch image for ${hotel.name}:`, error);
+              return {
+                ...hotel,
+                image_url: hotel.image_url || hotel.best_match_image_path
+              };
+            }
+          })
+        );
+        setHotels(hotelsWithImages);
       } else {
         setError('No similar hotels found');
       }
@@ -111,7 +131,7 @@ function MyLensModal({ isOpen, onClose, onAddToRecommendations, chatId }) {
   // Handle adding hotel to recommendations
   const handleAddToRecommendations = async (hotel) => {
     if (!chatId || !onAddToRecommendations) {
-      setError('Cannot add to recommendations: Chat ID missing');
+      setError('Cannot add to recommendations: Chat ID missing. Please open myLens from a private chat.');
       return;
     }
 
@@ -311,16 +331,7 @@ function MyLensModal({ isOpen, onClose, onAddToRecommendations, chatId }) {
                     <div className="flex flex-col md:flex-row">
                       {/* Hotel Image */}
                       <div className="md:w-1/3 relative h-48 md:h-auto md:min-h-[180px] overflow-hidden bg-gray-100">
-                        {hotel.best_match_image_path ? (
-                          <img
-                            src={`${import.meta.env.VITE_AI_SERVICE_URL || 'http://localhost:8001'}/${hotel.best_match_image_path}`}
-                            alt={hotel.name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.target.src = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80';
-                            }}
-                          />
-                        ) : hotel.image_url ? (
+                        {hotel.image_url ? (
                           <img
                             src={hotel.image_url}
                             alt={hotel.name}
