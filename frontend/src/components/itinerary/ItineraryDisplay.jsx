@@ -12,31 +12,26 @@ import ItineraryDetailModal from './ItineraryDetailModal';
 function ItineraryDisplay({ chatType = 'community', cityName = 'City', chatName = '', activeChatId = null }) {
   const [selectedItinerary, setSelectedItinerary] = useState(null);
   const [viewingItinerary, setViewingItinerary] = useState(null);
-  const [allItineraries, setAllItineraries] = useState([]); // Store ALL itineraries for private chats
-  const [communityItinerariesData, setCommunityItinerariesData] = useState([]); // Store recent itineraries for community chat
+  const [allItineraries, setAllItineraries] = useState([]);
+  const [communityItinerariesData, setCommunityItinerariesData] = useState([]);
   const [loadingItinerary, setLoadingItinerary] = useState(false);
 
-  // Reset selected itinerary when chat type changes
   useEffect(() => {
     setSelectedItinerary(null);
     setViewingItinerary(null);
-    // Clear private itineraries when switching to community
     if (chatType === 'community') {
       setAllItineraries([]);
     }
   }, [chatType]);
 
-  // Fetch recent itineraries for community/public chat
   useEffect(() => {
     if (chatType === 'community') {
       fetchRecentItineraries();
     }
   }, [chatType]);
 
-  // Store itineraries in a way that persists across re-renders
   const itineraryRef = useRef(null);
 
-  // Fetch recent itineraries from all private chats (for community chat display)
   const fetchRecentItineraries = async () => {
     try {
       setLoadingItinerary(true);
@@ -54,8 +49,6 @@ function ItineraryDisplay({ chatType = 'community', cityName = 'City', chatName 
       });
       
       const data = await response.json();
-      console.log('[ItineraryDisplay] Fetched recent community itineraries:', data);
-      
       if (data.success && data.data && Array.isArray(data.data)) {
         setCommunityItinerariesData(data.data);
       } else {
@@ -69,7 +62,6 @@ function ItineraryDisplay({ chatType = 'community', cityName = 'City', chatName 
     }
   };
   
-  // Fetch ALL itineraries from database for private chats
   const fetchItinerary = async (chatId) => {
     if (!chatId || chatId === 'public') return;
     
@@ -89,21 +81,10 @@ function ItineraryDisplay({ chatType = 'community', cityName = 'City', chatName 
       });
       
       const data = await response.json();
-      console.log('[ItineraryDisplay] Fetched itineraries response:', data);
-      
-      // Backend returns array of all itineraries (sorted by newest first)
       if (data.success && data.data && Array.isArray(data.data) && data.data.length > 0) {
-        console.log('[ItineraryDisplay] Setting', data.data.length, 'itineraries');
-        
-        // Store in ref for persistence
-        itineraryRef.current = {
-          chatId: chatId,
-          itineraries: data.data
-        };
+        itineraryRef.current = { chatId, itineraries: data.data };
         setAllItineraries(data.data);
       } else {
-        // No itineraries found, clear state
-        console.log('[ItineraryDisplay] No itineraries found');
         itineraryRef.current = null;
         setAllItineraries([]);
       }
@@ -115,185 +96,115 @@ function ItineraryDisplay({ chatType = 'community', cityName = 'City', chatName 
     }
   };
   
-  // Fetch all itineraries for private chats
   useEffect(() => {
     if (chatType === 'private' && activeChatId && activeChatId !== 'public') {
-      // Fetch all itineraries from database when chat changes
       const currentChatId = String(activeChatId);
       fetchItinerary(currentChatId);
       
-      // Listen for itinerary generation events (for real-time updates)
       const handleItineraryGenerated = (event) => {
-        console.log('Itinerary event received:', event.detail);
-        console.log('Active chat ID:', activeChatId);
-        console.log('Event chat ID:', event.detail.chatId);
-        
-        // Match chatId (convert both to strings for comparison)
         const eventChatId = String(event.detail.chatId || '');
-        const currentChatId = String(activeChatId || '');
-        
-        // More flexible matching - try exact match first, then partial
-        const matches = eventChatId === currentChatId || 
-                       eventChatId.includes(currentChatId) || 
-                       currentChatId.includes(eventChatId) ||
-                       eventChatId.replace(/[^a-zA-Z0-9]/g, '') === currentChatId.replace(/[^a-zA-Z0-9]/g, '');
+        const currentId = String(activeChatId || '');
+        const matches = eventChatId === currentId || 
+                       eventChatId.includes(currentId) || 
+                       currentId.includes(eventChatId);
         
         if (matches && event.detail.itinerary) {
-          console.log('New itinerary generated! Adding to list:', event.detail.itinerary);
-          // Add new itinerary to the beginning of the array (newest first)
           setAllItineraries(prev => [event.detail.itinerary, ...prev]);
-          // Update ref
           itineraryRef.current = {
             chatId: activeChatId,
             itineraries: [event.detail.itinerary, ...(itineraryRef.current?.itineraries || [])]
           };
-        } else {
-          console.log('Chat ID mismatch or missing itinerary');
         }
       };
       
       window.addEventListener('itineraryGenerated', handleItineraryGenerated);
-      
-      return () => {
-        window.removeEventListener('itineraryGenerated', handleItineraryGenerated);
-      };
+      return () => window.removeEventListener('itineraryGenerated', handleItineraryGenerated);
     } else {
-      // Clear itineraries when switching away from private chat
       itineraryRef.current = null;
       setAllItineraries([]);
     }
   }, [chatType, activeChatId]);
 
-  // Mock data for community itineraries (most popular)
+  // Mock data for community itineraries (fallback)
   const communityItineraries = [
     {
-      id: 1,
-      title: 'Weekend Explorer',
-      popularity: 95,
-      days: 2,
+      id: 1, title: 'Weekend Explorer', popularity: 95, days: 2,
       activities: [
         { day: 1, time: '9:00 AM', activity: 'Visit Central Park', location: 'Central Park', duration: '2 hours' },
         { day: 1, time: '12:00 PM', activity: 'Lunch at Local Bistro', location: 'Downtown', duration: '1 hour' },
-        { day: 1, time: '2:00 PM', activity: 'Museum Tour', location: 'Art Museum', duration: '3 hours' },
-        { day: 1, time: '6:00 PM', activity: 'Dinner & Nightlife', location: 'City Center', duration: '4 hours' },
         { day: 2, time: '10:00 AM', activity: 'Historic District Walk', location: 'Old Town', duration: '2 hours' },
-        { day: 2, time: '1:00 PM', activity: 'Local Market Visit', location: 'Market Square', duration: '1.5 hours' },
-        { day: 2, time: '4:00 PM', activity: 'Sunset Viewpoint', location: 'Hilltop', duration: '1 hour' },
       ],
-      estimatedCost: '$150-200',
-      tags: ['Popular', 'Budget-Friendly', 'Family-Friendly']
+      estimatedCost: '$150-200', tags: ['Popular', 'Budget-Friendly']
     },
     {
-      id: 2,
-      title: 'Cultural Immersion',
-      popularity: 88,
-      days: 3,
+      id: 2, title: 'Cultural Immersion', popularity: 88, days: 3,
       activities: [
         { day: 1, time: '10:00 AM', activity: 'Cultural Center Tour', location: 'Cultural District', duration: '3 hours' },
-        { day: 1, time: '2:00 PM', activity: 'Traditional Cuisine Class', location: 'Cooking School', duration: '2 hours' },
         { day: 2, time: '9:00 AM', activity: 'Temple Visit', location: 'Historic Temple', duration: '2 hours' },
-        { day: 2, time: '1:00 PM', activity: 'Local Art Gallery', location: 'Arts Quarter', duration: '2 hours' },
-        { day: 3, time: '11:00 AM', activity: 'Traditional Market', location: 'Market Street', duration: '2 hours' },
       ],
-      estimatedCost: '$250-300',
-      tags: ['Cultural', 'Educational', 'Authentic']
+      estimatedCost: '$250-300', tags: ['Cultural', 'Educational']
     },
     {
-      id: 3,
-      title: 'Adventure Seeker',
-      popularity: 82,
-      days: 2,
+      id: 3, title: 'Adventure Seeker', popularity: 82, days: 2,
       activities: [
         { day: 1, time: '8:00 AM', activity: 'Hiking Trail', location: 'Mountain Base', duration: '4 hours' },
-        { day: 1, time: '2:00 PM', activity: 'Rock Climbing', location: 'Adventure Park', duration: '3 hours' },
         { day: 2, time: '9:00 AM', activity: 'Water Sports', location: 'Beach', duration: '3 hours' },
-        { day: 2, time: '2:00 PM', activity: 'Zip Lining', location: 'Adventure Center', duration: '2 hours' },
       ],
-      estimatedCost: '$200-250',
-      tags: ['Adventure', 'Outdoor', 'Active']
+      estimatedCost: '$200-250', tags: ['Adventure', 'Outdoor']
     }
   ];
 
-  // Convert real itinerary format to display format
   const convertItineraryFormat = (itinerary) => {
-    console.log('Converting itinerary:', itinerary);
-    if (!itinerary || !itinerary.days) {
-      console.log('Invalid itinerary - missing days');
-      return null;
-    }
+    if (!itinerary || !itinerary.days) return null;
     
     const activities = [];
-    itinerary.days.forEach((day, dayIndex) => {
-      console.log(`Processing day ${dayIndex + 1}:`, day);
-      if (!day.activities || !Array.isArray(day.activities)) {
-        console.log(`Day ${dayIndex + 1} has no activities array:`, day);
-        return;
-      }
-      console.log(`Day ${dayIndex + 1} has ${day.activities.length} activities`);
-      day.activities.forEach((activity, actIndex) => {
-        console.log(`  Activity ${actIndex + 1}:`, activity);
-        // Activity can have 'name' field from ActivityPlace
-        const activityName = activity.name || activity.place_name || 'Activity';
+    itinerary.days.forEach((day) => {
+      if (!day.activities || !Array.isArray(day.activities)) return;
+      day.activities.forEach((activity) => {
         activities.push({
           day: day.day,
           time: activity.start_time || 'TBD',
-          activity: activityName,
-          location: activity.region || activity.location || 'Goa',
+          activity: activity.name || activity.place_name || 'Activity',
+          location: activity.region || activity.location || 'Location',
           duration: activity.duration || '2 hours'
         });
       });
     });
 
-    console.log(`Total activities extracted: ${activities.length}`);
-    const converted = {
+    return {
       id: itinerary.chat_id || 'generated-1',
       title: `${chatName || 'Your'} Trip Plan`,
       days: itinerary.days.length,
-      activities: activities,
+      activities,
       estimatedCost: 'Custom',
       tags: ['AI Generated', 'Personalized']
     };
-    
-    console.log('Converted itinerary:', converted);
-    return converted;
   };
 
-  // Mock data for private chat itinerary (fallback)
   const defaultPrivateItinerary = {
     id: 'private-1',
     title: `${chatName || 'Your'} Trip Plan`,
     days: 3,
     activities: [
-      { day: 1, time: '10:00 AM', activity: 'Airport Arrival & Hotel Check-in', location: 'Downtown Hotel', duration: '1 hour' },
-      { day: 1, time: '12:00 PM', activity: 'Welcome Lunch', location: 'Restaurant District', duration: '1.5 hours' },
-      { day: 1, time: '3:00 PM', activity: 'City Orientation Walk', location: 'City Center', duration: '2 hours' },
-      { day: 1, time: '7:00 PM', activity: 'Dinner Reservation', location: 'Fine Dining', duration: '2 hours' },
-      { day: 2, time: '9:00 AM', activity: 'Morning Coffee & Planning', location: 'Local Café', duration: '1 hour' },
-      { day: 2, time: '11:00 AM', activity: 'Main Attraction Visit', location: 'Famous Landmark', duration: '3 hours' },
-      { day: 2, time: '3:00 PM', activity: 'Shopping & Souvenirs', location: 'Shopping District', duration: '2 hours' },
-      { day: 2, time: '6:00 PM', activity: 'Evening Entertainment', location: 'Entertainment District', duration: '3 hours' },
-      { day: 3, time: '10:00 AM', activity: 'Brunch & Relaxation', location: 'Riverside Café', duration: '1.5 hours' },
-      { day: 3, time: '12:00 PM', activity: 'Final Exploration', location: 'Hidden Gems', duration: '2 hours' },
-      { day: 3, time: '4:00 PM', activity: 'Departure Preparation', location: 'Hotel', duration: '1 hour' },
+      { day: 1, time: '10:00 AM', activity: 'Explore the City', location: 'City Center', duration: '3 hours' },
+      { day: 2, time: '9:00 AM', activity: 'Beach Day', location: 'Coastal Area', duration: '5 hours' },
+      { day: 3, time: '11:00 AM', activity: 'Cultural Tour', location: 'Historic District', duration: '4 hours' },
     ],
     estimatedCost: '$300-400',
-    tags: ['Personalized', 'Flexible', 'Custom']
+    tags: ['Personalized', 'Custom']
   };
 
-  // Convert all itineraries to display format for private chats
   const convertedPrivateItineraries = allItineraries.map((itinerary, index) => {
     const converted = convertItineraryFormat(itinerary);
     if (converted) {
-      // Add unique id and index for display
       converted.id = itinerary._id || itinerary.chat_id || `itinerary-${index}`;
-      converted.title = `${chatName || 'Your'} Trip Plan #${allItineraries.length - index}`;
+      converted.title = `Trip Plan #${allItineraries.length - index}`;
       converted.generated_at = itinerary.generated_at;
       converted.isLatest = index === 0;
     }
     return converted;
-  }).filter(Boolean); // Remove any null values
+  }).filter(Boolean);
 
-  // Convert community itineraries (recent from all private chats)
   const convertedCommunityItineraries = communityItinerariesData.map((itinerary, index) => {
     const converted = convertItineraryFormat(itinerary);
     if (converted) {
@@ -306,135 +217,248 @@ function ItineraryDisplay({ chatType = 'community', cityName = 'City', chatName 
     return converted;
   }).filter(Boolean);
   
-  console.log('All private itineraries state:', allItineraries);
-  console.log('Converted private itineraries:', convertedPrivateItineraries);
-  console.log('Community itineraries data:', communityItinerariesData);
-  console.log('Converted community itineraries:', convertedCommunityItineraries);
-  console.log('Active chat ID:', activeChatId);
-  
-  // Use converted itineraries if available, otherwise show default/mock
   const privateItineraries = convertedPrivateItineraries.length > 0 ? convertedPrivateItineraries : [defaultPrivateItinerary];
-  // For community, use fetched recent itineraries if available, otherwise fall back to mock
   const displayCommunityItineraries = convertedCommunityItineraries.length > 0 ? convertedCommunityItineraries : communityItineraries;
   const itineraries = chatType === 'community' ? displayCommunityItineraries : privateItineraries;
-  console.log('Displaying itineraries:', itineraries);
-  console.log('Chat type:', chatType, 'Active chat ID:', activeChatId);
-  console.log('Number of itineraries to render:', itineraries.length);
+
+  // Get icon based on activity type
+  const getActivityIcon = (activities) => {
+    if (!activities || activities.length === 0) return '🗺️';
+    const firstActivity = activities[0].activity?.toLowerCase() || '';
+    if (firstActivity.includes('beach') || firstActivity.includes('water')) return '🏖️';
+    if (firstActivity.includes('hik') || firstActivity.includes('mountain')) return '🥾';
+    if (firstActivity.includes('cultur') || firstActivity.includes('museum') || firstActivity.includes('temple')) return '🏛️';
+    if (firstActivity.includes('food') || firstActivity.includes('lunch') || firstActivity.includes('dinner')) return '🍽️';
+    if (firstActivity.includes('shop')) return '🛍️';
+    if (firstActivity.includes('adventure') || firstActivity.includes('sport')) return '🎯';
+    return '✨';
+  };
+
+  // Format relative time
+  const formatRelativeTime = (dateString) => {
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
 
   return (
-    <div className="w-full h-full max-w-md p-3 rounded-3xl shadow-lg bg-gradient-to-t bg-white text-black transition-all duration-300 flex flex-col">
-      {/* Header */}
-      <div className="mb-4 flex-shrink-0">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-lg font-bold text-gray-800">
-            {chatType === 'community' ? 'Recent Itineraries' : 'Your Itineraries'}
-          </h2>
-          {chatType === 'community' && communityItinerariesData.length > 0 && (
-            <span className="text-xs text-purple-600 bg-purple-50 px-2 py-1 rounded-full font-medium">
-              {communityItinerariesData.length} from chats
-            </span>
-          )}
-          {chatType === 'community' && communityItinerariesData.length === 0 && (
-            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-              Sample plans
-            </span>
-          )}
-          {chatType === 'private' && allItineraries.length > 0 && (
-            <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full font-medium">
-              {allItineraries.length} saved
-            </span>
-          )}
+    <div className="w-full h-full max-w-md rounded-2xl overflow-hidden flex flex-col bg-gradient-to-br from-slate-50 via-white to-orange-50/30 shadow-xl border border-white/60">
+      {/* Header with gradient accent */}
+      <div className="relative px-5 pt-5 pb-4 flex-shrink-0">
+        {/* Decorative accent */}
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-400 via-rose-400 to-purple-500"></div>
+        
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <div className="flex items-center gap-2.5 mb-1">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-orange-500 to-rose-500 flex items-center justify-center shadow-lg shadow-orange-200/50">
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                </svg>
+              </div>
+              <h2 className="text-lg font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+                {chatType === 'community' ? 'Trip Plans' : 'Your Itineraries'}
+              </h2>
+            </div>
+            <p className="text-xs text-gray-500 ml-10">
+              {chatType === 'community' 
+                ? (communityItinerariesData.length > 0 ? 'Recent plans from the community' : 'Explore popular travel ideas')
+                : (allItineraries.length > 0 ? `${allItineraries.length} saved plan${allItineraries.length > 1 ? 's' : ''}` : 'Create your perfect trip')}
+            </p>
+          </div>
+          
+          {/* Stats badge */}
+          <div className="flex flex-col items-end gap-1">
+            {chatType === 'community' && communityItinerariesData.length > 0 && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-purple-500/10 to-indigo-500/10 text-purple-700 text-xs font-semibold rounded-full border border-purple-200/50">
+                <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse"></span>
+                {communityItinerariesData.length} new
+              </span>
+            )}
+            {chatType === 'private' && allItineraries.length > 0 && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-emerald-500/10 to-teal-500/10 text-emerald-700 text-xs font-semibold rounded-full border border-emerald-200/50">
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                {allItineraries.length} saved
+              </span>
+            )}
+          </div>
         </div>
-        {chatType === 'community' && (
-          <p className="text-xs text-gray-600">
-            {communityItinerariesData.length > 0 
-              ? 'Recently created itineraries from trip chats'
-              : 'Sample travel plans for inspiration'}
-          </p>
-        )}
-        {chatType === 'private' && (
-          <p className="text-xs text-gray-600">
-            {allItineraries.length > 0 
-              ? 'All your generated trip plans for this chat' 
-              : 'Generate an itinerary from your cart'}
-          </p>
-        )}
       </div>
 
-      {/* Itinerary List with Scrollbar */}
-      <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar space-y-2 pr-1">
-        {itineraries.length === 0 ? (
-          <div className="text-center text-gray-500 text-sm py-4">
-            No itineraries available
+      {/* Loading State */}
+      {loadingItinerary && (
+        <div className="flex-1 flex items-center justify-center py-8">
+          <div className="flex flex-col items-center gap-3">
+            <div className="relative w-12 h-12">
+              <div className="absolute inset-0 rounded-full border-2 border-orange-200"></div>
+              <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-orange-500 animate-spin"></div>
+            </div>
+            <p className="text-sm text-gray-500">Loading itineraries...</p>
           </div>
-        ) : (
-          itineraries.map((itinerary, index) => {
-            console.log(`Rendering itinerary ${index + 1}/${itineraries.length}:`, itinerary.id, itinerary.title, 'Activities:', itinerary.activities?.length, 'Days:', itinerary.days);
-            if (!itinerary || !itinerary.id) {
-              console.error('Invalid itinerary object:', itinerary);
-              return null;
-            }
-            return (
-              <div
-                key={itinerary.id}
-                onClick={() => setViewingItinerary(itinerary)}
-                className={`w-full text-left p-3 rounded-lg border-2 transition-all hover:shadow-md cursor-pointer ${
-                  selectedItinerary?.id === itinerary.id || (!selectedItinerary && itinerary.id === itineraries[0].id)
-                    ? 'border-[#FF6B35] bg-orange-50'
-                    : 'border-gray-200 hover:border-gray-300 bg-white'
-                }`}
-              >
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-semibold text-sm text-gray-800">{itinerary.title}</h3>
+        </div>
+      )}
+
+      {/* Itinerary List */}
+      {!loadingItinerary && (
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4 space-y-3 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400">
+          {itineraries.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-gray-100 to-gray-50 flex items-center justify-center mb-4 shadow-inner">
+                <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+              </div>
+              <p className="text-gray-600 font-medium mb-1">No itineraries yet</p>
+              <p className="text-xs text-gray-400 max-w-[200px]">
+                {chatType === 'private' 
+                  ? 'Generate one from your cart to get started' 
+                  : 'Check back soon for community plans'}
+              </p>
+            </div>
+          ) : (
+            itineraries.map((itinerary, index) => {
+              if (!itinerary || !itinerary.id) return null;
+              const isFirst = index === 0;
+              const icon = getActivityIcon(itinerary.activities);
+              
+              return (
+                <div
+                  key={itinerary.id}
+                  onClick={() => setViewingItinerary(itinerary)}
+                  className={`group relative rounded-xl transition-all duration-300 cursor-pointer overflow-hidden
+                    ${isFirst 
+                      ? 'bg-gradient-to-br from-orange-50 via-white to-rose-50 border-2 border-orange-200/60 shadow-lg shadow-orange-100/50 hover:shadow-xl hover:shadow-orange-200/50 hover:border-orange-300' 
+                      : 'bg-white border border-gray-100 shadow-sm hover:shadow-md hover:border-gray-200 hover:bg-gray-50/50'
+                    }`}
+                >
+                  {/* Latest indicator line */}
                   {itinerary.isLatest && (
-                    <span className="px-1.5 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded">
-                      Latest
-                    </span>
+                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-orange-400 via-rose-400 to-orange-400"></div>
+                  )}
+                  
+                  <div className="p-4 pl-5">
+                    <div className="flex items-start gap-3">
+                      {/* Icon */}
+                      <div className={`flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center text-lg shadow-sm
+                        ${isFirst 
+                          ? 'bg-gradient-to-br from-orange-400 to-rose-500 shadow-orange-200/50' 
+                          : 'bg-gradient-to-br from-gray-100 to-gray-50'}`}>
+                        <span className={isFirst ? 'grayscale-0' : 'opacity-70'}>{icon}</span>
+                      </div>
+                      
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className={`font-semibold text-sm truncate ${isFirst ? 'text-gray-900' : 'text-gray-800'}`}>
+                            {itinerary.title}
+                          </h3>
+                          {itinerary.isLatest && (
+                            <span className="flex-shrink-0 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-gradient-to-r from-orange-500 to-rose-500 text-white rounded shadow-sm">
+                              New
+                            </span>
+                          )}
+                        </div>
+                        
+                        {/* Stats row */}
+                        <div className="flex items-center gap-3 text-xs text-gray-500">
+                          <span className="flex items-center gap-1">
+                            <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            {itinerary.days} day{itinerary.days > 1 ? 's' : ''}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            </svg>
+                            {itinerary.activities?.length || 0} stops
+                          </span>
+                          {itinerary.estimatedCost && itinerary.estimatedCost !== 'Custom' && (
+                            <span className="flex items-center gap-1">
+                              <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              {itinerary.estimatedCost}
+                            </span>
+                          )}
+                        </div>
+                        
+                        {/* Tags and time */}
+                        <div className="flex items-center justify-between mt-2.5">
+                          <div className="flex flex-wrap gap-1.5">
+                            {itinerary.tags?.slice(0, 2).map((tag, idx) => (
+                              <span
+                                key={idx}
+                                className={`text-[10px] px-2 py-0.5 rounded-full font-medium
+                                  ${isFirst 
+                                    ? 'bg-orange-100/80 text-orange-700' 
+                                    : 'bg-gray-100 text-gray-600'}`}
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                            {chatType === 'community' && itinerary.fromChatName && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-purple-100 text-purple-700">
+                                {itinerary.fromChatName}
+                              </span>
+                            )}
+                          </div>
+                          
+                          {itinerary.generated_at && (
+                            <span className="text-[10px] text-gray-400 flex items-center gap-1">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              {formatRelativeTime(itinerary.generated_at)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Arrow indicator */}
+                      <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 group-hover:translate-x-0.5
+                        ${isFirst 
+                          ? 'bg-orange-100/80 text-orange-600 group-hover:bg-orange-200/80' 
+                          : 'bg-gray-50 text-gray-400 group-hover:bg-gray-100 group-hover:text-gray-600'}`}>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Popularity bar for mock community itineraries */}
+                  {itinerary.popularity && (
+                    <div className="px-4 pb-3 pt-0">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-gradient-to-r from-orange-400 to-rose-400 rounded-full transition-all duration-500"
+                            style={{ width: `${itinerary.popularity}%` }}
+                          ></div>
+                        </div>
+                        <span className="text-[10px] font-semibold text-orange-600">{itinerary.popularity}%</span>
+                      </div>
+                    </div>
                   )}
                 </div>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-xs text-gray-600">{itinerary.days} days</span>
-                  <span className="text-xs text-gray-400">•</span>
-                  <span className="text-xs text-gray-600">{itinerary.estimatedCost}</span>
-                </div>
-                {itinerary.generated_at && (
-                  <p className="text-xs text-gray-400 mt-1">
-                    {new Date(itinerary.generated_at).toLocaleDateString()} at {new Date(itinerary.generated_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                  </p>
-                )}
-              </div>
-              {itinerary.popularity && (
-                <div className="flex items-center gap-1">
-                  <svg className="w-4 h-4 text-orange-500" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333v5.834a1 1 0 001.581.814l3.854-2.925a1 1 0 00.392-1.242l-1.829-4.243a1 1 0 00-1.15-.666L6 10.333zM16 3.5a1.5 1.5 0 00-3 0v7a1.5 1.5 0 003 0v-7zM12.5 2.5a1.5 1.5 0 00-1.5 1.5v8a1.5 1.5 0 003 0V4a1.5 1.5 0 00-1.5-1.5z" />
-                  </svg>
-                  <span className="text-xs font-semibold text-orange-600">{itinerary.popularity}%</span>
-                </div>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-1 mt-2">
-              {itinerary.tags.slice(0, 2).map((tag, idx) => (
-                <span
-                  key={idx}
-                  className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full"
-                >
-                  {tag}
-                </span>
-              ))}
-              {/* Show chat name for community itineraries */}
-              {chatType === 'community' && itinerary.fromChatName && (
-                <span className="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full">
-                  from: {itinerary.fromChatName}
-                </span>
-              )}
-            </div>
-          </div>
-            );
-          })
-        )}
-      </div>
+              );
+            })
+          )}
+        </div>
+      )}
 
       {/* Itinerary Detail Modal */}
       {viewingItinerary && (
