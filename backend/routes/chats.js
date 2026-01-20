@@ -786,6 +786,10 @@ router.post('/:chatId/recommendations/:recommendationIndex/add-to-cart', authent
     delete cartItem.votes;
 
     chat.cart.push(cartItem);
+    
+    // Remove from recommendations
+    chat.recommendations.splice(index, 1);
+    
     await chat.save();
 
     const updatedChat = await PrivateChat.findById(chatId)
@@ -953,6 +957,29 @@ router.post('/:chatId/activities/cart/add', authenticate, async (req, res, next)
         success: false,
         message: 'Place name is required'
       });
+    }
+
+    // Check if user is admin
+    const participant = await PrivateChatParticipant.findOne({
+      chat_id: chatId,
+      user_id: req.user._id
+    });
+
+    if (!participant || participant.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only admins can add activities to cart'
+      });
+    }
+
+    // Get the chat to remove from recommendations
+    const chat = await PrivateChat.findById(chatId);
+    if (chat && chat.activity_recommendations) {
+      // Remove the activity from recommendations
+      chat.activity_recommendations = chat.activity_recommendations.filter(
+        rec => rec.name !== place_name
+      );
+      await chat.save();
     }
 
     // Call AI service
@@ -1136,11 +1163,15 @@ router.get('/:chatId/activities/recommendations', authenticate, async (req, res,
                             (lastMessageTime && new Date(lastMessageTime) > new Date(lastGeneratedTime));
     
     if (!shouldRegenerate && storedRecommendations.length > 0) {
-      // Return stored recommendations if they're still fresh
+      // Populate votes for stored recommendations
+      const chatWithVotes = await PrivateChat.findById(chatId)
+        .populate('activity_recommendations.votes.user_id', 'username full_name profile_photo_url')
+        .select('activity_recommendations');
+      
       return res.json({
         success: true,
         data: {
-          recommendations: storedRecommendations,
+          recommendations: chatWithVotes?.activity_recommendations || storedRecommendations,
           from_storage: true
         }
       });
@@ -1182,7 +1213,8 @@ router.get('/:chatId/activities/recommendations', authenticate, async (req, res,
               lon: rec.lon,
               best_time: rec.best_time,
               generated_at: new Date(),
-              based_on_messages: recentMessages.length
+              based_on_messages: recentMessages.length,
+              votes: [] // Initialize empty votes array
             }))
           }
         });
@@ -1191,10 +1223,15 @@ router.get('/:chatId/activities/recommendations', authenticate, async (req, res,
       }
     }
     
+    // Fetch with populated votes
+    const chatWithVotes = await PrivateChat.findById(chatId)
+      .populate('activity_recommendations.votes.user_id', 'username full_name profile_photo_url')
+      .select('activity_recommendations');
+    
     res.json({
       success: true,
       data: {
-        recommendations: recommendations,
+        recommendations: chatWithVotes?.activity_recommendations || recommendations,
         from_storage: false,
         regenerated: shouldRegenerate
       }
@@ -1207,6 +1244,160 @@ router.get('/:chatId/activities/recommendations', authenticate, async (req, res,
         message: error.response.data?.detail || 'Error fetching recommendations'
       });
     }
+    next(error);
+  }
+});
+
+// Vote for an activity recommendation
+router.post('/:chatId/activities/recommendations/:activityIndex/vote', authenticate, async (req, res, next) => {
+  try {
+    const { chatId, activityIndex } = req.params;
+    const index = parseInt(activityIndex, 10);
+
+    if (isNaN(index) || index < 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid activity recommendation index'
+      });
+    }
+
+    // Check if user is a participant
+    const participant = await PrivateChatParticipant.findOne({
+      chat_id: chatId,
+      user_id: req.user._id
+    });
+
+    if (!participant) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not a member of this chat'
+      });
+    }
+
+    // Get the chat
+    const chat = await PrivateChat.findById(chatId);
+
+    if (!chat) {
+      return res.status(404).json({
+        success: false,
+        message: 'Chat not found'
+      });
+    }
+
+    if (!chat.activity_recommendations || index >= chat.activity_recommendations.length) {
+      return res.status(404).json({
+        success: false,
+        message: 'Activity recommendation not found'
+      });
+    }
+
+    const activity = chat.activity_recommendations[index];
+
+    // Check if user already voted
+    const existingVote = activity.votes?.find(
+      vote => vote.user_id?.toString() === req.user._id.toString()
+    );
+
+    if (existingVote) {
+      return res.status(400).json({
+        success: false,
+        message: 'You have already voted for this activity'
+      });
+    }
+
+    // Add vote
+    if (!activity.votes) {
+      activity.votes = [];
+    }
+    activity.votes.push({
+      user_id: req.user._id,
+      voted_at: new Date()
+    });
+
+    await chat.save();
+
+    const updatedChat = await PrivateChat.findById(chatId)
+      .populate('activity_recommendations.votes.user_id', 'username full_name profile_photo_url')
+      .select('activity_recommendations');
+
+    res.status(200).json({
+      success: true,
+      message: 'Vote added successfully',
+      data: {
+        activity_recommendations: updatedChat.activity_recommendations
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Remove vote from an activity recommendation
+router.delete('/:chatId/activities/recommendations/:activityIndex/vote', authenticate, async (req, res, next) => {
+  try {
+    const { chatId, activityIndex } = req.params;
+    const index = parseInt(activityIndex, 10);
+
+    if (isNaN(index) || index < 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid activity recommendation index'
+      });
+    }
+
+    // Check if user is a participant
+    const participant = await PrivateChatParticipant.findOne({
+      chat_id: chatId,
+      user_id: req.user._id
+    });
+
+    if (!participant) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not a member of this chat'
+      });
+    }
+
+    // Get the chat
+    const chat = await PrivateChat.findById(chatId);
+
+    if (!chat) {
+      return res.status(404).json({
+        success: false,
+        message: 'Chat not found'
+      });
+    }
+
+    if (!chat.activity_recommendations || index >= chat.activity_recommendations.length) {
+      return res.status(404).json({
+        success: false,
+        message: 'Activity recommendation not found'
+      });
+    }
+
+    const activity = chat.activity_recommendations[index];
+
+    // Remove vote
+    if (activity.votes) {
+      activity.votes = activity.votes.filter(
+        vote => vote.user_id?.toString() !== req.user._id.toString()
+      );
+    }
+
+    await chat.save();
+
+    const updatedChat = await PrivateChat.findById(chatId)
+      .populate('activity_recommendations.votes.user_id', 'username full_name profile_photo_url')
+      .select('activity_recommendations');
+
+    res.status(200).json({
+      success: true,
+      message: 'Vote removed successfully',
+      data: {
+        activity_recommendations: updatedChat.activity_recommendations
+      }
+    });
+  } catch (error) {
     next(error);
   }
 });
@@ -1283,6 +1474,87 @@ router.get('/:chatId/activities/itinerary', authenticate, async (req, res, next)
     });
   } catch (error) {
     console.error('Error fetching itinerary:', error);
+    next(error);
+  }
+});
+
+// Get AI hotel recommendations based on chat messages
+router.get('/:chatId/hotels/recommendations', authenticate, async (req, res, next) => {
+  try {
+    const { chatId } = req.params;
+    
+    // Fetch recent messages from the chat (last 20 messages)
+    const recentMessages = await Message.find({
+      chat_id: chatId,
+      chat_type: 'private',
+      is_deleted: false
+    })
+    .sort({ created_at: -1 })
+    .limit(20)
+    .select('sender_id content')
+    .lean();
+    
+    if (recentMessages.length === 0) {
+      return res.json({
+        success: true,
+        data: {
+          recommendations: [],
+          extracted_preferences: {},
+          message: 'Chat more to get hotel recommendations'
+        }
+      });
+    }
+    
+    // Format messages for AI service
+    const formattedMessages = recentMessages
+      .reverse() // Reverse to get chronological order
+      .map(msg => ({
+        user_id: msg.sender_id?.toString() || 'unknown',
+        text: msg.content || ''
+      }))
+      .filter(msg => msg.text.trim().length > 0); // Filter out empty messages
+    
+    if (formattedMessages.length === 0) {
+      return res.json({
+        success: true,
+        data: {
+          recommendations: [],
+          extracted_preferences: {},
+          message: 'No valid messages found'
+        }
+      });
+    }
+    
+    // Call AI service for hotel recommendations
+    try {
+      const aiResponse = await axios.post(
+        `${AI_SERVICE_URL}/api/v1/hotels/recommend`,
+        {
+          messages: formattedMessages,
+          limit: 5
+        }
+      );
+      
+      res.json({
+        success: true,
+        data: {
+          recommendations: aiResponse.data.recommendations || [],
+          extracted_preferences: aiResponse.data.extracted_preferences || {},
+          from_ai: true
+        }
+      });
+    } catch (aiError) {
+      console.error('Error calling AI service for hotel recommendations:', aiError);
+      if (aiError.response) {
+        return res.status(aiError.response.status).json({
+          success: false,
+          message: aiError.response.data?.detail || 'Error getting AI recommendations'
+        });
+      }
+      throw aiError;
+    }
+  } catch (error) {
+    console.error('Error fetching hotel recommendations:', error);
     next(error);
   }
 });

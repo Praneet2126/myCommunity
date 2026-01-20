@@ -125,8 +125,8 @@ class HotelRecommendationRequest(BaseModel):
 class HotelRecommendationResponse(BaseModel):
     extracted_preferences: dict
     recommendations: List[dict]
-    is_ready: bool
-    readiness_score: float
+    is_ready: Optional[bool] = True
+    readiness_score: Optional[float] = 1.0
 
 
 class ChatSummarizationRequest(BaseModel):

@@ -67,7 +67,17 @@ const privateChatSchema = new mongoose.Schema({
       type: Date,
       default: Date.now
     },
-    based_on_messages: Number // Number of messages used to generate these recommendations
+    based_on_messages: Number, // Number of messages used to generate these recommendations
+    votes: [{
+      user_id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      },
+      voted_at: {
+        type: Date,
+        default: Date.now
+      }
+    }]
   }],
   activity_itineraries: [{
     chat_id: String,
