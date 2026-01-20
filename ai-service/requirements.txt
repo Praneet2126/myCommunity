@@ -18,3 +18,5 @@ transformers>=4.30.0
 # Activity Recommendation Dependencies
 sentence-transformers>=2.7.0
 accelerate>=0.24.1
+# Azure OpenAI for itinerary generation
+openai>=1.58.1

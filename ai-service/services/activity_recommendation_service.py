@@ -36,14 +36,26 @@ class LocalLLM:
     def generate_itinerary(self, chat_id: str, num_days: int, num_people: int, places: List[Dict]) -> Optional[Dict]:
         places_json = json.dumps(places)
         messages = [
-            {"role": "system", "content": """You are an expert travel planner for Goa. Create a realistic, non-overlapping, sequential itinerary.
-            CRITICAL RULES:
-            1. NO OVERLAPPING TIMES. The 'end_time' of one activity must be BEFORE the 'start_time' of the next.
-            2. SEQUENTIAL FLOW: Activities must be in order (e.g., 9am, then 1pm, then 6pm).
-            3. RESPECT BEST TIME: Only schedule Casinos/Clubs at night (after 7pm). Schedule Treks/Wildlife in the morning.
-            4. TRAVEL TIME: Include 45-60 mins of travel between activities.
-            5. FORMAT: Use 12-hour AM/PM format (e.g., 09:00 AM, 01:00 PM). Max 6 hours of activity per day.
-            6. Output ONLY valid JSON matching the schema below.
+            {"role": "system", "content": """You are an expert travel planner for Goa. Create a realistic, TIME-AWARE, non-overlapping, sequential itinerary.
+            CRITICAL TIME-SENSITIVE RULES:
+            1. MUST generate EXACTLY the number of days requested by the user. Do not skip days or generate fewer days.
+            2. NO OVERLAPPING TIMES. The 'end_time' of one activity must be BEFORE the 'start_time' of the next.
+            3. SEQUENTIAL FLOW: Activities must be in chronological order throughout the day.
+            4. TIME-SPECIFIC SCHEDULING:
+               - Morning Activities (6 AM - 11 AM): Treks, Wildlife tours, Yoga, Morning water sports
+               - Afternoon Activities (11 AM - 4 PM): Museums, Forts, Shopping, Water sports
+               - Late Afternoon/Sunset (4 PM - 6 PM): Beach visits, Sunset spots (MUST end before 6 PM)
+               - Evening (6 PM - 9 PM): Dining, River cruises, Cultural shows
+               - Night Activities (9 PM - 3 AM): Casinos, Nightclubs, Late-night parties
+            5. STRICT CONSTRAINTS:
+               - Beach activities MUST be scheduled before 6:00 PM
+               - Nightclubs and parties MUST start after 9:00 PM
+               - Casinos MUST be scheduled after 8:00 PM
+               - Water sports MUST be between 10:00 AM and 5:00 PM
+               - Wildlife/nature activities MUST be in early morning (before 11 AM)
+            6. TRAVEL TIME: Include 45-60 mins of travel between activities.
+            7. FORMAT: Use 12-hour AM/PM format (e.g., 09:00 AM, 01:00 PM). Max 6 hours of activity per day.
+            8. Output ONLY valid JSON matching the schema below.
             
             Schema:
             {
@@ -304,6 +316,68 @@ def parse_duration(duration_str: str) -> int:
         return int(avg_hours * 60)
     elif "minute" in duration_str:
         return int(sum(int(n) for n in nums) / len(nums))
+
+
+def parse_time_to_minutes(time_str: str) -> int:
+    """Convert time string like '09:00 AM' to minutes from midnight"""
+    time_str = time_str.strip().upper()
+    match = re.match(r'(\d{1,2}):(\d{2})\s*(AM|PM)', time_str)
+    if not match:
+        return 0
+    
+    hour, minute, period = match.groups()
+    hour = int(hour)
+    minute = int(minute)
+    
+    if period == 'PM' and hour != 12:
+        hour += 12
+    elif period == 'AM' and hour == 12:
+        hour = 0
+    
+    return hour * 60 + minute
+
+
+def get_time_slot_priority(place: Dict) -> tuple:
+    """
+    Categorize activity by time slot and return (priority, earliest_start_minutes, latest_end_minutes)
+    Priority: 0=morning, 1=afternoon, 2=late_afternoon, 3=evening, 4=night
+    """
+    best_time = place.get("best_time", "").lower()
+    category = place.get("category", "").lower()
+    name = place.get("name", "").lower()
+    description = place.get("description", "").lower()
+    
+    # Night activities (9 PM - 3 AM) - Priority 4
+    if any(keyword in category for keyword in ["casino", "nightlife"]) or \
+       any(keyword in name for keyword in ["club", "casino", "party", "tito", "lpk"]) or \
+       "night" in best_time or \
+       ("09:00 pm" in best_time or "10:00 pm" in best_time or "11:00 pm" in best_time):
+        return (4, 21 * 60, 27 * 60)  # 9 PM - 3 AM
+    
+    # Morning activities (6 AM - 11 AM) - Priority 0
+    if any(keyword in category for keyword in ["trek", "wildlife", "nature"]) or \
+       "morning" in best_time or \
+       ("06:00 am" in best_time or "07:00 am" in best_time or "08:00 am" in best_time) or \
+       any(keyword in name for keyword in ["trek", "wildlife", "bird", "yoga"]):
+        return (0, 6 * 60, 11 * 60)  # 6 AM - 11 AM
+    
+    # Beach activities (must end before 6 PM) - Priority 2
+    if "beach" in category or "beach" in name or "sunset" in best_time:
+        return (2, 16 * 60, 18 * 60)  # 4 PM - 6 PM (sunset time)
+    
+    # Water sports (10 AM - 5 PM) - Priority 1
+    if "water sports" in category or any(keyword in name for keyword in ["scuba", "parasailing", "kayaking", "jet ski", "surfing"]):
+        return (1, 10 * 60, 17 * 60)  # 10 AM - 5 PM
+    
+    # Evening activities (6 PM - 9 PM) - Priority 3
+    if "restaurant" in category or "dining" in category or \
+       any(keyword in name.lower() for keyword in ["restaurant", "dining", "cruise", "cultural show"]) or \
+       ("06:00 pm" in best_time or "07:00 pm" in best_time or "08:00 pm" in best_time):
+        return (3, 18 * 60, 21 * 60)  # 6 PM - 9 PM
+    
+    # Default to afternoon (11 AM - 4 PM) - Priority 1
+    # For museums, forts, shopping, churches, etc.
+    return (1, 11 * 60, 16 * 60)  # 11 AM - 4 PM
     
     return 120
 
@@ -398,39 +472,214 @@ class ActivityRecommendationService:
         self.cart_manager.update_cart_settings(chat_id, num_days, num_people)
         return {"status": "success"}
     
-    def generate_itinerary(self, chat_id: str) -> Dict:
-        """Generate an itinerary from cart items"""
+    def generate_itinerary(self, chat_id: str, hotels_in_cart: List[Dict] = None, mylens_data: List[Dict] = None) -> Dict:
+        """Generate an itinerary using Azure OpenAI with activities, hotels, and myLens data"""
         cart = self.cart_manager.get_cart(chat_id)
         
         if not cart.get("items"):
             return {"error": "Cart is empty", "status": "error"}
         
-        # 1. Expand items by count
-        all_places = []
+        # 1. Extract activities from cart (excluding hotels)
+        activity_places = []
         for item in cart["items"]:
+            # Skip items that are hotels (they have hotel_id)
+            if item.get("hotel_id"):
+                continue
+            
             place = self.search_engine.get_place_by_name(item["place_name"])
             if place:
                 for _ in range(item["count"]):
-                    all_places.append(place)
+                    activity_places.append(place)
         
-        # 2. Try LLM first
+        print(f"[Itinerary] Activities: {len(activity_places)}, Hotels: {len(hotels_in_cart or [])}, MyLens: {len(mylens_data or [])}")
+        
+        # 2. Try Azure OpenAI first
+        try:
+            from services.azure_itinerary_service import get_azure_itinerary_service
+            azure_service = get_azure_itinerary_service()
+            
+            azure_itinerary = azure_service.generate_itinerary(
+                chat_id=chat_id,
+                num_days=cart["num_days"],
+                num_people=cart["num_people"],
+                activities=activity_places,
+                hotels=hotels_in_cart or [],
+                mylens_data=mylens_data or []
+            )
+            
+            if azure_itinerary and "days" in azure_itinerary:
+                llm_num_days = len(azure_itinerary.get("days", []))
+                requested_days = cart["num_days"]
+                
+                if llm_num_days == requested_days:
+                    print(f"[Azure OpenAI] Successfully generated {llm_num_days} days as requested")
+                    # Azure OpenAI handles hotel selection internally
+                    return azure_itinerary
+                else:
+                    print(f"[Azure OpenAI] Generated {llm_num_days} days but {requested_days} were requested - falling back")
+        except Exception as e:
+            print(f"[Azure OpenAI] Error: {e}")
+            import traceback
+            traceback.print_exc()
+        
+        # 3. Fallback to Local LLM (legacy)
+        print(f"[Fallback] Trying local LLM...")
         self._init_llm()
         llm_itinerary = self.llm.generate_itinerary(
             chat_id=chat_id,
             num_days=cart["num_days"],
             num_people=cart["num_people"],
-            places=all_places
+            places=activity_places
         )
         
+        # Validate LLM output - ensure it has the correct number of days
         if llm_itinerary and "days" in llm_itinerary:
-            return llm_itinerary
+            llm_num_days = len(llm_itinerary.get("days", []))
+            requested_days = cart["num_days"]
+            
+            if llm_num_days == requested_days:
+                print(f"[Local LLM] Generated {llm_num_days} days as requested")
+                # Select hotels for LLM itinerary
+                selected_hotels = self._select_hotels(llm_itinerary, hotels_in_cart or [])
+                llm_itinerary["hotels"] = selected_hotels
+                return llm_itinerary
+            else:
+                print(f"[Local LLM] Generated {llm_num_days} days but {requested_days} were requested - falling back to deterministic")
         
-        # 3. Deterministic Robust Scheduler (Fallback)
-        return self._generate_deterministic_itinerary(chat_id, all_places, cart["num_days"], cart["num_people"])
+        # 4. Deterministic Robust Scheduler (Final Fallback)
+        print(f"[Scheduler] Using deterministic scheduler for {cart['num_days']} days")
+        itinerary = self._generate_deterministic_itinerary(chat_id, activity_places, cart["num_days"], cart["num_people"])
+        
+        # 5. Select hotels for deterministic itinerary
+        selected_hotels = self._select_hotels(itinerary, hotels_in_cart or [])
+        itinerary["hotels"] = selected_hotels
+        
+        return itinerary
+    
+    def _select_hotels(self, itinerary: Dict, hotels_in_cart: List[Dict]) -> List[Dict]:
+        """
+        Intelligently select hotels from cart based on itinerary analysis
+        """
+        if not hotels_in_cart:
+            print("[Hotel Selection] No hotels in cart")
+            return []
+        
+        print(f"[Hotel Selection] Analyzing {len(hotels_in_cart)} hotels in cart")
+        
+        num_days = len(itinerary.get("days", []))
+        
+        # Analyze activity regions across days
+        region_distribution = {"North": 0, "South": 0, "Central": 0}
+        for day in itinerary.get("days", []):
+            for activity in day.get("activities", []):
+                region = activity.get("region", "Unknown")
+                if region in region_distribution:
+                    region_distribution[region] += 1
+        
+        print(f"[Hotel Selection] Activity distribution: {region_distribution}")
+        
+        # Determine primary region
+        primary_region = max(region_distribution, key=region_distribution.get) if region_distribution else "Central"
+        
+        # Score each hotel
+        hotel_scores = []
+        for hotel in hotels_in_cart:
+            score = 0
+            reasons = []
+            
+            # Score based on stars (prefer higher quality)
+            stars = hotel.get("stars", 0)
+            if stars >= 4:
+                score += 30
+                reasons.append(f"{stars}-star quality")
+            elif stars >= 3:
+                score += 20
+            
+            # Score based on price (prefer reasonable pricing)
+            price = hotel.get("price", 0)
+            if 2000 <= price <= 8000:
+                score += 20
+                reasons.append("good value")
+            elif price < 2000:
+                score += 10
+                reasons.append("budget-friendly")
+            elif price > 10000:
+                score -= 10  # Too expensive
+            
+            # Bonus for having description (more detailed listing)
+            if hotel.get("description"):
+                score += 10
+            
+            # TODO: Could add location-based scoring if hotels have location data
+            # matching primary_region
+            
+            hotel_scores.append({
+                "hotel": hotel,
+                "score": score,
+                "reasons": reasons
+            })
+        
+        # Sort by score
+        hotel_scores.sort(key=lambda x: x["score"], reverse=True)
+        
+        # Select hotels based on trip duration
+        num_hotels_needed = 1 if num_days <= 3 else 2 if num_days <= 6 else 3
+        selected = hotel_scores[:num_hotels_needed]
+        
+        print(f"[Hotel Selection] Selected {len(selected)} out of {len(hotels_in_cart)} hotels")
+        
+        # Determine which days for each hotel
+        if len(selected) == 1:
+            # Single hotel for all days
+            days_range = list(range(1, num_days + 1))
+        elif len(selected) == 2:
+            # Split days between two hotels
+            mid = num_days // 2
+            days_range1 = list(range(1, mid + 1))
+            days_range2 = list(range(mid + 1, num_days + 1))
+        else:
+            # Multiple hotels
+            days_per_hotel = num_days // len(selected)
+            days_range = [list(range(i * days_per_hotel + 1, (i + 1) * days_per_hotel + 1)) 
+                         for i in range(len(selected))]
+        
+        # Build result
+        result = []
+        for idx, item in enumerate(selected):
+            hotel = item["hotel"]
+            reasons = item["reasons"]
+            
+            if len(selected) == 1:
+                days = days_range
+                reason_text = f"Best choice for your {num_days}-day trip" + (f" - {', '.join(reasons)}" if reasons else "")
+            elif len(selected) == 2:
+                days = days_range1 if idx == 0 else days_range2
+                location_hint = "first half" if idx == 0 else "second half"
+                reason_text = f"Recommended for {location_hint} of trip (Days {days[0]}-{days[-1]})" + (f" - {', '.join(reasons)}" if reasons else "")
+            else:
+                days = days_range[idx] if idx < len(days_range) else [num_days]
+                reason_text = f"Recommended for Days {days[0]}-{days[-1]}" + (f" - {', '.join(reasons)}" if reasons else "")
+            
+            result.append({
+                "hotel_id": hotel.get("hotel_id"),
+                "name": hotel.get("name"),
+                "price": hotel.get("price"),
+                "stars": hotel.get("stars"),
+                "description": hotel.get("description"),
+                "image_url": hotel.get("image_url"),
+                "reason": reason_text,
+                "recommended_for_days": days
+            })
+            
+            print(f"[Hotel Selection] Selected: {hotel.get('name')} - {reason_text}")
+        
+        return result
     
     def _generate_deterministic_itinerary(self, chat_id: str, all_places: List[Dict], 
                                          num_days: int, num_people: int) -> Dict:
-        """Fallback deterministic scheduler"""
+        """Fallback deterministic scheduler with time-aware scheduling"""
+        print(f"[Itinerary Generator] Creating {num_days}-day itinerary for {num_people} people with {len(all_places)} activities")
+        
         # Group by region to minimize travel
         by_region = {"North": [], "South": [], "Central": [], "Unknown": []}
         for p in all_places:
@@ -438,67 +687,132 @@ class ActivityRecommendationService:
         
         days = []
         for i in range(num_days):
+            day_num = i + 1
+            print(f"[Debug] Creating day {day_num} (type: {type(day_num)})")
             days.append({
-                "day": i + 1,
+                "day": day_num,
                 "activities": [],
                 "total_duration_mins": 0
             })
         
-        day_clocks = [480 for _ in range(num_days)]  # Start at 8:00 AM
+        print(f"[Itinerary Generator] Created {len(days)} day slots")
         
-        # Simple assignment: Assign regions to days
-        regions = ["North", "South", "Central", "Unknown"]
+        # Time-aware scheduling: Start at 8:00 AM for each day
+        day_clocks = [480 for _ in range(num_days)]  # 8:00 AM in minutes
         
-        for r_idx, region_name in enumerate(regions):
-            queue = by_region[region_name]
-            # Sort queue: Morning -> Night
-            def t_score(p):
-                bt = p["best_time"].lower()
-                if "morning" in bt or "07:" in bt or "08:" in bt:
-                    return 0
-                if "night" in bt or "pm" in bt:
-                    return 2
-                return 1
-            queue.sort(key=t_score)
+        # Collect all places with their time slot priorities
+        all_places_with_priority = []
+        for region_name, places in by_region.items():
+            for place in places:
+                priority, earliest_start, latest_end = get_time_slot_priority(place)
+                all_places_with_priority.append({
+                    "place": place,
+                    "region": region_name,
+                    "priority": priority,
+                    "earliest_start": earliest_start,
+                    "latest_end": latest_end
+                })
+        
+        # Sort by priority (morning first, night last), then by region to group similar activities
+        all_places_with_priority.sort(key=lambda x: (x["priority"], x["region"]))
+        
+        # Schedule activities with round-robin distribution across days
+        current_day_index = 0  # Start with day 0 and rotate
+        
+        for item in all_places_with_priority:
+            place = item["place"]
+            priority = item["priority"]
+            earliest_start = item["earliest_start"]
+            latest_end = item["latest_end"]
+            duration = parse_duration(place["duration"])
             
-            for place in queue:
-                duration = parse_duration(place["duration"])
-                bt = place["best_time"].lower()
+            # Try to find a suitable day, starting from current_day_index and cycling through
+            best_day_idx = None
+            best_start_time = None
+            
+            # Try all days starting from the current day index
+            for offset in range(num_days):
+                d_idx = (current_day_index + offset) % num_days
                 
-                # Find a day
-                start_day = r_idx % num_days
-                for offset in range(num_days):
-                    d_idx = (start_day + offset) % num_days
-                    
-                    # Check constraints: Max 6 hours (360 mins) per day
-                    if days[d_idx]["total_duration_mins"] + duration > 360:
-                        continue
-                    
-                    curr_time = day_clocks[d_idx]
-                    
-                    # If night activity, jump to evening
-                    if ("night" in bt or "pm" in bt) and curr_time < 1140:
-                        curr_time = 1140  # 7:00 PM
-                    
-                    # Format times
-                    def fmt(m):
-                        h = (m // 60) % 24
-                        mins = m % 60
-                        ap = "AM" if h < 12 else "PM"
-                        dh = h if 0 < h <= 12 else (h - 12 if h > 12 else 12)
-                        return f"{dh:02d}:{mins:02d} {ap}"
-                    
-                    activity = {
-                        **place,
-                        "start_time": fmt(curr_time),
-                        "end_time": fmt(curr_time + duration),
-                        "travel_time_from_prev": "45 mins" if days[d_idx]["activities"] else "0 mins"
-                    }
-                    
-                    days[d_idx]["activities"].append(activity)
-                    days[d_idx]["total_duration_mins"] += duration
-                    day_clocks[d_idx] = curr_time + duration + 45  # Travel buffer
-                    break
+                # Check if day has room (max 6 hours)
+                if days[d_idx]["total_duration_mins"] + duration > 360:
+                    continue
+                
+                curr_time = day_clocks[d_idx]
+                
+                # Adjust current time based on activity time slot
+                if priority == 0:  # Morning activities (6 AM - 11 AM)
+                    if curr_time < earliest_start:
+                        curr_time = earliest_start  # Start at 6 AM
+                    if curr_time + duration > latest_end:
+                        continue  # Too late for morning activity
+                        
+                elif priority == 1:  # Afternoon activities (11 AM - 4 PM)
+                    if curr_time < earliest_start:
+                        curr_time = earliest_start  # Start at 11 AM
+                    if curr_time + duration > latest_end:
+                        continue  # Too late for afternoon activity
+                        
+                elif priority == 2:  # Beach/Sunset (4 PM - 6 PM) - MUST end before 6 PM
+                    if curr_time < earliest_start:
+                        curr_time = earliest_start  # Start at 4 PM
+                    if curr_time + duration > latest_end:
+                        continue  # Beach closes, can't schedule
+                        
+                elif priority == 3:  # Evening (6 PM - 9 PM)
+                    if curr_time < earliest_start:
+                        curr_time = earliest_start  # Start at 6 PM
+                    if curr_time + duration > latest_end:
+                        continue  # Too late for evening activity
+                        
+                elif priority == 4:  # Night activities (9 PM - 3 AM) - MUST start after 9 PM
+                    if curr_time < earliest_start:
+                        curr_time = earliest_start  # Start at 9 PM
+                    # Night activities can go late, so we're more flexible
+                
+                # Found a suitable slot
+                best_day_idx = d_idx
+                best_start_time = curr_time
+                break
+            
+            # If no suitable day found, skip this activity
+            if best_day_idx is None:
+                continue
+            
+            # Format times
+            def fmt(m):
+                h = (m // 60) % 24
+                mins = m % 60
+                ap = "AM" if h < 12 else "PM"
+                dh = h if 0 < h <= 12 else (h - 12 if h > 12 else 12)
+                return f"{dh:02d}:{mins:02d} {ap}"
+            
+            # Add travel time if not first activity
+            travel_buffer = 45 if days[best_day_idx]["activities"] else 0
+            
+            activity = {
+                **place,
+                "start_time": fmt(best_start_time),
+                "end_time": fmt(best_start_time + duration),
+                "travel_time_from_prev": f"{travel_buffer} mins"
+            }
+            
+            days[best_day_idx]["activities"].append(activity)
+            days[best_day_idx]["total_duration_mins"] += duration
+            day_clocks[best_day_idx] = best_start_time + duration + travel_buffer
+            
+            # Move to next day for better distribution (round-robin)
+            current_day_index = (best_day_idx + 1) % num_days
+        
+        # Log the distribution
+        for day in days:
+            print(f"[Itinerary Generator] Day {day['day']} (type: {type(day['day'])}): {len(day['activities'])} activities, {day['total_duration_mins']} mins")
+        
+        print(f"[Itinerary Generator] Total days created: {len(days)}")
+        print(f"[Itinerary Generator] Days with activities: {sum(1 for d in days if d['activities'])}")
+        
+        # Debug: Print actual day numbers
+        print(f"[Itinerary Generator] Day numbers: {[d['day'] for d in days]}")
         
         return {
             "chat_id": chat_id,
