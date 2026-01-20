@@ -1480,7 +1480,7 @@ router.post('/:chatId/activities/itinerary/generate', authenticate, async (req, 
   }
 });
 
-// Get itinerary for a chat
+// Get itineraries for a chat (returns all itineraries, sorted by newest first)
 router.get('/:chatId/activities/itinerary', authenticate, async (req, res, next) => {
   try {
     const { chatId } = req.params;
@@ -1490,19 +1490,70 @@ router.get('/:chatId/activities/itinerary', authenticate, async (req, res, next)
     if (!chat || !chat.activity_itineraries || chat.activity_itineraries.length === 0) {
       return res.json({
         success: true,
-        data: null
+        data: []
       });
     }
     
-    // Return the most recent itinerary
-    const latestItinerary = chat.activity_itineraries[chat.activity_itineraries.length - 1];
+    // Return all itineraries sorted by generated_at (newest first)
+    const sortedItineraries = [...chat.activity_itineraries].sort((a, b) => {
+      const dateA = new Date(a.generated_at || 0);
+      const dateB = new Date(b.generated_at || 0);
+      return dateB - dateA; // Newest first
+    });
     
     res.json({
       success: true,
-      data: latestItinerary
+      data: sortedItineraries
     });
   } catch (error) {
-    console.error('Error fetching itinerary:', error);
+    console.error('Error fetching itineraries:', error);
+    next(error);
+  }
+});
+
+// Get recent itineraries from all private chats (for community/public chat display)
+router.get('/itineraries/recent', authenticate, async (req, res, next) => {
+  try {
+    const limit = parseInt(req.query.limit) || 5;
+    
+    // Find all private chats that have itineraries
+    const chatsWithItineraries = await PrivateChat.find({
+      'activity_itineraries.0': { $exists: true } // Has at least one itinerary
+    })
+    .select('name activity_itineraries')
+    .lean();
+    
+    // Flatten all itineraries from all chats and add chat info
+    const allItineraries = [];
+    chatsWithItineraries.forEach(chat => {
+      if (chat.activity_itineraries && chat.activity_itineraries.length > 0) {
+        chat.activity_itineraries.forEach(itinerary => {
+          allItineraries.push({
+            ...itinerary,
+            chat_name: chat.name || 'Trip Plan',
+            private_chat_id: chat._id
+          });
+        });
+      }
+    });
+    
+    // Sort by generated_at (newest first) and take top N
+    const sortedItineraries = allItineraries
+      .sort((a, b) => {
+        const dateA = new Date(a.generated_at || 0);
+        const dateB = new Date(b.generated_at || 0);
+        return dateB - dateA;
+      })
+      .slice(0, limit);
+    
+    console.log(`[Itineraries] Found ${allItineraries.length} total itineraries, returning ${sortedItineraries.length} recent`);
+    
+    res.json({
+      success: true,
+      data: sortedItineraries
+    });
+  } catch (error) {
+    console.error('Error fetching recent itineraries:', error);
     next(error);
   }
 });

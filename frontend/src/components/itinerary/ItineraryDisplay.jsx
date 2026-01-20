@@ -12,26 +12,64 @@ import ItineraryDetailModal from './ItineraryDetailModal';
 function ItineraryDisplay({ chatType = 'community', cityName = 'City', chatName = '', activeChatId = null }) {
   const [selectedItinerary, setSelectedItinerary] = useState(null);
   const [viewingItinerary, setViewingItinerary] = useState(null);
-  const [realItinerary, setRealItinerary] = useState(null);
+  const [allItineraries, setAllItineraries] = useState([]); // Store ALL itineraries for private chats
+  const [communityItinerariesData, setCommunityItinerariesData] = useState([]); // Store recent itineraries for community chat
   const [loadingItinerary, setLoadingItinerary] = useState(false);
 
-  // Reset selected itinerary when chat type changes (but preserve realItinerary if same chat)
+  // Reset selected itinerary when chat type changes
   useEffect(() => {
     setSelectedItinerary(null);
     setViewingItinerary(null);
-    // Only clear realItinerary if chatType changes, not if just activeChatId changes
-    // This prevents clearing the itinerary when switching between chats of the same type
+    // Clear private itineraries when switching to community
     if (chatType === 'community') {
-      setRealItinerary(null);
+      setAllItineraries([]);
     }
-    // For private chats, we'll preserve the itinerary if it matches the activeChatId
   }, [chatType]);
 
-  // Store itinerary in a way that persists across re-renders
-  // Use a ref to store the latest itinerary for this chat
+  // Fetch recent itineraries for community/public chat
+  useEffect(() => {
+    if (chatType === 'community') {
+      fetchRecentItineraries();
+    }
+  }, [chatType]);
+
+  // Store itineraries in a way that persists across re-renders
   const itineraryRef = useRef(null);
+
+  // Fetch recent itineraries from all private chats (for community chat display)
+  const fetchRecentItineraries = async () => {
+    try {
+      setLoadingItinerary(true);
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      
+      const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
+      
+      const response = await fetch(`${BASE_URL}/api/chats/itineraries/recent?limit=5`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const data = await response.json();
+      console.log('[ItineraryDisplay] Fetched recent community itineraries:', data);
+      
+      if (data.success && data.data && Array.isArray(data.data)) {
+        setCommunityItinerariesData(data.data);
+      } else {
+        setCommunityItinerariesData([]);
+      }
+    } catch (error) {
+      console.error('Error fetching recent itineraries:', error);
+      setCommunityItinerariesData([]);
+    } finally {
+      setLoadingItinerary(false);
+    }
+  };
   
-  // Fetch itinerary from database
+  // Fetch ALL itineraries from database for private chats
   const fetchItinerary = async (chatId) => {
     if (!chatId || chatId === 'public') return;
     
@@ -51,36 +89,36 @@ function ItineraryDisplay({ chatType = 'community', cityName = 'City', chatName 
       });
       
       const data = await response.json();
-      console.log('[ItineraryDisplay] Fetched itinerary response:', data);
+      console.log('[ItineraryDisplay] Fetched itineraries response:', data);
       
-      if (data.success && data.data) {
-        console.log('[ItineraryDisplay] Setting itinerary with', data.data.days?.length || 0, 'days');
-        console.log('[ItineraryDisplay] Itinerary chat_id:', data.data.chat_id, 'Fetched for chatId:', chatId);
+      // Backend returns array of all itineraries (sorted by newest first)
+      if (data.success && data.data && Array.isArray(data.data) && data.data.length > 0) {
+        console.log('[ItineraryDisplay] Setting', data.data.length, 'itineraries');
         
         // Store in ref for persistence
         itineraryRef.current = {
           chatId: chatId,
-          itinerary: data.data
+          itineraries: data.data
         };
-        setRealItinerary(data.data);
+        setAllItineraries(data.data);
       } else {
-        // No itinerary found, clear state
-        console.log('[ItineraryDisplay] No itinerary found');
+        // No itineraries found, clear state
+        console.log('[ItineraryDisplay] No itineraries found');
         itineraryRef.current = null;
-        setRealItinerary(null);
+        setAllItineraries([]);
       }
     } catch (error) {
-      console.error('Error fetching itinerary:', error);
-      setRealItinerary(null);
+      console.error('Error fetching itineraries:', error);
+      setAllItineraries([]);
     } finally {
       setLoadingItinerary(false);
     }
   };
   
-  // Fetch real itinerary for private chats
+  // Fetch all itineraries for private chats
   useEffect(() => {
     if (chatType === 'private' && activeChatId && activeChatId !== 'public') {
-      // Fetch itinerary from database when chat changes
+      // Fetch all itineraries from database when chat changes
       const currentChatId = String(activeChatId);
       fetchItinerary(currentChatId);
       
@@ -101,18 +139,16 @@ function ItineraryDisplay({ chatType = 'community', cityName = 'City', chatName 
                        eventChatId.replace(/[^a-zA-Z0-9]/g, '') === currentChatId.replace(/[^a-zA-Z0-9]/g, '');
         
         if (matches && event.detail.itinerary) {
-          console.log('Itinerary matched! Setting itinerary:', event.detail.itinerary);
-          // Store in ref for persistence
+          console.log('New itinerary generated! Adding to list:', event.detail.itinerary);
+          // Add new itinerary to the beginning of the array (newest first)
+          setAllItineraries(prev => [event.detail.itinerary, ...prev]);
+          // Update ref
           itineraryRef.current = {
             chatId: activeChatId,
-            itinerary: event.detail.itinerary
+            itineraries: [event.detail.itinerary, ...(itineraryRef.current?.itineraries || [])]
           };
-          setRealItinerary(event.detail.itinerary);
         } else {
           console.log('Chat ID mismatch or missing itinerary');
-          console.log('Event chatId:', eventChatId, 'Type:', typeof eventChatId);
-          console.log('Active chatId:', currentChatId, 'Type:', typeof currentChatId);
-          console.log('Matches:', matches, 'Has itinerary:', !!event.detail.itinerary);
         }
       };
       
@@ -122,9 +158,9 @@ function ItineraryDisplay({ chatType = 'community', cityName = 'City', chatName 
         window.removeEventListener('itineraryGenerated', handleItineraryGenerated);
       };
     } else {
-      // Clear itinerary when switching away from private chat
+      // Clear itineraries when switching away from private chat
       itineraryRef.current = null;
-      setRealItinerary(null);
+      setAllItineraries([]);
     }
   }, [chatType, activeChatId]);
 
@@ -244,16 +280,43 @@ function ItineraryDisplay({ chatType = 'community', cityName = 'City', chatName 
     tags: ['Personalized', 'Flexible', 'Custom']
   };
 
-  // Show real itinerary if available (we've already fetched it for the current chat)
-  const convertedItinerary = realItinerary ? convertItineraryFormat(realItinerary) : null;
-  console.log('Real itinerary state:', realItinerary);
-  console.log('Converted itinerary:', convertedItinerary);
-  console.log('Active chat ID:', activeChatId, 'Itinerary chat_id:', realItinerary?.chat_id);
+  // Convert all itineraries to display format for private chats
+  const convertedPrivateItineraries = allItineraries.map((itinerary, index) => {
+    const converted = convertItineraryFormat(itinerary);
+    if (converted) {
+      // Add unique id and index for display
+      converted.id = itinerary._id || itinerary.chat_id || `itinerary-${index}`;
+      converted.title = `${chatName || 'Your'} Trip Plan #${allItineraries.length - index}`;
+      converted.generated_at = itinerary.generated_at;
+      converted.isLatest = index === 0;
+    }
+    return converted;
+  }).filter(Boolean); // Remove any null values
+
+  // Convert community itineraries (recent from all private chats)
+  const convertedCommunityItineraries = communityItinerariesData.map((itinerary, index) => {
+    const converted = convertItineraryFormat(itinerary);
+    if (converted) {
+      converted.id = itinerary._id || `community-itinerary-${index}`;
+      converted.title = itinerary.chat_name || `Trip Plan #${index + 1}`;
+      converted.generated_at = itinerary.generated_at;
+      converted.isLatest = index === 0;
+      converted.fromChatName = itinerary.chat_name;
+    }
+    return converted;
+  }).filter(Boolean);
   
-  // Use converted itinerary if available, otherwise use default
-  const privateItinerary = convertedItinerary || defaultPrivateItinerary;
-  console.log('Final private itinerary:', privateItinerary);
-  const itineraries = chatType === 'community' ? communityItineraries : [privateItinerary];
+  console.log('All private itineraries state:', allItineraries);
+  console.log('Converted private itineraries:', convertedPrivateItineraries);
+  console.log('Community itineraries data:', communityItinerariesData);
+  console.log('Converted community itineraries:', convertedCommunityItineraries);
+  console.log('Active chat ID:', activeChatId);
+  
+  // Use converted itineraries if available, otherwise show default/mock
+  const privateItineraries = convertedPrivateItineraries.length > 0 ? convertedPrivateItineraries : [defaultPrivateItinerary];
+  // For community, use fetched recent itineraries if available, otherwise fall back to mock
+  const displayCommunityItineraries = convertedCommunityItineraries.length > 0 ? convertedCommunityItineraries : communityItineraries;
+  const itineraries = chatType === 'community' ? displayCommunityItineraries : privateItineraries;
   console.log('Displaying itineraries:', itineraries);
   console.log('Chat type:', chatType, 'Active chat ID:', activeChatId);
   console.log('Number of itineraries to render:', itineraries.length);
@@ -264,30 +327,37 @@ function ItineraryDisplay({ chatType = 'community', cityName = 'City', chatName 
       <div className="mb-4 flex-shrink-0">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-lg font-bold text-gray-800">
-            {chatType === 'community' ? 'Popular Itineraries' : 'Your Itinerary'}
+            {chatType === 'community' ? 'Recent Itineraries' : 'Your Itineraries'}
           </h2>
-          {chatType === 'community' && (
+          {chatType === 'community' && communityItinerariesData.length > 0 && (
+            <span className="text-xs text-purple-600 bg-purple-50 px-2 py-1 rounded-full font-medium">
+              {communityItinerariesData.length} from chats
+            </span>
+          )}
+          {chatType === 'community' && communityItinerariesData.length === 0 && (
             <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-              Based on {cityName} chats
+              Sample plans
+            </span>
+          )}
+          {chatType === 'private' && allItineraries.length > 0 && (
+            <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full font-medium">
+              {allItineraries.length} saved
             </span>
           )}
         </div>
         {chatType === 'community' && (
           <p className="text-xs text-gray-600">
-            Most discussed travel plans in the community
+            {communityItinerariesData.length > 0 
+              ? 'Recently created itineraries from trip chats'
+              : 'Sample travel plans for inspiration'}
           </p>
         )}
         {chatType === 'private' && (
-          <>
-            <p className="text-xs text-gray-600">
-              Your personalized trip plan
-            </p>
-            {realItinerary && (
-              <p className="text-xs text-green-600 mt-1">
-                ✓ Itinerary loaded ({realItinerary.days?.length || 0} days)
-              </p>
-            )}
-          </>
+          <p className="text-xs text-gray-600">
+            {allItineraries.length > 0 
+              ? 'All your generated trip plans for this chat' 
+              : 'Generate an itinerary from your cart'}
+          </p>
         )}
       </div>
 
@@ -316,12 +386,24 @@ function ItineraryDisplay({ chatType = 'community', cityName = 'City', chatName 
               >
             <div className="flex items-center justify-between">
               <div className="flex-1">
-                <h3 className="font-semibold text-sm text-gray-800">{itinerary.title}</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-sm text-gray-800">{itinerary.title}</h3>
+                  {itinerary.isLatest && (
+                    <span className="px-1.5 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded">
+                      Latest
+                    </span>
+                  )}
+                </div>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-xs text-gray-600">{itinerary.days} days</span>
                   <span className="text-xs text-gray-400">•</span>
                   <span className="text-xs text-gray-600">{itinerary.estimatedCost}</span>
                 </div>
+                {itinerary.generated_at && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    {new Date(itinerary.generated_at).toLocaleDateString()} at {new Date(itinerary.generated_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                  </p>
+                )}
               </div>
               {itinerary.popularity && (
                 <div className="flex items-center gap-1">
@@ -341,6 +423,12 @@ function ItineraryDisplay({ chatType = 'community', cityName = 'City', chatName 
                   {tag}
                 </span>
               ))}
+              {/* Show chat name for community itineraries */}
+              {chatType === 'community' && itinerary.fromChatName && (
+                <span className="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full">
+                  from: {itinerary.fromChatName}
+                </span>
+              )}
             </div>
           </div>
             );
