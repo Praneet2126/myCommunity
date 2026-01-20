@@ -431,10 +431,45 @@ class ItineraryDay(BaseModel):
     total_duration_mins: int
 
 
+class HotelInCart(BaseModel):
+    hotel_id: str
+    name: str
+    price: Optional[int] = None
+    stars: Optional[int] = None
+    description: Optional[str] = None
+    image_url: Optional[str] = None
+
+
+class SelectedHotel(BaseModel):
+    hotel_id: str
+    name: str
+    price: Optional[int] = None
+    stars: Optional[int] = None
+    description: Optional[str] = None
+    image_url: Optional[str] = None
+    reason: Optional[str] = None  # Why this hotel was selected
+    recommended_for_days: Optional[List[int]] = None  # Which days to stay
+
+
 class Itinerary(BaseModel):
     chat_id: str
     days: List[ItineraryDay]
+    hotels: Optional[List[SelectedHotel]] = []
     num_people: int
+
+
+class MyLensPlace(BaseModel):
+    """Place from myLens user interests"""
+    name: str
+    type: Optional[str] = None
+    description: Optional[str] = None
+    region: Optional[str] = None
+    category: Optional[str] = None
+
+
+class GenerateItineraryRequest(BaseModel):
+    hotels_in_cart: List[HotelInCart] = []
+    mylens_data: List[MyLensPlace] = []
 
 
 @app.post("/api/v1/activities/message", response_model=ProcessMessageResponse)
@@ -607,28 +642,62 @@ async def update_activity_cart_settings(request: UpdateCartSettingsRequest):
 
 
 @app.post("/api/v1/activities/itinerary/generate", response_model=Itinerary)
-async def generate_activity_itinerary(chat_id: str = Query(..., description="The chat ID for which to generate the itinerary")):
+async def generate_activity_itinerary(
+    request: GenerateItineraryRequest,
+    chat_id: str = Query(..., description="The chat ID for which to generate the itinerary")
+):
     """
-    Generate an itinerary from cart activities using AI or deterministic scheduling.
+    Generate an itinerary using Azure OpenAI with activities, hotels, and myLens data.
     
-    This endpoint takes all activities in the cart and generates a day-by-day itinerary
-    with time slots, considering travel time, best time to visit, and regional clustering.
+    This endpoint intelligently generates a comprehensive itinerary by:
+    - Considering all activities in the cart
+    - Selecting the best hotels from those available
+    - Incorporating user interests from myLens
+    - Ensuring time-aware scheduling (beaches before 6 PM, parties after 9 PM, etc.)
+    - Respecting the exact number of days requested
     
     Query parameters:
     - chat_id: The chat ID for which to generate the itinerary
+    
+    Request body:
+    - hotels_in_cart: List of hotels available in the cart for AI to choose from
+    - mylens_data: List of places from myLens (user's interests)
     """
     try:
         init_activity_recommendation_service()
         
-        result = activity_recommendation_service.generate_itinerary(chat_id)
+        # Convert Pydantic models to dict for service
+        hotels_in_cart = [h.dict() for h in request.hotels_in_cart]
+        mylens_data = [p.dict() for p in request.mylens_data]
+        
+        print(f"[API] Generating itinerary with {len(hotels_in_cart)} hotels and {len(mylens_data)} myLens places")
+        
+        result = activity_recommendation_service.generate_itinerary(
+            chat_id, 
+            hotels_in_cart=hotels_in_cart,
+            mylens_data=mylens_data
+        )
         
         if result.get("status") == "error":
             raise HTTPException(status_code=400, detail=result.get("error", "Failed to generate itinerary"))
         
-        return Itinerary(**result)
+        # Debug: Log what we're about to serialize
+        print(f"[API] About to return itinerary with {len(result.get('days', []))} days")
+        print(f"[API] Day numbers in result: {[d.get('day') for d in result.get('days', [])]}")
+        print(f"[API] Selected hotels: {len(result.get('hotels', []))} out of {len(hotels_in_cart)} in cart")
+        
+        itinerary_obj = Itinerary(**result)
+        
+        # Debug: Log after Pydantic serialization
+        print(f"[API] After Pydantic: {[d.day for d in itinerary_obj.days]}")
+        print(f"[API] Hotels in response: {[h.name for h in itinerary_obj.hotels]}")
+        
+        return itinerary_obj
     except HTTPException:
         raise
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error generating itinerary: {str(e)}")
 
 

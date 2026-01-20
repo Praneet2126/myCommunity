@@ -51,8 +51,12 @@ function ItineraryDisplay({ chatType = 'community', cityName = 'City', chatName 
       });
       
       const data = await response.json();
+      console.log('[ItineraryDisplay] Fetched itinerary response:', data);
+      
       if (data.success && data.data) {
-        console.log('Fetched itinerary from database:', data.data);
+        console.log('[ItineraryDisplay] Setting itinerary with', data.data.days?.length || 0, 'days');
+        console.log('[ItineraryDisplay] Itinerary chat_id:', data.data.chat_id, 'Fetched for chatId:', chatId);
+        
         // Store in ref for persistence
         itineraryRef.current = {
           chatId: chatId,
@@ -61,6 +65,7 @@ function ItineraryDisplay({ chatType = 'community', cityName = 'City', chatName 
         setRealItinerary(data.data);
       } else {
         // No itinerary found, clear state
+        console.log('[ItineraryDisplay] No itinerary found');
         itineraryRef.current = null;
         setRealItinerary(null);
       }
@@ -239,12 +244,13 @@ function ItineraryDisplay({ chatType = 'community', cityName = 'City', chatName 
     tags: ['Personalized', 'Flexible', 'Custom']
   };
 
-  // Only show itinerary if it matches the current chat
-  const shouldShowItinerary = realItinerary && String(realItinerary.chat_id) === String(activeChatId);
-  const convertedItinerary = shouldShowItinerary ? convertItineraryFormat(realItinerary) : null;
+  // Show real itinerary if available (we've already fetched it for the current chat)
+  const convertedItinerary = realItinerary ? convertItineraryFormat(realItinerary) : null;
   console.log('Real itinerary state:', realItinerary);
   console.log('Converted itinerary:', convertedItinerary);
-  console.log('Should show itinerary:', shouldShowItinerary, 'chat_id:', realItinerary?.chat_id, 'activeChatId:', activeChatId);
+  console.log('Active chat ID:', activeChatId, 'Itinerary chat_id:', realItinerary?.chat_id);
+  
+  // Use converted itinerary if available, otherwise use default
   const privateItinerary = convertedItinerary || defaultPrivateItinerary;
   console.log('Final private itinerary:', privateItinerary);
   const itineraries = chatType === 'community' ? communityItineraries : [privateItinerary];

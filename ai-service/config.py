@@ -35,6 +35,12 @@ class Settings:
     
     # Similar Hotels Settings
     MAX_SIMILAR_HOTELS: int = int(os.getenv("MAX_SIMILAR_HOTELS", "10"))
+    
+    # Azure OpenAI Configuration
+    AZURE_OPENAI_API_KEY: str = os.getenv("AZURE_OPENAI_API_KEY", "")
+    AZURE_OPENAI_ENDPOINT: str = os.getenv("AZURE_OPENAI_ENDPOINT", "")
+    AZURE_OPENAI_API_VERSION: str = os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-15-preview")
+    AZURE_CHAT_DEPLOYMENT: str = os.getenv("AZURE_CHAT_DEPLOYMENT", "")
 
 
 settings = Settings()

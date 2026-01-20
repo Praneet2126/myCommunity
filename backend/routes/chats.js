@@ -1406,29 +1406,58 @@ router.delete('/:chatId/activities/recommendations/:activityIndex/vote', authent
 router.post('/:chatId/activities/itinerary/generate', authenticate, async (req, res, next) => {
   try {
     const { chatId } = req.params;
+    const { mylens_data } = req.body; // Accept myLens data from frontend
 
-    // Call AI service with chat_id as query parameter
+    // Fetch hotels from cart to send to AI service
+    const chat = await PrivateChat.findById(chatId).select('cart');
+    const hotelsInCart = (chat?.cart || []).filter(item => item.hotel_id || item.name);
+    
+    console.log(`[Itinerary] Generating with ${hotelsInCart.length} hotels and ${(mylens_data || []).length} myLens places`);
+    
+    // Call AI service with chat_id, hotels, and myLens data
     const response = await axios.post(
       `${AI_SERVICE_URL}/api/v1/activities/itinerary/generate`,
-      null,
+      {
+        hotels_in_cart: hotelsInCart.map(h => ({
+          hotel_id: h.hotel_id,
+          name: h.name,
+          price: h.price,
+          stars: h.stars,
+          description: h.description,
+          image_url: h.image_url
+        })),
+        mylens_data: (mylens_data || []).map(place => ({
+          name: place.name,
+          type: place.type,
+          description: place.description,
+          region: place.region,
+          category: place.category
+        }))
+      },
       {
         params: { chat_id: chatId }
       }
     );
 
-    // Store itinerary in database
-    if (response.data && response.data.chat_id) {
+    // AI service should return selected hotels in response.data.hotels
+    const itineraryWithHotels = response.data;
+
+    // Store itinerary in database with selected hotels
+    if (itineraryWithHotels && itineraryWithHotels.chat_id) {
       try {
         await PrivateChat.findByIdAndUpdate(chatId, {
           $push: {
             activity_itineraries: {
-              chat_id: response.data.chat_id,
-              days: response.data.days || [],
-              num_people: response.data.num_people || 2,
+              chat_id: itineraryWithHotels.chat_id,
+              days: itineraryWithHotels.days || [],
+              num_people: itineraryWithHotels.num_people || 2,
+              hotels: itineraryWithHotels.hotels || [],
               generated_at: new Date()
             }
           }
         });
+        
+        console.log(`[Itinerary] Stored itinerary with ${(itineraryWithHotels.hotels || []).length} selected hotels`);
       } catch (dbError) {
         console.error('Error storing itinerary:', dbError);
         // Don't fail the request if storage fails
@@ -1437,7 +1466,7 @@ router.post('/:chatId/activities/itinerary/generate', authenticate, async (req, 
 
     res.json({
       success: true,
-      data: response.data
+      data: itineraryWithHotels
     });
   } catch (error) {
     console.error('Error generating itinerary:', error);
