@@ -11,8 +11,8 @@ router.get('/:hotelName/info', async (req, res, next) => {
   try {
     const { hotelName } = req.params;
     
-    // Path to hotels folder (one level up from backend)
-    const hotelsBasePath = path.join(__dirname, '..', '..', 'hotels');
+    // Path to hotels folder in image_search directory
+    const hotelsBasePath = path.join(__dirname, '..', '..', 'image_search', 'hotels');
     const hotelFolderPath = path.join(hotelsBasePath, hotelName);
     
     // Check if hotel folder exists
@@ -67,8 +67,8 @@ router.get('/:hotelName/image/:imageName', async (req, res, next) => {
   try {
     const { hotelName, imageName } = req.params;
     
-    // Path to hotels folder
-    const hotelsBasePath = path.join(__dirname, '..', '..', 'hotels');
+    // Path to hotels folder in image_search directory
+    const hotelsBasePath = path.join(__dirname, '..', '..', 'image_search', 'hotels');
     const imagePath = path.join(hotelsBasePath, hotelName, imageName);
     
     // Check if image exists
@@ -113,8 +113,8 @@ router.get('/:hotelName/first-image', async (req, res, next) => {
   try {
     const { hotelName } = req.params;
     
-    // Path to hotels folder
-    const hotelsBasePath = path.join(__dirname, '..', '..', 'hotels');
+    // Path to hotels folder in image_search directory
+    const hotelsBasePath = path.join(__dirname, '..', '..', 'image_search', 'hotels');
     const hotelFolderPath = path.join(hotelsBasePath, hotelName);
     
     // Check if hotel folder exists
