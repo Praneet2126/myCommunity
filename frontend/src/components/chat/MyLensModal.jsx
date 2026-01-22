@@ -98,24 +98,25 @@ function MyLensModal({ isOpen, onClose, onAddToRecommendations, chatId }) {
       const response = await searchSimilarHotels(selectedImage);
       
       if (response.similar_hotels && Array.isArray(response.similar_hotels)) {
-        // Fetch the correct hotel images from the hotels folder
-        const hotelsWithImages = await Promise.all(
-          response.similar_hotels.map(async (hotel) => {
-            try {
-              const imageUrl = await getHotelFirstImageUrl(hotel.name);
-              return {
-                ...hotel,
-                image_url: imageUrl || hotel.image_url || hotel.best_match_image_path
-              };
-            } catch (error) {
-              console.warn(`Could not fetch image for ${hotel.name}:`, error);
-              return {
-                ...hotel,
-                image_url: hotel.image_url || hotel.best_match_image_path
-              };
-            }
-          })
-        );
+        // Use best matching image from AI search results
+        const hotelsWithImages = response.similar_hotels.map((hotel) => {
+          // Priority: best_match_image_path (the actual matching image) > image_url
+          const API_BASE_URL = import.meta.env.VITE_API_URL 
+            ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '')
+            : 'http://localhost:3000';
+          
+          let imageUrl = hotel.image_url;
+          
+          // If best_match_image_path is available, use it (this is the best matching image)
+          if (hotel.best_match_image_path) {
+            imageUrl = `${API_BASE_URL}${hotel.best_match_image_path}`;
+          }
+          
+          return {
+            ...hotel,
+            image_url: imageUrl
+          };
+        });
         setHotels(hotelsWithImages);
       } else {
         setError('No similar hotels found');
@@ -146,11 +147,6 @@ function MyLensModal({ isOpen, onClose, onAddToRecommendations, chatId }) {
     } finally {
       setAddingHotel(null);
     }
-  };
-
-  // Format similarity score as percentage
-  const formatScore = (score) => {
-    return ((score * 100) / 1.2).toFixed(1);
   };
 
   // Format price with currency
@@ -347,18 +343,6 @@ function MyLensModal({ isOpen, onClose, onAddToRecommendations, chatId }) {
                             </svg>
                           </div>
                         )}
-                        
-                        {/* Similarity Score Badge */}
-                        <div className="absolute top-3 left-3">
-                          <div className="bg-white/95 backdrop-blur-sm text-gray-900 px-3 py-1.5 rounded-lg shadow-md border border-gray-200/50">
-                            <div className="flex items-center gap-1.5">
-                              <svg className="w-3.5 h-3.5 text-indigo-600" fill="currentColor" viewBox="0 0 20 20">
-                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                              </svg>
-                              <span className="font-semibold text-xs text-gray-900">{formatScore(hotel.similarity_score)}%</span>
-                            </div>
-                          </div>
-                        </div>
                       </div>
 
                       {/* Hotel Details */}

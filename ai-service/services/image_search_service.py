@@ -111,6 +111,18 @@ class ImageSearchService:
             print(f"Error getting hotel details: {e}")
             return None
     
+    def _convert_path_to_api_url(self, file_path: str, hotel_name: str) -> str:
+        """Convert file system path to API endpoint URL"""
+        try:
+            # Extract just the image filename from the full path
+            from urllib.parse import quote
+            image_filename = Path(file_path).name
+            # Return API endpoint format
+            return f"/api/hotels/{quote(hotel_name)}/image/{quote(image_filename)}"
+        except Exception as e:
+            print(f"Error converting path to URL: {e}")
+            return file_path
+    
     def search_similar_hotels(
         self, 
         image: Image.Image, 
@@ -185,6 +197,10 @@ class ImageSearchService:
             for hotel_id, res in sorted_hotels:
                 hotel_details = self.get_hotel_details(hotel_id)
                 if hotel_details:
+                    # Convert file system path to API endpoint URL
+                    image_path = res["image_path"]
+                    best_match_url = self._convert_path_to_api_url(image_path, hotel_details["name"])
+                    
                     result = {
                         "hotel_id": str(hotel_id),
                         "name": hotel_details["name"],
@@ -196,7 +212,7 @@ class ImageSearchService:
                             "ai_semantic_score": res["ai_score"],
                             "color_texture_score": res["color_score"]
                         },
-                        "best_match_image_path": res["image_path"],
+                        "best_match_image_path": best_match_url,
                         "image_index": res["image_index"]
                     }
                     results.append(result)

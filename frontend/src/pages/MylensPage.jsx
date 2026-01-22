@@ -87,24 +87,25 @@ function MylensPage() {
       const response = await searchSimilarHotels(selectedImage);
       
       if (response.similar_hotels && Array.isArray(response.similar_hotels)) {
-        // Fetch the correct hotel images from the hotels folder
-        const hotelsWithImages = await Promise.all(
-          response.similar_hotels.map(async (hotel) => {
-            try {
-              const imageUrl = await getHotelFirstImageUrl(hotel.name);
-              return {
-                ...hotel,
-                image_url: imageUrl || hotel.image_url || hotel.best_match_image_path
-              };
-            } catch (error) {
-              console.warn(`Could not fetch image for ${hotel.name}:`, error);
-              return {
-                ...hotel,
-                image_url: hotel.image_url || hotel.best_match_image_path
-              };
-            }
-          })
-        );
+        // Use best matching image from AI search results
+        const hotelsWithImages = response.similar_hotels.map((hotel) => {
+          // Priority: best_match_image_path (the actual matching image) > image_url
+          const API_BASE_URL = import.meta.env.VITE_API_URL 
+            ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '')
+            : 'http://localhost:3000';
+          
+          let imageUrl = hotel.image_url;
+          
+          // If best_match_image_path is available, use it (this is the best matching image)
+          if (hotel.best_match_image_path) {
+            imageUrl = `${API_BASE_URL}${hotel.best_match_image_path}`;
+          }
+          
+          return {
+            ...hotel,
+            image_url: imageUrl
+          };
+        });
         setHotels(hotelsWithImages);
       } else {
         setError('No similar hotels found');
@@ -126,11 +127,6 @@ function MylensPage() {
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-  };
-
-  // Format similarity score as percentage
-  const formatScore = (score) => {
-    return ((score * 100) / 1.2).toFixed(1); // Normalize to 0-100% scale
   };
 
   // Format price with currency
@@ -376,7 +372,7 @@ function MylensPage() {
             <h2 className="text-3xl font-bold text-gray-900 mb-2">
               Found {hotels.length} Similar {hotels.length === 1 ? 'Hotel' : 'Hotels'}
             </h2>
-            <p className="text-gray-600">Results sorted by similarity score</p>
+            <p className="text-gray-600">Similar hotels found based on your image</p>
           </div>
         )}
 
@@ -407,18 +403,6 @@ function MylensPage() {
                         </svg>
                       </div>
                     )}
-                    
-                    {/* Similarity Score Badge */}
-                    <div className="absolute top-3 left-3">
-                      <div className="bg-white/95 backdrop-blur-sm text-gray-900 px-3 py-1.5 rounded-lg shadow-md border border-gray-200/50">
-                        <div className="flex items-center gap-1.5">
-                          <svg className="w-3.5 h-3.5 text-indigo-600" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                          </svg>
-                          <span className="font-semibold text-xs text-gray-900">{formatScore(hotel.similarity_score)}%</span>
-                        </div>
-                      </div>
-                    </div>
                   </div>
 
                   {/* Right Side - Hotel Details (2/3) */}
@@ -471,18 +455,6 @@ function MylensPage() {
                             <div className="text-xs text-indigo-600 font-medium">AI Score</div>
                             <div className="text-sm font-bold text-indigo-700">
                               {(hotel.score_breakdown.ai_semantic_score * 100).toFixed(1)}%
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200">
-                          <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                          </svg>
-                          <div>
-                            <div className="text-xs text-slate-600 font-medium">Visual</div>
-                            <div className="text-sm font-bold text-slate-700">
-                              {(hotel.score_breakdown.color_texture_score * 100).toFixed(1)}%
                             </div>
                           </div>
                         </div>
